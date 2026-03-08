@@ -63,5 +63,18 @@
     "angle": "General",
     "tone": "Minimalist & Premium",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-08T23:24:29.383813",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "before_after",
+    "psychological_triggers": [
+      "reciprocity",
+      "pain_amplification",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Witty & Sarcastic",
+    "funnel_stage": "cold"
   }
 ]

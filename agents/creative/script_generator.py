@@ -1,6 +1,7 @@
+import os
+import math
 import json
 import random
-import os
 from google import genai
 from dotenv import load_dotenv
 
@@ -137,13 +138,17 @@ class ScriptGenerator:
         
         return line
     
-    def generate_script_llm(self, language="Hindi"):
+    def generate_script_llm(self, language="Hindi", platform="Instagram Reels", ad_length=30):
         """Uses Gemini AI to generate a high-quality ad script in the target language."""
         if not self.client:
             print("   Gemini client not initialized for Script. Falling back to templates.")
             return self.generate_script(fallback=True)
             
-        print(f"   Generating {language} script with Gemini AI...")
+        # Calculate required scenes: e.g., 30s / 8s = 3.75 -> 4 scenes
+        scene_count = math.ceil(ad_length / 8)
+        scene_count = max(2, scene_count) # Minimum Hook + CTA
+        
+        print(f"   Generating {language} script for {platform} ({ad_length}s, {scene_count} scenes) with Gemini AI...")
         
         funnel = self.context.get("funnel_stage", "cold")
         tone = self.pattern.get("tone", "Neutral")
@@ -208,6 +213,13 @@ CREATIVE DNA (MUST USE — this makes the ad UNIQUE):
 - Market Gaps to exploit: {', '.join(market_gaps)}
 
 DO NOT write a generic ad. Use the narrative style and triggers above.
+
+PLATFORM STYLE GUIDELINES:
+- TikTok/Reels/Shorts: UGC style, high energy, fast cuts, trending audio vibe.
+- YouTube: Informative, steady pacing, clear value proposition.
+- LinkedIn: Professional, results-driven, industry-specific vocabulary.
+- Meta Feed: Relatable, family/lifestyle focus, clear headlines.
+- Current Platform: {platform}
 """
         
         prompt = f"""You are a {writer_role}.
@@ -232,21 +244,19 @@ CAMPAIGN DETAILS:
 CRITICAL RULES (DO NOT IGNORE):
 1. The word "{product}" MUST appear literally in Solution and CTA copy.
 2. SPECIFIC OFFER DETAILS: If an offer is provided in the DETAILS above, you MUST mention those exact numbers/terms in the CTA or Solution scene. IF NONE PROVIDED, DO NOT INVENT A FAKE DISCOUNT. 
-3. AUDIENCE FIT: Write the dialogue to sound natural to someone experiencing {user_problem} in the {category} space.
+3. AUDIENCE FIT: Write the dialogue to sound natural for {platform} users experiencing {user_problem}.
 4. Problem scene MUST show {category}-specific pain.
 5. Hook should feel authentic to {category} users.
 6. USE THE CREATIVE DNA to make this script DIFFERENT from typical {category} ads.
+7. DURATION CONSTRAINT: You MUST generate exactly {scene_count} scenes to fit the {ad_length}s target duration.
 
 WARNING: If Solution or CTA copy does NOT contain "{product}" by name, or ignores the SPECIFIC OFFER rules, the output is INVALID.
 
-Return ONLY valid JSON:
+Return ONLY valid JSON with exactly {scene_count} scenes:
 [
   {{"scene": "Hook", "intent": "Stop scroll", "copy": "{language} text about {category} world", "visual_continuity": "Establish environment"}},
-  {{"scene": "Problem", "intent": "Agitate pain", "copy": "{language} text about {category} frustration", "visual_continuity": "Next scene relative to previous"}},
-  {{"scene": "Solution", "intent": "Introduce product", "copy": "{language} text WITH the words {product}", "visual_continuity": "Env shift"}},
-  {{"scene": "Trust", "intent": "Build credibility", "copy": "{language} text about brand trust", "visual_continuity": "Continuation"}},
-  {{"scene": "Proof", "intent": "Show results", "copy": "{language} text about happy {category} users", "visual_continuity": "Env consistency"}},
-  {{"scene": "CTA", "intent": "Drive action", "copy": "{language} text WITH {product} name + BUY NOW (Only add offer if one was provided in DETAILS)", "visual_continuity": "Final payoff"}}
+  ... (add more scenes depending on the count)
+  {{"scene": "CTA", "intent": "Drive action", "copy": "{language} text WITH {product} name + BUY NOW", "visual_continuity": "Final payoff"}}
 ]
 """
         try:
@@ -372,14 +382,13 @@ Return ONLY valid JSON:
         
         return script
     
-    def generate_output(self, language="Hindi"):
+    def generate_output(self, language="Hindi", platform="Instagram Reels", ad_length=30):
         """Produces the full STEP 3 output object."""
-        if language != "English":
-            script = self.generate_script_llm(language)
-        else:
-            script = self.generate_script()
+        script = self.generate_script_llm(language, platform, ad_length)
         return {
             "campaign_id": self.context.get("campaign_id", "unknown"),
+            "ad_length": ad_length,
+            "platform": platform,
             "script_type": "scene_wise",
             "pattern_used": {
                 "hook_type": self.pattern.get("hook_type"),

@@ -57,6 +57,7 @@ async def save_document(collection_name: str, data: dict):
             except:
                 pass # Already a string or custom ID
         
+
         await mongo.db[collection_name].update_one(
             {"_id": doc_id},
             {"$set": data},
@@ -64,6 +65,7 @@ async def save_document(collection_name: str, data: dict):
         )
         return str(doc_id)
     else:
+
         result = await mongo.db[collection_name].insert_one(data)
         return str(result.inserted_id)
 
@@ -201,6 +203,7 @@ async def get_user_assets(user_id: str):
     async for doc in cursor:
         assets.append({
             "_id": str(doc["file_id"]),
+            "file_id": doc["file_id"], # Keep the ObjectId for generation_time
             "filename": doc.get("filename", ""),
             "metadata": doc.get("metadata", {}),
         })
@@ -238,3 +241,27 @@ async def get_all_feedback(limit: int = 50):
         doc["_id"] = str(doc["_id"])
         feedback_list.append(doc)
     return feedback_list
+
+
+async def get_user_avatar_history(user_id: str):
+    """
+    Fetch all unique avatars used by the user from their asset history.
+    """
+    avatars = []
+    # Query user_assets for type='avatar'
+    cursor = mongo.db.user_assets.find({
+        "user_id": user_id,
+        "$or": [
+            {"metadata.asset_type": "avatar"},
+            {"metadata.type": "avatar"}
+        ]
+    }).sort("_id", -1)
+    
+    async for doc in cursor:
+        avatars.append({
+            "id": str(doc["file_id"]),
+            "url": f"/files/{str(doc['file_id'])}",
+            "filename": doc.get("filename", "Previous Avatar"),
+            "created_at": doc["_id"].generation_time.isoformat()
+        })
+    return avatars

@@ -8,8 +8,30 @@ const AvatarStep = ({ data, updateData }) => {
   const [generating, setGenerating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [options, setOptions] = useState(data.selected_avatars || []);
+  const [historyOptions, setHistoryOptions] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [customPrompt, setCustomPrompt] = useState('');
   const fileInputRef = useRef(null);
+
+  React.useEffect(() => {
+    if (mode === 'custom') {
+      fetchAvatarHistory();
+    }
+  }, [mode]);
+
+  const fetchAvatarHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await workflowService.runGetAvatarHistory();
+      if (res.data.results) {
+        setHistoryOptions(res.data.results);
+      }
+    } catch (e) {
+      console.error("Failed to fetch avatar history", e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   const selectedAvatars = data.selected_avatars || [];
 
@@ -317,6 +339,56 @@ const AvatarStep = ({ data, updateData }) => {
                 )}
               </div>
             </div>
+
+            {/* Avatar History Section */}
+            {(historyOptions.length > 0 || loadingHistory) && (
+              <div className="gallery-section history-section">
+                <div className="section-header">
+                  <div>
+                    <h4>From Your History</h4>
+                    <p className="selection-hint">Personas you've used in previous campaigns.</p>
+                  </div>
+                </div>
+
+                <div className="avatar-grid-wrapper">
+                  {loadingHistory ? (
+                    <div className="loading-history">
+                      <Loader2 className="spin" size={24} />
+                      <span>Loading history...</span>
+                    </div>
+                  ) : (
+                    <div className="avatar-grid">
+                      {historyOptions.map((opt) => {
+                        const selIndex = getSelectionIndex(opt.url);
+                        return (
+                          <motion.div
+                            key={opt.id}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className={`avatar-card-premium history-card ${selIndex ? 'selected' : ''}`}
+                            onClick={() => toggleAvatar(opt)}
+                          >
+                            <img src={opt.url.startsWith('http') ? opt.url : `http://localhost:8000${opt.url}`} alt="Avatar" />
+                            {selIndex && (
+                              <div className="selection-pill">{selIndex}</div>
+                            )}
+                            <div className="card-overlay">
+                              <div className="selection-indicator">
+                                <Check size={16} />
+                              </div>
+                            </div>
+                            {selIndex && <div className="active-highlight"></div>}
+                            <div className="history-date">
+                              {new Date(opt.created_at).toLocaleDateString()}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -690,6 +762,35 @@ const AvatarStep = ({ data, updateData }) => {
 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
+
+        .history-section {
+          margin-top: 20px;
+          border-top: 1px solid rgba(255,255,255,0.05);
+          padding-top: 30px;
+        }
+        .loading-history {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
+          padding: 40px;
+          opacity: 0.5;
+        }
+        .history-card {
+          aspect-ratio: 1/1.4;
+        }
+        .history-date {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          background: rgba(0,0,0,0.6);
+          color: white;
+          font-size: 0.65rem;
+          padding: 4px;
+          text-align: center;
+          backdrop-filter: blur(4px);
+        }
       `}</style>
     </motion.div>
   );

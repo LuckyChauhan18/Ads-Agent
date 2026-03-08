@@ -351,8 +351,9 @@ class CampaignPsychologyEngine:
 
         # ── Build feedback section for prompt ──
         feedback_section = ""
-        if self.feedback:
-            feedback_section = f"\nCRITICAL FEEDBACK FROM PREVIOUS RUN (MUST FIX):\n\"{self.feedback}\"\n"
+        feedback = getattr(self, "feedback", None)
+        if feedback:
+            feedback_section = f"\nCRITICAL FEEDBACK FROM PREVIOUS RUN (MUST FIX):\n\"{feedback}\"\n"
 
         # ── Improvement #7: Drastically improved LLM prompt ──
         prompt = f"""You are a world-class direct response advertising strategist.

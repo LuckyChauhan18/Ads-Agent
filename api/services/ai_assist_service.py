@@ -73,7 +73,7 @@ class AIAssistService:
             print(f"AIAssistService Description Error: {e}", flush=True)
             return f"Error generating description: {str(e)}"
 
-    async def generate_avatars(self, gender: str, style: str, custom_prompt: str = None):
+    async def generate_avatars(self, gender: str, style: str, user_id: str = None, custom_prompt: str = None):
         """Generates a single AI avatar portrait and saves to GridFS."""
         if not self.client:
             print("AIAssistService: Client not initialized (check API keys)")
@@ -105,11 +105,16 @@ class AIAssistService:
                 ts = int(time.time())
                 filename = f"avatar_{ts}.jpg"
                 
-                # Save to GridFS
+                # Save to GridFS with user_id in metadata
                 file_id = await upload_file_to_gridfs(
                     filename=filename,
                     content=img_data,
-                    metadata={"type": "avatar", "gender": gender, "style": style}
+                    metadata={
+                        "type": "avatar", 
+                        "gender": gender, 
+                        "style": style,
+                        "user_id": user_id
+                    }
                 )
                 
                 print(f"AIAssistService: Successfully saved avatar to GridFS with ID {file_id}")

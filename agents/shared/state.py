@@ -46,6 +46,8 @@ class AdGenState(TypedDict, total=False):
     founder_input: Dict[str, Any]         # Strategy form
     curated_brands: List[Dict[str, Any]]  # User-curated competitor brands
     language: str                         # Target language
+    platform: str                         # Social media platform (e.g., TikTok, LinkedIn)
+    ad_length: int                        # Target duration in seconds (e.g., 15, 30, 45, 60)
     scrape_enabled: bool                  # Scrape control flag
 
     # Modular Agent States

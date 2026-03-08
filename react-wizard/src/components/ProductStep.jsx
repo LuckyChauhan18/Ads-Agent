@@ -214,6 +214,19 @@ const ProductStep = ({ data, updateData }) => {
             placeholder="e.g. laptop"
           />
         </div>
+        <div className="input-group">
+          <label>Target Video Length <span className="mandatory">*</span></label>
+          <select
+            className="modern-select"
+            value={data.ad_length || 30}
+            onChange={(e) => updateData({ ad_length: parseInt(e.target.value) })}
+          >
+            <option value={15}>15 Seconds (Punchy)</option>
+            <option value={30}>30 Seconds (Standard)</option>
+            <option value={45}>45 Seconds (Detailed)</option>
+            <option value={60}>60 Seconds (Long Story)</option>
+          </select>
+        </div>
 
         <div className="input-group full-width">
           <label>Price Range</label>
@@ -284,6 +297,33 @@ const ProductStep = ({ data, updateData }) => {
         .subtitle {
           font-size: 0.9rem;
           color: rgba(255, 255, 255, 0.5);
+        }
+        .mandatory {
+          color: #ff4d4d;
+          margin-left: 2px;
+        }
+        .modern-select {
+          width: 100%;
+          background: rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 12px 16px;
+          border-radius: 10px;
+          font-size: 1rem;
+          color: white;
+          outline: none;
+          cursor: pointer;
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-repeat: no-repeat;
+          background-position: right 12px center;
+          background-size: 16px;
+        }
+        .modern-select option {
+          background: #1a1a1a;
+          color: white;
+        }
+        .modern-select:focus {
+          border-color: #6366f1;
         }
         .input-grid {
           display: grid;

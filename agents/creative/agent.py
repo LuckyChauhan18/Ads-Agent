@@ -38,12 +38,14 @@ def run_creative(state: AdGenState) -> dict:
     creative_data = state.get("creative", {})
     avatar_config = creative_data.get("avatar_config", {})
     language = state.get("language", "Hindi")
+    platform = state.get("platform", "Instagram Reels")
+    ad_length = state.get("ad_length", 30)
 
     # ── Step 1: Script Generation ─────────────────────────────
     try:
         pattern_data = pattern_blueprint.get("pattern_blueprint", pattern_blueprint)
         engine_script = ScriptGenerator(pattern_data, campaign_psychology)
-        script_output = engine_script.generate_output(language=language)
+        script_output = engine_script.generate_output(language=language, platform=platform, ad_length=ad_length)
         scene_count = len(script_output.get("scenes", []))
         print(f"   ✅ Script generated: {scene_count} scenes in {language}")
     except Exception as e:

@@ -82,7 +82,7 @@ Be strict but fair. Only flag genuine issues."""
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-flash-latest",
                 contents=prompt,
                 config={"response_mime_type": "application/json"},
             )
@@ -129,7 +129,7 @@ Do NOT add new scenes. Only improve existing ones."""
 
         try:
             response = self.client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-flash-latest",
                 contents=prompt,
                 config={"response_mime_type": "application/json"},
             )

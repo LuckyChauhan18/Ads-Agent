@@ -46,7 +46,8 @@ async def get_dashboard(current_user: dict = Depends(get_current_user)):
     # Group assets
     assets = {"logos": [], "products": [], "avatars": []}
     for asset in assets_list:
-        asset_type = asset.get("metadata", {}).get("asset_type") or asset.get("metadata", {}).get("type")
+        metadata = asset.get("metadata", {})
+        asset_type = metadata.get("asset_type") or metadata.get("type")
         asset_id = str(asset["_id"])
         url = f"/files/{asset_id}"
         
@@ -55,7 +56,13 @@ async def get_dashboard(current_user: dict = Depends(get_current_user)):
         elif asset_type == "product":
             assets["products"].append({"id": asset_id, "url": url, "filename": asset["filename"]})
         elif asset_type == "avatar":
-            assets["avatars"].append({"id": asset_id, "url": url, "filename": asset["filename"]})
+            # asset['file_id'] is an ObjectId from get_user_assets
+            assets["avatars"].append({
+                "id": asset_id, 
+                "url": url, 
+                "filename": asset["filename"], 
+                "created_at": asset["file_id"].generation_time.isoformat() if hasattr(asset["file_id"], "generation_time") else None
+            })
 
     return clean_objectids({
         "campaigns": campaigns,
@@ -194,6 +201,7 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
         results["product_name"] = understanding.get("product_name") or req.data["founder_data"].get("product_name", "Unknown Product")
         results["brand_name"] = understanding.get("brand_name") or req.data["founder_data"].get("brand_name", "Unknown Brand")
         results["platform"] = req.data["founder_data"].get("platform", "Unknown")
+        results["ad_length"] = req.data["founder_data"].get("ad_length", 30)
         results["funnel_stage"] = req.data["founder_data"].get("funnel_stage", "cold")
         results["primary_emotions"] = req.data["founder_data"].get("primary_emotions", [])
         results["timestamp"] = datetime.now().isoformat()
@@ -224,7 +232,9 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
             "pattern_blueprint": req.data["pattern_blueprint"],
             "campaign_psychology": req.data["campaign_psychology"]
         },
-        "language": req.data.get("language", "English")
+        "language": req.data.get("language", "English"),
+        "platform": req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels"),
+        "ad_length": req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length", 30)
     }
 
     # Inject LTM if company_id is available
@@ -239,8 +249,21 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
     state_out = await creative_graph.ainvoke(state_in, config)
     results = state_out.get("creative", {}).get("script_output", {})
     
+    # Update individual script record
     script_data = {"content": results, "user_id": user_id}
     script_id = await save_document("scripts", script_data)
+
+    # NEW: Sync results back to the campaign document if campaign_id is provided
+    campaign_id = req.data.get("campaign_psychology", {}).get("campaign_id") or req.data.get("campaign_id")
+    if campaign_id:
+        campaign = await get_document("campaigns", campaign_id)
+        if campaign:
+            campaign["final_storyboard"] = results
+            campaign["platform"] = state_in["platform"]
+            campaign["ad_length"] = state_in["ad_length"]
+            await save_document("campaigns", campaign)
+            print(f"   🔄 Campaign {campaign_id} synced with new script data.")
+
     return {"script_id": script_id, "results": results}
 
 @router.post("/step/avatar/generate")
@@ -250,7 +273,8 @@ async def run_step_avatar_generate(req: StepRequest, current_user: dict = Depend
     results = await ai_assist_service.generate_avatars(
         req.data["gender"],
         req.data["style"],
-        req.data.get("custom_prompt")
+        user_id=str(current_user["_id"]),
+        custom_prompt=req.data.get("custom_prompt")
     )
     return {"results": results}
 
@@ -275,7 +299,9 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
                 "campaign_psychology": req.data["campaign_psychology"]
             },
             "campaign_id": campaign_req_id,
-            "user_id": user_id
+            "user_id": user_id,
+            "platform": req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels"),
+            "ad_length": req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length", 30)
         }
         
         # Inject user_id into campaign_psychology for asset loading in renderer
@@ -389,3 +415,11 @@ async def get_feedback(current_user: dict = Depends(get_current_user)):
 
     feedback_list = await get_all_feedback(limit=50)
     return {"feedback": feedback_list}
+
+@router.get("/avatars/history")
+async def get_avatar_history(current_user: dict = Depends(get_current_user)):
+    """Fetch unique avatars used in previous campaigns."""
+    from api.services.db_mongo_service import get_user_avatar_history
+    user_id = str(current_user["_id"])
+    avatars = await get_user_avatar_history(user_id)
+    return clean_objectids({"results": avatars})
