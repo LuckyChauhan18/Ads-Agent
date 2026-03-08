@@ -5,6 +5,7 @@ class User(BaseModel):
     username: str
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
+    company_id: Optional[str] = None
     disabled: Optional[bool] = None
 
 class UserInDB(User):

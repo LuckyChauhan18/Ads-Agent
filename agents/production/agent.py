@@ -22,7 +22,7 @@ from agents.production.variant_engine import VariantEngine
 from agents.production.gemini_renderer import GeminiRenderer
 
 
-def run_production(state: AdGenState) -> dict:
+async def run_production(state: AdGenState) -> dict:
     """
     LangGraph node for the Production Agent.
     
@@ -31,14 +31,29 @@ def run_production(state: AdGenState) -> dict:
     print("\n[Production Agent] Starting...")
     errors = list(state.get("errors", []))
 
-    storyboard_output = state.get("storyboard_output", {})
-    script_output = state.get("script_output", {})
-    avatar_config = state.get("avatar_config", {})
-    campaign_psychology = state.get("campaign_psychology", {})
+    creative_data = state.get("creative", {})
+    storyboard_output = creative_data.get("storyboard_output", {})
+    script_output = creative_data.get("script_output", {})
+    avatar_config = creative_data.get("avatar_config", {})
+    
+    strategy_data = state.get("strategy", {})
+    campaign_psychology = strategy_data.get("campaign_psychology", {})
+    production_data = state.get("production", {})
 
-    # Ensure campaign_id is in context for asset loading
-    if state.get("campaign_id"):
-        campaign_psychology["campaign_id"] = state["campaign_id"]
+    # Ensure campaign_id and user_id are in context for asset loading
+    user_id = state.get("user_id") or strategy_data.get("user_id") or campaign_psychology.get("user_id")
+    campaign_id = state.get("campaign_id") or campaign_psychology.get("campaign_id")
+    
+    if campaign_id:
+        campaign_psychology["campaign_id"] = campaign_id
+    if user_id:
+        campaign_psychology["user_id"] = user_id
+        
+    print(f"   [Production Agent] Context: campaign={campaign_id}, user={user_id}")
+    print(f"   [Production Agent] Creative Keys: {list(creative_data.keys())}")
+    if "storyboard_output" in creative_data:
+        sb = creative_data["storyboard_output"]
+        print(f"   [Production Agent] Storyboard looks like: {type(sb)} (keys: {list(sb.keys()) if isinstance(sb, dict) else 'N/A'})")
 
     # ── Step 1: Variant Generation ────────────────────────────
     try:
@@ -53,10 +68,15 @@ def run_production(state: AdGenState) -> dict:
     # ── Step 2: Video Rendering ───────────────────────────────
     try:
         engine_render = GeminiRenderer(variants_output, avatar_config, campaign_psychology)
-        video_output = engine_render.generate_output(wait_for_render=True)
+        # We need to initialize the renderer (load assets) asynchronously
+        await engine_render.initialize()
+        
+        video_output = await engine_render.generate_output(wait_for_render=True)
         render_results = video_output.get("render_results", [])
         print(f"   [OK] Video rendered: {len(render_results)} variants")
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         errors.append(f"GeminiRenderer error: {e}")
         video_output = {"render_results": []}
         render_results = []
@@ -65,7 +85,9 @@ def run_production(state: AdGenState) -> dict:
     print("[Production Agent] Complete.\n")
 
     return {
-        "variants_output": variants_output,
-        "render_results": render_results,
+        "production": {
+            "variants_output": variants_output,
+            "render_results": render_results,
+        },
         "errors": errors,
     }

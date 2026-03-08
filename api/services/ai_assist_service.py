@@ -22,23 +22,28 @@ class AIAssistService:
             print("⚠️ [LG_DEBUG] AIAssistService: API key missing!", flush=True)
 
     async def generate_product_description(self, images: list[bytes], brand_name: str = None, product_name: str = None):
-        """Generates a compelling product description using Gemini 1.5 Flash."""
-        if not self.client:
-            print("AIAssistService: Client not initialized (check API keys)")
-            return "AI Service not initialized. Please check your GEMINI_API_KEY."
+        """Generates a compelling product description using OpenRouter LLM."""
+        import base64
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import HumanMessage
 
-        prompt = "Analyze the following product image(s). "
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_key:
+            return "AI Service not initialized. Please check your OPENROUTER_API_KEY."
+
+        prompt_text = "Analyze the following product image(s). "
         if brand_name:
-            prompt += f"The brand name is '{brand_name}'. "
+            prompt_text += f"The brand name is '{brand_name}'. "
         if product_name:
-            prompt += f"The product name is '{product_name}'. "
+            prompt_text += f"The product name is '{product_name}'. "
         
-        prompt += ("Provide a compelling and professional product description (approx 80-120 words) "
+        prompt_text += ("Provide a compelling and professional product description (approx 80-120 words) "
                    "suitable for a high-converting digital advertisement. Focus on premium quality, "
                    "key benefits, and visual appeal. Return ONLY the description text, "
                    "no preamble, no markdown, no conversational filler.")
 
-        parts = [prompt]
+        # Build message content with images
+        content = [{"type": "text", "text": prompt_text}]
         for img_bytes in images:
             mime_type = "image/jpeg"
             headers = img_bytes[:16]
@@ -46,22 +51,24 @@ class AIAssistService:
                 mime_type = "image/png"
             elif headers.startswith(b'RIFF') and b'WEBP' in headers:
                 mime_type = "image/webp"
-            elif headers.startswith(b'GIF8'):
-                mime_type = "image/gif"
             
-            parts.append(types.Part.from_bytes(data=img_bytes, mime_type=mime_type))
+            b64_data = base64.b64encode(img_bytes).decode("utf-8")
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:{mime_type};base64,{b64_data}"}
+            })
 
         try:
-            # Use the synchronous client to avoid aiohttp attribute errors
-            # Using models/gemini-2.5-flash which we confirmed works with exact mime types
-            response = self.client.models.generate_content(
-                model="models/gemini-2.5-flash",
-                contents=parts
+            llm = ChatOpenAI(
+                model="gpt-4o-mini",
+                openai_api_key=openrouter_key,
+                openai_api_base="https://openrouter.ai/api/v1",
+                temperature=0.7,
             )
-            
-            if response and response.text:
-                return response.text.strip()
-            return "Gemini failed to generate a description."
+            response = llm.invoke([HumanMessage(content=content)])
+            if response and response.content:
+                return response.content.strip()
+            return "Failed to generate a description."
         except Exception as e:
             print(f"AIAssistService Description Error: {e}", flush=True)
             return f"Error generating description: {str(e)}"

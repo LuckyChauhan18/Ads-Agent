@@ -15,6 +15,7 @@ from api.routes.files import router as files_router
 from api.routes.auth import router as auth_router
 
 from api.services.db_mongo_service import connect_to_mongo, close_mongo_connection
+from api.services.memory_service import connect_to_ltm, close_ltm_connection
 
 app = FastAPI(
     title="AI Ad Generator API",
@@ -37,19 +38,54 @@ async def log_exceptions_middleware(request, call_next):
 async def startup_db_client():
     # Connect to MongoDB for all storage requirements
     await connect_to_mongo()
+    # Connect to separate LTM database for long-term memory
+    await connect_to_ltm()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await close_mongo_connection()
+    await close_ltm_connection()
 
 # Enable CORS for frontend integration
+# IMPORTANT: CORSMiddleware must be added last or near last to wrap other middlewares?
+# Actually, in FastAPI, middleware is executed in reverse order of addition for the response.
+# So adding it last means it wraps everything else and can add headers to the final response.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174"],  # Specific origin required when allow_credentials=True
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
+
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import traceback
+    error_msg = traceback.format_exc()
+    with open("global_error_log.txt", "a") as f:
+        f.write(f"\n\n--- GLOBAL EXCEPTION HANDLER ---\n")
+        f.write(error_msg)
+    
+    # Return a JSON response that the frontend can actually read
+    origin = request.headers.get("origin")
+    # If no origin, fallback to one of the allowed origins
+    if not origin or origin not in ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"]:
+        origin = "http://localhost:5173"
+
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "message": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

@@ -96,9 +96,16 @@ class StoryboardBuilder:
         
         # Get selected avatars array (plural support)
         self.selected_avatars = self.avatar.get("selected_avatars", [])
+        
+        # Robust URL extraction: if results is a list, treat as selected_avatars
+        if not self.selected_avatars and isinstance(self.avatar.get("results"), list):
+            self.selected_avatars = self.avatar["results"]
+
         # Fallback to legacy single avatar if plural missing
-        if not self.selected_avatars and self.avatar.get("custom_avatar_url"):
-            self.selected_avatars = [{"url": self.avatar.get("custom_avatar_url")}]
+        if not self.selected_avatars:
+            url = self.avatar.get("url") or self.avatar.get("custom_avatar_url") or self.avatar.get("id")
+            if url:
+                self.selected_avatars = [{"url": url}]
         
         # Resolve assets directory
         if assets_dir:
@@ -318,7 +325,7 @@ class StoryboardBuilder:
             current_avatar_url = None
             if self.selected_avatars:
                 avatar_obj = self.selected_avatars[idx % len(self.selected_avatars)]
-                current_avatar_url = avatar_obj.get("url")
+                current_avatar_url = avatar_obj.get("url") or avatar_obj.get("id")
             
             # Determine text overlay per scene
             text_overlay = trust_overlay if scene_name == "Trust" else (cta_text if scene_name == "CTA" else None)

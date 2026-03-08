@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, Building2 } from 'lucide-react';
 import { authService } from '../services/api';
 
 function AuthPage({ onLogin }) {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ username: '', password: '', email: '', fullName: '' });
+  const [formData, setFormData] = useState({ username: '', password: '', email: '', fullName: '', companyId: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -51,7 +51,7 @@ function AuthPage({ onLogin }) {
         onLogin(formData.username);
         navigate('/');
       } else {
-        await authService.signup(formData.username, formData.password, formData.email, formData.fullName);
+        await authService.signup(formData.username, formData.password, formData.email, formData.fullName, formData.companyId);
         alert('Account created! Please login.');
         setIsLogin(true);
       }
@@ -120,7 +120,7 @@ function AuthPage({ onLogin }) {
                   exit={{ opacity: 0, y: -20 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className="input-group-glass" style={{ marginBottom: '20px' }}>
+                  <div className="input-group-glass" style={{ marginBottom: '14px' }}>
                     <User size={18} />
                     <input
                       type="text"
@@ -130,7 +130,7 @@ function AuthPage({ onLogin }) {
                       required
                     />
                   </div>
-                  <div className="input-group-glass" style={{ marginBottom: '20px' }}>
+                  <div className="input-group-glass" style={{ marginBottom: '14px' }}>
                     <Mail size={18} />
                     <input
                       type="email"
@@ -151,6 +151,17 @@ function AuthPage({ onLogin }) {
                 placeholder="Username"
                 value={formData.username}
                 onChange={e => setFormData({ ...formData, username: e.target.value })}
+                required
+              />
+            </motion.div>
+
+            <motion.div className="input-group-glass" variants={itemVariants}>
+              <Building2 size={18} />
+              <input
+                type="text"
+                placeholder="Company ID"
+                value={formData.companyId}
+                onChange={e => setFormData({ ...formData, companyId: e.target.value })}
                 required
               />
             </motion.div>
@@ -286,12 +297,22 @@ function AuthPage({ onLogin }) {
 
         .auth-card {
           width: 440px;
-          padding: 60px 40px;
+          padding: 40px 36px;
           border-radius: 32px;
           backdrop-filter: blur(30px);
           background: rgba(255, 255, 255, 0.015);
           border: 1px solid rgba(255, 255, 255, 0.05);
           box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+
+        .auth-card::-webkit-scrollbar {
+          width: 4px;
+        }
+        .auth-card::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 4px;
         }
 
         .brand-section {
@@ -394,7 +415,7 @@ function AuthPage({ onLogin }) {
         .auth-form {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 14px;
         }
 
         .input-group-glass {
@@ -403,7 +424,7 @@ function AuthPage({ onLogin }) {
           border-radius: 20px;
           display: flex;
           align-items: center;
-          padding: 16px 22px;
+          padding: 14px 20px;
           gap: 16px;
           transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         }

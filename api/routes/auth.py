@@ -18,6 +18,16 @@ async def signup(user_data: User, password: str):
             detail="Username already registered"
         )
     
+    # Check if company_id is unique (if provided)
+    if user_data.company_id:
+        from api.services.db_mongo_service import mongo
+        existing_company = await mongo.db.users.find_one({"company_id": user_data.company_id})
+        if existing_company:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Company ID already registered"
+            )
+    
     hashed_password = get_password_hash(password)
     user_dict = user_data.dict()
     user_dict["hashed_password"] = hashed_password

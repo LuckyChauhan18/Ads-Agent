@@ -23,8 +23,8 @@ api.interceptors.request.use((config) => {
 });
 
 export const authService = {
-  signup: (username, password, email = '', fullName = '') =>
-    api.post('/auth/signup', { username, email, full_name: fullName }, { params: { password } }),
+  signup: (username, password, email = '', fullName = '', companyId = '') =>
+    api.post('/auth/signup', { username, email, full_name: fullName, company_id: companyId }, { params: { password } }),
   login: (username, password) => {
     const params = new URLSearchParams();
     params.append('username', username);

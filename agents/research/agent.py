@@ -122,8 +122,10 @@ def run_research(state: AdGenState) -> dict:
         print(f"🔍 [Research Agent] Discovery Complete. Scraping paused.\n")
 
     return {
-        "product_understanding": understanding,
-        "competitor_results": competitor_results,
+        "research": {
+            "product_understanding": understanding,
+            "competitor_results": competitor_results,
+        },
         "curated_brands": curated_brands,
         "errors": errors,
     }

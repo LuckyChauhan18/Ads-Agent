@@ -107,13 +107,23 @@ async def run_step_discover(req: StepRequest, current_user: dict = Depends(get_c
     campaign_id = req.data.get("campaign_id") or f"discovery_{datetime.now().timestamp()}"
     
     state_in = {"product_input": req.data, "scrape_enabled": False}
+
+    # Inject LTM if company_id is available on the user
+    company_id = current_user.get("company_id")
+    if company_id:
+        from api.services.memory_service import get_company_memory
+        memory = await get_company_memory(company_id)
+        state_in["memory"] = memory
+        state_in["company_id"] = company_id
+
     # LangGraph invoke with thread_id for memory
     config = {"configurable": {"thread_id": campaign_id}}
-    state_out = research_graph.invoke(state_in, config)
+    state_out = await research_graph.ainvoke(state_in, config)
     
+    research_state = state_out.get("research", {})
     results = {
-        "understanding": state_out.get("product_understanding", {}),
-        "brands": state_out.get("curated_brands", [])
+        "understanding": research_state.get("product_understanding", {}),
+        "brands": research_state.get("curated_brands", []) or state_out.get("curated_brands", [])
     }
     results["user_id"] = str(current_user["_id"])
     return {"results": results}
@@ -134,8 +144,8 @@ async def run_step_research(req: StepRequest, current_user: dict = Depends(get_c
         "scrape_enabled": True
     }
     config = {"configurable": {"thread_id": campaign_id}}
-    state_out = research_graph.invoke(state_in, config)
-    results = state_out.get("competitor_results", [])
+    state_out = await research_graph.ainvoke(state_in, config)
+    results = state_out.get("research", {}).get("competitor_results", [])
     
     # Save to MongoDB
     product_data = req.data["product"]
@@ -157,18 +167,27 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
         from agents.graph import strategy_graph
         state_in = {
             "founder_input": req.data["founder_data"],
-            "competitor_results": req.data["competitor_results"],
-            "product_understanding": understanding,
+            "research": {
+                "competitor_results": req.data["competitor_results"],
+                "product_understanding": understanding
+            }
         }
-        
-        # We need the real campaign_id for downstream persistence
+
+        # Inject LTM if company_id is available
+        company_id = current_user.get("company_id")
+        if company_id:
+            from api.services.memory_service import get_company_memory
+            memory = await get_company_memory(company_id)
+            state_in["memory"] = memory
+            state_in["company_id"] = company_id
+
         campaign_req_id = req.data.get("founder_data", {}).get("campaign_id", f"camp_{int(datetime.now().timestamp())}")
         config = {"configurable": {"thread_id": campaign_req_id}}
         
-        state_out = strategy_graph.invoke(state_in, config)
+        state_out = await strategy_graph.ainvoke(state_in, config)
         results = {
-            "campaign_psychology": state_out.get("campaign_psychology", {}),
-            "pattern_blueprint": state_out.get("pattern_blueprint", {}),
+            "campaign_psychology": state_out.get("strategy", {}).get("campaign_psychology", {}),
+            "pattern_blueprint": state_out.get("strategy", {}).get("pattern_blueprint", {}),
         }
         
         # Add metadata for history view - use understanding for accurate names
@@ -201,13 +220,24 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
     campaign_req_id = req.data.get("campaign_psychology", {}).get("campaign_id", f"camp_{int(datetime.now().timestamp())}")
     
     state_in = {
-        "pattern_blueprint": req.data["pattern_blueprint"],
-        "campaign_psychology": req.data["campaign_psychology"],
+        "strategy": {
+            "pattern_blueprint": req.data["pattern_blueprint"],
+            "campaign_psychology": req.data["campaign_psychology"]
+        },
         "language": req.data.get("language", "English")
     }
+
+    # Inject LTM if company_id is available
+    company_id = current_user.get("company_id")
+    if company_id:
+        from api.services.memory_service import get_company_memory
+        memory = await get_company_memory(company_id)
+        state_in["memory"] = memory
+        state_in["company_id"] = company_id
+
     config = {"configurable": {"thread_id": campaign_req_id}}
-    state_out = creative_graph.invoke(state_in, config)
-    results = state_out.get("script_output", {})
+    state_out = await creative_graph.ainvoke(state_in, config)
+    results = state_out.get("creative", {}).get("script_output", {})
     
     script_data = {"content": results, "user_id": user_id}
     script_id = await save_document("scripts", script_data)
@@ -216,9 +246,8 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
 @router.post("/step/avatar/generate")
 async def run_step_avatar_generate(req: StepRequest, current_user: dict = Depends(get_current_user)):
     """Step 6: AI Avatar Generation"""
-    from agents.creative.avatar_selector import AvatarSelector
-    selector = AvatarSelector()
-    results = selector.select_avatars(
+    from api.services.ai_assist_service import ai_assist_service
+    results = await ai_assist_service.generate_avatars(
         req.data["gender"],
         req.data["style"],
         req.data.get("custom_prompt")
@@ -235,17 +264,28 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
         
         campaign_req_id = req.data.get("campaign_psychology", {}).get("campaign_id", f"camp_{int(datetime.now().timestamp())}")
         
+        # Construct modular AdGenState for the production graph
         state_in = {
-            "script_output": req.data["script_output"],
-            "avatar_config": req.data["avatar_config"],
-            "campaign_psychology": req.data["campaign_psychology"],
-            "campaign_id": campaign_req_id
+            "creative": {
+                "script_output": req.data["script_output"],
+                "avatar_config": req.data["avatar_config"],
+                "storyboard_output": req.data.get("storyboard_output") or req.data["script_output"]
+            },
+            "strategy": {
+                "campaign_psychology": req.data["campaign_psychology"]
+            },
+            "campaign_id": campaign_req_id,
+            "user_id": user_id
         }
+        
+        # Inject user_id into campaign_psychology for asset loading in renderer
+        state_in["strategy"]["campaign_psychology"]["user_id"] = user_id
+        
         config = {"configurable": {"thread_id": campaign_req_id}}
-        state_out = production_graph.invoke(state_in, config)
+        state_out = await production_graph.ainvoke(state_in, config)
         results = {
-            "variants_output": state_out.get("variants_output", {}),
-            "render_results": state_out.get("render_results", []),
+            "variants_output": state_out.get("production", {}).get("variants_output", {}),
+            "render_results": state_out.get("production", {}).get("render_results", []),
         }
         
         results["user_id"] = user_id
@@ -288,11 +328,19 @@ class FeedbackRequest(BaseModel):
 
 @router.post("/feedback")
 async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get_current_user)):
-    """Submit feedback for a generated video ad. Stored in MongoDB for future learning."""
+    """Submit feedback for a generated video ad. Validates, structures, and learns from it."""
     from api.services.db_mongo_service import save_feedback
+    from agents.shared.feedback_validator import FeedbackValidator
+    from api.services.memory_service import (
+        save_feedback_to_history,
+        process_structured_feedback,
+    )
+
+    user_id = str(current_user["_id"])
+    company_id = current_user.get("company_id")
 
     feedback_data = {
-        "user_id": str(current_user["_id"]),
+        "user_id": user_id,
         "username": current_user.get("username", ""),
         "rating": max(1, min(5, req.rating)),
         "feedback_text": req.feedback_text,
@@ -301,9 +349,37 @@ async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get
         "created_at": datetime.utcnow().isoformat(),
     }
 
+    # 1. Save raw feedback to main DB
     feedback_id = await save_feedback(feedback_data)
     print(f"   📝 Feedback saved: rating={req.rating}, id={feedback_id}")
-    return {"status": "ok", "feedback_id": feedback_id}
+
+    # 2. If company_id exists, run the two-stage evaluation pipeline
+    evaluation_result = None
+    if company_id and req.feedback_text.strip():
+        # Save to LTM history
+        await save_feedback_to_history(company_id, feedback_data)
+
+        # Stage 1 + 2: Validate and extract
+        validator = FeedbackValidator()
+        evaluation_result = validator.evaluate(req.feedback_text)
+
+        # 3. If valid, process structured feedback via memory service
+        if evaluation_result.get("valid") and evaluation_result.get("structured_feedback"):
+            memory_results = await process_structured_feedback(
+                company_id=company_id,
+                structured_feedback=evaluation_result["structured_feedback"],
+                confidence=evaluation_result.get("confidence", 0.0),
+            )
+            evaluation_result["memory_results"] = memory_results
+            print(f"   🧠 Memory processing complete for {company_id}")
+        else:
+            print(f"   ⛔ Feedback not valid or no structured feedback extracted.")
+
+    return {
+        "status": "ok",
+        "feedback_id": feedback_id,
+        "evaluation": evaluation_result,
+    }
 
 
 @router.get("/feedback")

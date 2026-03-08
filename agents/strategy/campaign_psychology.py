@@ -349,6 +349,11 @@ class CampaignPsychologyEngine:
         creative_dna = self.build_creative_dna(market_context)
         past_summary = self._get_past_strategies_summary()
 
+        # ── Build feedback section for prompt ──
+        feedback_section = ""
+        if self.feedback:
+            feedback_section = f"\nCRITICAL FEEDBACK FROM PREVIOUS RUN (MUST FIX):\n\"{self.feedback}\"\n"
+
         # ── Improvement #7: Drastically improved LLM prompt ──
         prompt = f"""You are a world-class direct response advertising strategist.
 

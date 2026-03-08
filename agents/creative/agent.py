@@ -31,9 +31,12 @@ def run_creative(state: AdGenState) -> dict:
     print("\n🎨 [Creative Agent] Starting...")
     errors = list(state.get("errors", []))
 
-    campaign_psychology = state.get("campaign_psychology", {})
-    pattern_blueprint = state.get("pattern_blueprint", {})
-    avatar_config = state.get("avatar_config", {})
+    strategy_data = state.get("strategy", {})
+    campaign_psychology = strategy_data.get("campaign_psychology", {})
+    pattern_blueprint = strategy_data.get("pattern_blueprint", {})
+    
+    creative_data = state.get("creative", {})
+    avatar_config = creative_data.get("avatar_config", {})
     language = state.get("language", "Hindi")
 
     # ── Step 1: Script Generation ─────────────────────────────
@@ -86,10 +89,28 @@ def run_creative(state: AdGenState) -> dict:
         storyboard_output = script_output  # fallback: use raw script
         print(f"   ⚠️ Storyboard building failed: {e}")
 
+    # ── Step 4: Reflection Loop (Self-Critique) ───────────────
+    reflection_results = []
+    try:
+        from agents.creative.reflection_agent import run_reflection_loop
+        script_output, reflection_results = run_reflection_loop(
+            script_output, campaign_psychology, max_iterations=2
+        )
+        if reflection_results:
+            final_score = reflection_results[-1].get("score", "N/A")
+            print(f"   🔍 Reflection complete: final score={final_score}/10")
+    except Exception as e:
+        errors.append(f"ReflectionLoop error: {e}")
+        print(f"   ⚠️ Reflection loop failed (non-fatal): {e}")
+
     print("🎨 [Creative Agent] Complete.\n")
 
     return {
-        "script_output": script_output,
-        "storyboard_output": storyboard_output,
+        "creative": {
+            "script_output": script_output,
+            "avatar_config": avatar_config,
+            "storyboard_output": storyboard_output,
+        },
+        "reflection_results": reflection_results,
         "errors": errors,
     }

@@ -10,54 +10,59 @@ Future: Add a `memory` key for MemorySaver checkpointing.
 
 from typing import TypedDict, Optional, List, Dict, Any
 
+# ═══════════════════════════════════════════
+# MODULAR SUB-STATES
+# ═══════════════════════════════════════════
+
+class ResearchState(TypedDict, total=False):
+    product_understanding: Dict[str, Any]   # AI-enriched product analysis
+    competitor_results: List[Dict[str, Any]]  # Scraped ad DNA
+
+class StrategyState(TypedDict, total=False):
+    campaign_psychology: Dict[str, Any]     # Psychology framework
+    pattern_blueprint: Dict[str, Any]       # Selected ad pattern
+
+class CreativeState(TypedDict, total=False):
+    script_output: Dict[str, Any]           # Scene-by-scene script
+    avatar_config: Dict[str, Any]           # Avatar selection
+    storyboard_output: Dict[str, Any]       # Shot-by-shot visual storyboard
+
+class ProductionState(TypedDict, total=False):
+    variants_output: Dict[str, Any]         # Generated ad variants
+    render_results: List[Dict[str, Any]]    # Final video file paths
+
+# ═══════════════════════════════════════════
+# MAIN SHARED STATE
+# ═══════════════════════════════════════════
 
 class AdGenState(TypedDict, total=False):
     """
     Shared state that flows through all agents via LangGraph.
-    
-    Convention:
-      - INPUTS are set by the API layer before invoking the graph.
-      - Each agent writes ONLY its designated output keys.
-      - `errors` is an append-only list for non-fatal issues.
+    Now modularized into agent-specific sub-states.
     """
 
-    # ═══════════════════════════════════════════
-    # INPUTS (set by API before graph invocation)
-    # ═══════════════════════════════════════════
-    product_input: Dict[str, Any]         # Raw user input from Step 1 (name, brand, URL, features)
-    founder_input: Dict[str, Any]         # Strategy form from Step 4 (emotions, funnel, voice, platform)
-    curated_brands: List[Dict[str, Any]]  # User-curated competitor brands from Step 2
-    language: str                         # Target language (Hindi, English, etc.)
-    scrape_enabled: bool                  # If False, Research Agent stops after discovery
+    # Global Inputs
+    product_input: Dict[str, Any]         # Raw user input
+    founder_input: Dict[str, Any]         # Strategy form
+    curated_brands: List[Dict[str, Any]]  # User-curated competitor brands
+    language: str                         # Target language
+    scrape_enabled: bool                  # Scrape control flag
 
-    # ═══════════════════════════════════════════
-    # RESEARCH AGENT OUTPUTS
-    # ═══════════════════════════════════════════
-    product_understanding: Dict[str, Any]   # AI-enriched product analysis (name, brand, category, features)
-    competitor_results: List[Dict[str, Any]]  # Scraped ad DNA from Meta
+    # Modular Agent States
+    research: ResearchState
+    strategy: StrategyState
+    creative: CreativeState
+    production: ProductionState
 
-    # ═══════════════════════════════════════════
-    # STRATEGY AGENT OUTPUTS
-    # ═══════════════════════════════════════════
-    campaign_psychology: Dict[str, Any]     # Psychology framework + market context
-    pattern_blueprint: Dict[str, Any]       # Selected ad pattern (structure, tone, angle)
+    # Long-Term Memory (injected at workflow start)
+    memory: Dict[str, Any]                # Company-specific learned preferences
 
-    # ═══════════════════════════════════════════
-    # CREATIVE AGENT OUTPUTS
-    # ═══════════════════════════════════════════
-    script_output: Dict[str, Any]           # Scene-by-scene script with voiceovers
-    avatar_config: Dict[str, Any]           # Avatar selection + voice preferences
-    storyboard_output: Dict[str, Any]       # Shot-by-shot visual storyboard
+    # Reflection Loop Results
+    reflection_results: List[Dict[str, Any]]  # Critique scores per iteration
 
-    # ═══════════════════════════════════════════
-    # PRODUCTION AGENT OUTPUTS
-    # ═══════════════════════════════════════════
-    variants_output: Dict[str, Any]         # Generated ad variants
-    render_results: List[Dict[str, Any]]    # Final video file paths + metadata
-
-    # ═══════════════════════════════════════════
-    # METADATA
-    # ═══════════════════════════════════════════
+    # Global Metadata
     campaign_id: str                        # MongoDB campaign ID
     user_id: str                            # Authenticated user ID
+    company_id: str                         # Company ID for LTM lookup
     errors: List[str]                       # Non-fatal error accumulator
+

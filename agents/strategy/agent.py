@@ -30,9 +30,11 @@ def run_strategy(state: AdGenState) -> dict:
     print("\n🧠 [Strategy Agent] Starting...")
     errors = list(state.get("errors", []))
 
+    strategy_data = state.get("strategy", {})
     founder_data = state.get("founder_input", {})
-    competitor_results = state.get("competitor_results", [])
-    product_understanding = state.get("product_understanding", {})
+    research_data = state.get("research", {})
+    competitor_results = research_data.get("competitor_results", [])
+    product_understanding = research_data.get("product_understanding", {})
 
     # ── Step 1: Campaign Psychology Engine ─────────────────────
     try:
@@ -62,7 +64,9 @@ def run_strategy(state: AdGenState) -> dict:
     print("🧠 [Strategy Agent] Complete.\n")
 
     return {
-        "campaign_psychology": campaign_psychology,
-        "pattern_blueprint": pattern_blueprint,
+        "strategy": {
+            "campaign_psychology": campaign_psychology,
+            "pattern_blueprint": pattern_blueprint,
+        },
         "errors": errors,
     }

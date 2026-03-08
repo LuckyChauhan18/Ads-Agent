@@ -50,5 +50,18 @@
     "angle": "General",
     "tone": "Friendly & Casual",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-06T23:19:28.825273",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "customer_story",
+    "psychological_triggers": [
+      "identity_alignment",
+      "loss_aversion",
+      "pain_amplification"
+    ],
+    "angle": "General",
+    "tone": "Minimalist & Premium",
+    "funnel_stage": "cold"
   }
 ]

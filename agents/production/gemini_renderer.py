@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import time
@@ -28,7 +29,23 @@ class GeminiRenderer:
     
     def __init__(self, variants_output, avatar_config, campaign_context):
         self.variants = variants_output
-        self.avatar = avatar_config
+        if isinstance(avatar_config, list):
+            self.avatar_list = avatar_config
+            self.avatar = avatar_config[0] if avatar_config else {}
+        elif isinstance(avatar_config, dict):
+            # Handle cases where avatar_config might be nested in 'results' from frontend
+            avatar_data = avatar_config.get("results", avatar_config)
+            if isinstance(avatar_data, list):
+                self.avatar_list = avatar_data
+                self.avatar = avatar_data[0] if avatar_data else {}
+            else:
+                self.avatar = avatar_data
+                self.avatar_list = [avatar_data] if avatar_data else []
+        else:
+            self.avatar = {}
+            self.avatar_list = []
+
+        self.avatar_config_raw = avatar_config # Keep raw for reference
         self.context = campaign_context
         
         self.api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
@@ -41,105 +58,97 @@ class GeminiRenderer:
         self.video_dir = os.path.join(self.base_dir, "video")
         os.makedirs(self.video_dir, exist_ok=True)
         
-        # Load PUMA assets
-        self.assets = self._load_assets()
+        # Assets will be loaded during initialize()
+        self.assets = {"product": [], "logo": [], "lifestyle": []}
 
-    def _load_assets(self) -> Dict:
-        """Loads product images and logo from Redis based on campaign_id."""
-        import asyncio
+    async def initialize(self):
+        """Asynchronous initialization: loads assets from Redis/GridFS."""
+        self.assets = await self._load_assets()
+
+    async def _load_assets(self) -> Dict:
+        """Loads product images and logo from GridFS based on campaign_id."""
         from api.services.db_mongo_service import get_user_assets
         
-        # Robust campaign_id extraction
-        campaign_id = None
-        user_id = None
-        if isinstance(self.context, dict):
-            campaign_id = self.context.get("campaign_id") or self.context.get("_id")
-            user_id = self.context.get("user_id")
-            if campaign_id:
-                campaign_id = str(campaign_id)
-            if user_id:
-                user_id = str(user_id)
+        # Robust campaign_id and user_id extraction
+        context = self.context if isinstance(self.context, dict) else {}
+        campaign_id = context.get("campaign_id") or context.get("_id")
+        user_id = context.get("user_id") or context.get("owner_id")
+        
+        if campaign_id: campaign_id = str(campaign_id)
+        if user_id: user_id = str(user_id)
             
-        print(f"   Loading assets from Redis for campaign: {campaign_id}")
+        print(f"   [GeminiRenderer] Loading assets for campaign: {campaign_id}, user: {user_id}")
         
         loaded = {"product": [], "logo": [], "lifestyle": []}
         
-        async def fetch_assets():
-            if not user_id: return loaded
-            items = await get_user_assets(user_id)
-            for item in items:
-                if item.get("metadata", {}).get("campaign_id") == campaign_id:
-                    asset_type = item.get("metadata", {}).get("asset_type")
-                    file_id = str(item["_id"])
-                    if asset_type in loaded:
-                        loaded[asset_type].append(file_id)
+        if not user_id:
+            print("   [GeminiRenderer] No user_id found in context. Cannot load assets.")
             return loaded
 
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            loaded = loop.run_until_complete(fetch_assets())
-            loop.close()
+            items = await get_user_assets(user_id)
+            for item in items:
+                metadata = item.get("metadata", {})
+                # Check for campaign_id match (if provided)
+                if campaign_id and metadata.get("campaign_id") != campaign_id:
+                    continue
+                
+                asset_type = metadata.get("asset_type")
+                file_id = str(item["_id"])
+                if asset_type in loaded:
+                    loaded[asset_type].append(file_id)
         except Exception as e:
-            print(f"       Failed to load assets from Redis: {e}")
+            print(f"       Failed to load assets from GridFS: {e}")
             
-        print(f"   Assets loaded from Redis: {len(loaded['product'])} product, {len(loaded['logo'])} logo")
+        print(f"   Assets loaded: {len(loaded['product'])} product, {len(loaded['logo'])} logo")
         return loaded
 
-    def _load_image_for_veo(self, asset_id: str):
+    async def _load_image_for_veo(self, asset_id: str):
         """Loads an image from GridFS and returns a types.Image."""
         from api.services.db_mongo_service import get_file_from_gridfs
-        import asyncio
         try:
-            async def fetch():
-                content, metadata = await get_file_from_gridfs(asset_id)
-                return content, metadata
-            
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            image_bytes, metadata = loop.run_until_complete(fetch())
-            loop.close()
-            
+            image_bytes, metadata = await get_file_from_gridfs(asset_id)
             mime_type = metadata.get("content_type", "image/jpeg")
             return types.Image(image_bytes=image_bytes, mime_type=mime_type)
         except Exception as e:
-            print(f"       Failed to load Redis image {asset_id}: {e}")
+            print(f"       Failed to load GridFS image {asset_id}: {e}")
             return None
 
-    def _get_reference_images_for_scene(self, scene: Dict) -> List:
-        """Returns Veo reference images based on D2C story arc.
-        
-        D2C Marketing Logic:
-        - Hook/Problem → NO product assets (show the pain, not the solution)
-        - Solution/Proof → Product assets (the big reveal + social proof)
-        - Trust/CTA → Logo + product (brand credibility + call to action)
-        """
+    async def _get_reference_images_for_scene(self, scene: Dict) -> List:
+        """Returns Veo reference images based on D2C story arc."""
         scene_name = scene.get("scene", "")
         references = []
 
         # --- Custom Avatar Reference (Priority) ---
-        custom_avatar_url = (scene.get("avatar") or {}).get("custom_image_url")
+        avatar_obj = scene.get("avatar") or {}
+        # Prioritize scene-specific avatar first, then top-level self.avatar
+        custom_avatar_url = avatar_obj.get("custom_image_url") or self.avatar.get("url") or self.avatar.get("custom_image_url")
+        
         if custom_avatar_url:
-            relative_path = custom_avatar_url.lstrip("/")
-            full_path = os.path.join(self.base_dir, relative_path)
+            file_id = None
+            if "/files/" in str(custom_avatar_url):
+                file_id = str(custom_avatar_url).split("/files/")[-1]
+            elif len(str(custom_avatar_url)) >= 24: # Likely a MongoDB ObjectId string
+                file_id = str(custom_avatar_url)
             
-            if os.path.exists(full_path):
-                img = self._load_image_for_veo(full_path)
+            if file_id:
+                img = await self._load_image_for_veo(file_id)
                 if img:
                     ref = types.VideoGenerationReferenceImage(
                         image=img,
                         reference_type="ASSET"
                     )
                     references.append(ref)
+                    print(f"       Using custom avatar reference: {file_id}")
         
         # --- D2C STORY ARC: NO product in Hook/Problem ---
-        if scene_name in ("Hook", "Problem", "Relatable Moment"):
+        if scene_name in ("Hook", "Problem", "Relatable Moment", "Stop scroll", "Agitate pain"):
             return references[:3]
         
         # --- Solution/Proof: Product images (the reveal) ---
-        elif scene_name in ("Solution", "Proof"):
+        elif scene_name in ("Solution", "Proof", "Introduce product", "Show results"):
             for img_path in self.assets["product"][:2]:
-                img = self._load_image_for_veo(img_path)
+                img = await self._load_image_for_veo(img_path)
                 if img:
                     ref = types.VideoGenerationReferenceImage(
                         image=img,
@@ -148,9 +157,9 @@ class GeminiRenderer:
                     references.append(ref)
         
         # --- Trust/CTA: Logo + product (brand identity) ---
-        elif scene_name in ("CTA", "Trust"):
+        elif scene_name in ("CTA", "Trust", "Drive action", "Build credibility"):
             for img_path in self.assets["logo"][:1]:
-                img = self._load_image_for_veo(img_path)
+                img = await self._load_image_for_veo(img_path)
                 if img:
                     ref = types.VideoGenerationReferenceImage(
                         image=img,
@@ -158,7 +167,7 @@ class GeminiRenderer:
                     )
                     references.append(ref)
             if self.assets["product"]:
-                img = self._load_image_for_veo(self.assets["product"][0])
+                img = await self._load_image_for_veo(self.assets["product"][0])
                 if img:
                     ref = types.VideoGenerationReferenceImage(
                         image=img,
@@ -206,6 +215,12 @@ class GeminiRenderer:
         guarantee_msg = f"'{guarantee}'" if guarantee else ""
         offer_statement = f"announces {discount_msg} {guarantee_msg}" if (discount_msg or guarantee_msg) else "speaks enthusiastically"
         
+        # Get avatar info for prompt customization
+        gender = self.avatar.get("gender", "young Indian person")
+        style = self.avatar.get("style", "cinematic")
+        if gender.lower() in ("unknown", "auto"): gender = "young Indian person"
+        if style.lower() == "manual upload": style = "realistic presenter"
+
         # Get language
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
         
@@ -234,8 +249,10 @@ COMPETITOR AD HOOKS (for inspiration):
 
 === STRICT D2C STORY ARC WITH SPEAKING AVATAR ===
 
-EVERY scene MUST include a young Indian person who SPEAKS in {language}.
-The person acts as a presenter/narrator — they look at the camera and SPEAK the ad copy.
+EVERY scene MUST include the person defined by the provided reference image.
+The person SPEAKS in {language}.
+If a reference image of a person is provided, the person in the video MUST be an EXACT visual match to that person (identity, clothes, hair, facial features).
+DO NOT use a random person or a generic avatar if a reference image exists.
 
 VISUAL CONTINUITY PLAN (ADHERE STRICTLY):
 {continuity_hints}
@@ -367,14 +384,14 @@ Return ONLY valid JSON:
             print(f"       Download error: {e}")
             return False
 
-    def generate_scene_video(self, scene: Dict, output_path: str) -> bool:
+    async def generate_scene_video(self, scene: Dict, output_path: str) -> bool:
         """Generates a single scene video using Gemini Veo 3.1 with asset references."""
         if not self.client:
             print("   Gemini API client not initialized. Missing API key.")
             return False
             
         prompt = self._build_prompt(scene)
-        reference_images = self._get_reference_images_for_scene(scene)
+        reference_images = await self._get_reference_images_for_scene(scene)
         
         scene_name = scene.get("scene", "?")
         print(f"     Generating scene '{scene_name}' with {len(reference_images)} asset reference(s)...")
@@ -399,6 +416,8 @@ Return ONLY valid JSON:
             config = types.GenerateVideosConfig(**config_args)
             
             # Call Veo 3.1
+            # Note: client.models.generate_videos is sync in the currently used SDK version
+            # or it returns an operation that we can poll.
             operation = self.client.models.generate_videos(
                 model=self.DEFAULT_MODEL,
                 prompt=prompt,
@@ -407,21 +426,22 @@ Return ONLY valid JSON:
             
             print(f"       Operation started: {operation.name}")
             
-            # Poll with refresh using client.operations.get()
+            # Poll asynchronously
             start_time = time.time()
+            import asyncio
             while not operation.done:
                 elapsed = int(time.time() - start_time)
                 if elapsed > self.MAX_POLL_TIME:
                     print(f"       TIMEOUT after {elapsed}s for scene '{scene_name}'")
                     return False
                 
-                print(f"       Waiting... ({elapsed}s elapsed)", flush=True)
-                time.sleep(self.POLL_INTERVAL)
+                print(f"       Waiting for scene '{scene_name}'... ({elapsed}s elapsed)", flush=True)
+                await asyncio.sleep(self.POLL_INTERVAL)
                 operation = self.client.operations.get(operation)
             
             # Check for errors
             if operation.error:
-                print(f"       Veo error: {operation.error}")
+                print(f"       Veo error for scene '{scene_name}': {operation.error}")
                 return False
             
             result = operation.result
@@ -433,11 +453,11 @@ Return ONLY valid JSON:
                 # Download using requests + API key
                 return self._download_video(video_uri, output_path)
             else:
-                print("       No video generated in response.")
+                print(f"       No video generated in response for scene '{scene_name}'.")
                 return False
                 
         except Exception as e:
-            print(f"     Gemini API Error: {e}")
+            print(f"     Gemini API Error for scene '{scene_name}': {e}")
             return False
 
     def merge_videos(self, video_paths: List[str], final_output_path: str):
@@ -601,28 +621,24 @@ Return ONLY valid JSON:
         finally:
             if os.path.exists(concat_file):
                 os.remove(concat_file)
-    def _generate_fallback_image_video(self, scene: Dict, idx: int, temp_dir: str) -> str:
+    async def _generate_fallback_image_video(self, scene: Dict, idx: int, temp_dir: str) -> str:
         """Generates a static image via Imagen (saved to GridFS) and animates it."""
-        import asyncio
         from api.services.db_mongo_service import get_file_from_gridfs
         from api.services.ai_assist_service import ai_assist_service
         
         prompt = self._build_prompt(scene)
         print(f"       Fallback: Generating static image via Imagen for scene {idx}...")
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
             # Returns a GridFS ID now
-            grid_file_id = loop.run_until_complete(ai_assist_service.generate_fallback_image(prompt))
+            grid_file_id = await ai_assist_service.generate_fallback_image(prompt)
             
             if not grid_file_id:
                 return None
                 
             # Fetch bytes to animate
-            img_data, _ = loop.run_until_complete(get_file_from_gridfs(grid_file_id))
-            loop.close()
+            img_data, _ = await get_file_from_gridfs(grid_file_id)
             
-            img_temp = os.path.join(temp_dir, f"fallback_{idx}.jpg")
+            img_temp = os.path.join(temp_dir, f"fallback_{idx}_{int(time.time())}.jpg")
             with open(img_temp, "wb") as f:
                 f.write(img_data)
                 
@@ -639,149 +655,102 @@ Return ONLY valid JSON:
             print(f"       Fallback Error: {e}")
             return None
 
-    def _apply_audio_and_overlay(self, idx: int, scene: Dict, video_path: str, temp_dir: str) -> str:
-        import asyncio
+    async def _apply_audio_and_overlay(self, idx: int, scene: Dict, video_path: str, temp_dir: str) -> str:
+        """Applies overlays BRAND logo/product images on the video."""
         from api.services.db_mongo_service import get_file_from_gridfs
+        output_path = video_path
+        
         try:
-            from api.services.audio_service import audio_service
-            import subprocess
-            
-            output_path = video_path
-            scene_name = scene.get("scene", "")
-            voiceover = scene.get("voiceover", "")
-            language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
-            
-            # Step 1: Audio narration is now handled by browser Web Speech API
-            # Sarvam TTS disabled — it was out of sync with video frames
-            # The frontend VideoStep.jsx uses Web Speech API for timed narration
-            
-            # Step 2: Overlay Branding (Logo + Product Name + Product Image)
+            # Note: SARVAM TTS is currently handled by frontend or disabled to avoid sync issues.
+            # We focus on visual overlays here.
+
+            # ── BRAND LOGO OVERLAY (Dynamic position) ──
+            logo_ids = self.assets.get("logo", [])
+            product_ids = self.assets.get("product", [])
+            brand_name = self.context.get("product_understanding", {}).get("brand_name", "")
+            product_name = self.context.get("product_understanding", {}).get("product_name", "")
             product_info = self.context.get("product_understanding", {})
-            product_name = product_info.get("product_name") or self.context.get("product_name", "")
-            brand_name = product_info.get("brand_name") or self.context.get("brand_name", "")
-            
-            # Prepare overlays
+            scene_name = scene.get("scene", "")
+
             overlay_inputs = []
             filter_complex = "[0:v]"
-            input_idx = 1 # 0 is video
+            input_idx = 1
             
-            # A. Persistent Logo (Top Right)
-            if self.assets.get("logo"):
-                logo_asset_id = self.assets["logo"][0]
-                async def fetch_logo():
-                    content, _ = await get_file_from_gridfs(logo_asset_id)
-                    return content
-                
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                logo_data = loop.run_until_complete(fetch_logo())
-                loop.close()
-                
-                if logo_data:
-                    logo_path = os.path.join(temp_dir, f"logo_overlay_{idx}.png")
+            # A. Logo Overlay
+            if logo_ids:
+                img_bytes, metadata = await get_file_from_gridfs(logo_ids[0])
+                if img_bytes:
+                    logo_path = os.path.join(temp_dir, f"overlay_logo_{idx}.png")
                     with open(logo_path, "wb") as f:
-                        f.write(logo_data)
+                        f.write(img_bytes)
                     overlay_inputs += ["-i", logo_path]
                     curr_logo_idx = input_idx
-                    # Scale logo to ~150px width, overlay top right
+                    # Scale logo, overlay top right
                     filter_complex += f"[{curr_logo_idx}:v]scale=150:-1[logo];{filter_complex}[logo]overlay=W-w-20:20[v_with_logo]"
                     filter_complex = "[v_with_logo]"
                     input_idx += 1
-            
-            # B. Product Image Overlay (Bottom Right)
-            if scene_name in ["Solution", "Proof", "CTA"] and self.assets.get("product"):
-                product_asset_id = self.assets["product"][0]
-                async def fetch_prod():
-                    content, _ = await get_file_from_gridfs(product_asset_id)
-                    return content
-                
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                img_data = loop.run_until_complete(fetch_prod())
-                loop.close()
-                
+
+            # B. Product Image Overlay (Solution/Proof/CTA scenes)
+            relevant_scenes = ["Solution", "Proof", "CTA", "Introduce product", "Show results", "Drive action"]
+            if scene_name in relevant_scenes and product_ids:
+                img_data, _ = await get_file_from_gridfs(product_ids[0])
                 if img_data:
                     img_path = os.path.join(temp_dir, f"overlay_product_{idx}.png")
                     with open(img_path, "wb") as f:
                         f.write(img_data)
                     overlay_inputs += ["-i", img_path]
                     curr_img_idx = input_idx
-                    # Scale product image to ~200px width, overlay bottom right
+                    # Scale product image, overlay bottom right
                     filter_complex += f"[{curr_img_idx}:v]scale=200:-1[prod];{filter_complex}[prod]overlay=W-w-20:H-h-20[v_with_prod]"
                     filter_complex = "[v_with_prod]"
                     input_idx += 1
             
-            # C. Product Name Text (Bottom Center)
-            if scene_name in ["Solution", "CTA"]:
+            # C. Product Name Text
+            if scene_name in ["Solution", "CTA", "Introduce product", "Drive action"]:
                 text_to_show = f"{brand_name} {product_name}".strip().upper()
                 if text_to_show:
-                    # Use a standard font path for Windows (Arial)
                     font_path = "C\\\\:/Windows/Fonts/arial.ttf"
-                    # Draw text with shadow for readability
                     filter_complex += f",drawtext=text='{text_to_show}':fontfile='{font_path}':fontsize=36:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2:x=(w-text_w)/2:y=H-th-80"
             
-            # D. BUY NOW CTA Banner (CTA scene only)
-            if scene_name == "CTA":
-                product_url = (
-                    product_info.get("product_url", "") 
-                    or self.context.get("product_input", {}).get("product_url", "")
-                )
+            # D. BUY NOW CTA Banner
+            if scene_name in ["CTA", "Drive action"]:
+                product_url = product_info.get("product_url", "") or self.context.get("product_input", {}).get("product_url", "")
                 if product_url:
-                    # Extract short domain for display (e.g. www.example.com)
-                    try:
-                        from urllib.parse import urlparse
-                        domain = urlparse(product_url).netloc or product_url
-                    except Exception:
-                        domain = product_url[:40]
-                    
-                    buy_text = f"BUY NOW  {domain}"
-                    # Escape special chars for FFmpeg drawtext
-                    buy_text = buy_text.replace("'", "").replace(":", "\\\\:")
+                    from urllib.parse import urlparse
+                    domain = urlparse(product_url).netloc or product_url
+                    buy_text = f"BUY NOW  {domain}".replace("'", "").replace(":", "\\\\:")
                     font_path = "C\\\\:/Windows/Fonts/arialbd.ttf"
-                    # Dark semi-transparent banner + white text at bottom
                     filter_complex += (
                         f",drawbox=x=0:y=H-60:w=W:h=60:color=black@0.7:t=fill"
-                        f",drawtext=text='{buy_text}'"
-                        f":fontfile='{font_path}'"
-                        f":fontsize=28"
-                        f":fontcolor=white"
-                        f":x=(w-text_w)/2"
-                        f":y=H-45"
+                        f",drawtext=text='{buy_text}':fontfile='{font_path}':fontsize=28:fontcolor=white:x=(w-text_w)/2:y=H-45"
                     )
 
-            # Execute combined FFmpeg command if we have overlays/text
             if input_idx > 1 or "drawtext" in filter_complex:
-                overlay_out = os.path.join(temp_dir, f"scene_{idx}_branded.mp4")
-                print(f"       Applying branding overlays (Logo/Text/Product) to scene {idx}...")
-                
-                # If filter_complex still starts with [0:v], it means no overlays were added (just string re-assignment)
-                if filter_complex == "[0:v]":
-                     return output_path
-
-                cmd = ["ffmpeg", "-y", "-i", output_path] + overlay_inputs + [
-                    "-filter_complex", filter_complex,
-                    "-c:a", "copy", overlay_out
-                ]
-                subprocess.run(cmd, capture_output=True)
-                if os.path.exists(overlay_out):
-                    output_path = overlay_out
+                if filter_complex != "[0:v]":
+                    overlay_out = os.path.join(temp_dir, f"scene_{idx}_branded.mp4")
+                    cmd = ["ffmpeg", "-y", "-i", output_path] + overlay_inputs + [
+                        "-filter_complex", filter_complex,
+                        "-c:a", "copy", overlay_out
+                    ]
+                    subprocess.run(cmd, capture_output=True)
+                    if os.path.exists(overlay_out):
+                        output_path = overlay_out
                         
             return output_path
         except Exception as e:
-            print(f"       Failed to apply audio/overlay: {e}")
+            print(f"       Failed to apply branding overlay: {e}")
             return video_path
 
 
-    def render_variant(self, variant: Dict) -> Dict:
-        """Renders all scenes for a variant in parallel, retries failures, then merges."""
+    async def render_variant(self, variant: Dict) -> Dict:
+        """Renders all scenes for a variant in parallel using asyncio.gather, retries failures, then merges."""
         variant_label = variant.get("variant", "?")
-        storyboard = variant.get("storyboard", [])
+        # Robust handle storyboard / scenes
+        storyboard = variant.get("storyboard") or variant.get("scenes") or []
         print(f"\n   Processing Variant {variant_label}: {variant.get('label', '')}")
         
         scene_videos = [None] * len(storyboard)
         temp_dir = tempfile.mkdtemp()
-        
-        print(f"     Parallelizing {len(storyboard)} scenes...")
         
         if not storyboard:
             print("     Error: Empty storyboard. Cannot parallelize.")
@@ -792,93 +761,68 @@ Return ONLY valid JSON:
                 "error": "Empty storyboard"
             }
 
-        def process_scene(idx, scene):
+        async def process_scene(idx, scene):
             scene_path = os.path.join(temp_dir, f"scene_{idx}.mp4")
-            if self.generate_scene_video(scene, scene_path):
-                final_scene_path = self._apply_audio_and_overlay(idx, scene, scene_path, temp_dir)
+            if await self.generate_scene_video(scene, scene_path):
+                final_scene_path = await self._apply_audio_and_overlay(idx, scene, scene_path, temp_dir)
                 return idx, final_scene_path
             return idx, None
 
-        max_workers = max(1, min(len(storyboard), 5)) if storyboard else 1
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_scene = {executor.submit(process_scene, i, scene): i for i, scene in enumerate(storyboard)}
-            for future in concurrent.futures.as_completed(future_to_scene):
-                idx, path = future.result()
-                if path:
-                    scene_videos[idx] = path
-                else:
-                    print(f"     Scene {idx} generation failed (will retry).")
+        print(f"     Parallelizing {len(storyboard)} scenes via asyncio...")
+        tasks = [process_scene(i, scene) for i, scene in enumerate(storyboard)]
+        results = await asyncio.gather(*tasks)
+        
+        for idx, path in results:
+            if path:
+                scene_videos[idx] = path
+            else:
+                print(f"     Scene {idx} ({storyboard[idx].get('scene')}) generation failed.")
         
         # --- Retry failed scenes sequentially (up to 2 retries each) ---
         failed_indices = [i for i, v in enumerate(scene_videos) if v is None]
         if failed_indices:
             print(f"\n     Retrying {len(failed_indices)} failed scene(s)...")
-            for attempt in range(1, 3):  # Max 2 retries
+            for attempt in range(1, 3):
                 still_failed = [i for i in failed_indices if scene_videos[i] is None]
-                if not still_failed:
-                    break
+                if not still_failed: break
                 for idx in still_failed:
                     scene = storyboard[idx]
-                    print(f"     Retry {attempt}/2 for scene '{scene.get('scene', idx)}'...")
-                    scene_path = os.path.join(temp_dir, f"scene_{idx}.mp4")
-                    if self.generate_scene_video(scene, scene_path):
-                        final_scene_path = self._apply_audio_and_overlay(idx, scene, scene_path, temp_dir)
+                    scene_path = os.path.join(temp_dir, f"scene_{idx}_retry_{attempt}.mp4")
+                    if await self.generate_scene_video(scene, scene_path):
+                        final_scene_path = await self._apply_audio_and_overlay(idx, scene, scene_path, temp_dir)
                         scene_videos[idx] = final_scene_path
-                        print(f"     Scene '{scene.get('scene', idx)}' succeeded on retry {attempt}!")
-        
-        valid_scene_videos = []
-        for i, v in enumerate(scene_videos):
-            if v is not None:
-                valid_scene_videos.append(v)
-            else:
-                print(f"     CRITICAL: Scene {i} completely failed after retries. Enacting AI Image Fallback with Ken Burns zoom.")
-                fallback_path = self._generate_fallback_image_video(storyboard[i], i, temp_dir)
-                if fallback_path:
-                    final_fallback_path = self._apply_audio_and_overlay(i, storyboard[i], fallback_path, temp_dir)
-                    valid_scene_videos.append(final_fallback_path)
-                elif valid_scene_videos:
-                    # Absolute worst case fallback if Imagen ALSO fails
-                    valid_scene_videos.append(valid_scene_videos[-1])
-                else:
-                    valid_scene_videos.append(None)
 
-        # In case the first scene failed and Imagen failed too
-        if any(v is None for v in valid_scene_videos):
-            first_valid = next((x for x in valid_scene_videos if x is not None), None)
-            if first_valid:
-                valid_scene_videos = [first_valid if x is None else x for x in valid_scene_videos]
-            else:
-                valid_scene_videos = [] # Massive catastrophic failure
+            # --- Final Fallback: Static Image Animation ---
+            still_failed = [i for i in failed_indices if scene_videos[i] is None]
+            if still_failed:
+                print(f"\n     ⚠️ {len(still_failed)} scenes failed Veo. Using static fallback...")
+                for idx in still_failed:
+                    scene = storyboard[idx]
+                    fallback_path = await self._generate_fallback_image_video(scene, idx, temp_dir)
+                    if fallback_path:
+                        final_scene_path = await self._apply_audio_and_overlay(idx, scene, fallback_path, temp_dir)
+                        scene_videos[idx] = final_scene_path
         
+        # --- Final Merge ---
+        valid_scene_videos = [v for v in scene_videos if v is not None]
+        if not valid_scene_videos:
+             return {"variant": variant_label, "status": "failed", "error": "All scenes failed"}
+
         video_id = f"gemini_{variant_label}_{int(time.time())}"
         final_path = os.path.join(self.video_dir, f"ad_variant_{variant_label}_{video_id}.mp4")
         
-        if valid_scene_videos:
-            self.merge_videos(valid_scene_videos, final_path)
-            # The method ABOVE does not return a dict, so we construct and return it here
-            return {
-                "variant": variant_label,
-                "label": variant.get("label"),
-                "video_id": video_id,
-                "status": "completed",
-                "local_path": final_path,
-                "scenes_count": len(valid_scene_videos),
-                "total_scenes": len(storyboard),
-                "assets_used": {
-                    "product": len(self.assets["product"]),
-                    "logo": len(self.assets["logo"]),
-                    "lifestyle": len(self.assets["lifestyle"])
-                }
-            }
-        else:
-            return {
-                "variant": variant_label,
-                "label": variant.get("label"),
-                "status": "failed",
-                "error": "All scene generations failed"
-            }
+        self.merge_videos(valid_scene_videos, final_path)
+        
+        return {
+            "variant": variant_label,
+            "label": variant.get("label"),
+            "video_id": video_id,
+            "status": "completed",
+            "local_path": final_path,
+            "scenes_count": len(valid_scene_videos)
+        }
 
-    def generate_output(self, wait_for_render=True) -> Dict:
+    async def generate_output(self, wait_for_render=True) -> Dict:
         """Main entry point for Step 7."""
         if not self.api_key:
             print("   GEMINI_API_KEY not found. Running dry run...")
@@ -888,7 +832,7 @@ Return ONLY valid JSON:
         render_results = []
         
         for variant in variant_list:
-            result = self.render_variant(variant)
+            result = await self.render_variant(variant)
             render_results.append(result)
             
         return {
@@ -896,12 +840,6 @@ Return ONLY valid JSON:
             "renderer": "gemini",
             "model_used": self.DEFAULT_MODEL,
             "total_variants_rendered": len(render_results),
-            "platform_specs": {
-                "platform": self.context.get("platform", "meta_reels"),
-                "aspect_ratio": "9:16",
-                "resolution": "1080x1920",
-                "format": "mp4"
-            },
             "render_results": render_results
         }
 

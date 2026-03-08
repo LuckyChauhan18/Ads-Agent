@@ -134,7 +134,11 @@ Example: ["Hook variant 1", "Hook variant 2"]"""
     
     def generate_variants(self) -> List[Dict]:
         """Core STEP 6: Generates 3 variants (A = original, B & C = variations)."""
-        storyboard = self.storyboard.get("storyboard", [])
+        # Robustly handle storyboard / scenes keys or direct list
+        if isinstance(self.storyboard, list):
+            storyboard = self.storyboard
+        else:
+            storyboard = self.storyboard.get("storyboard") or self.storyboard.get("scenes") or []
         
         # Find the Hook and CTA scenes
         hook_scene = None
