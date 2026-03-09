@@ -105,22 +105,17 @@ class AIAssistService:
                 ts = int(time.time())
                 filename = f"avatar_{ts}.jpg"
                 
-                # Save to GridFS with user_id in metadata
-                file_id = await upload_file_to_gridfs(
-                    filename=filename,
-                    content=img_data,
-                    metadata={
-                        "type": "avatar", 
-                        "gender": gender, 
-                        "style": style,
-                        "user_id": user_id
-                    }
-                )
+                from api.services.r2_service import upload_file_to_r2
+                import uuid
                 
-                print(f"AIAssistService: Successfully saved avatar to GridFS with ID {file_id}")
+                # Save directly to Cloudflare R2
+                unique_filename = f"avatars/{user_id}/{uuid.uuid4()}.jpg"
+                url = await upload_file_to_r2(unique_filename, img_data, "image/jpeg")
+                
+                print(f"AIAssistService: Successfully saved avatar to R2 at {url}")
                 return {
-                    "id": file_id,
-                    "url": f"/files/{file_id}",
+                    "id": unique_filename,
+                    "url": url,
                     "prompt": final_prompt,
                     "style": style,
                     "gender": gender

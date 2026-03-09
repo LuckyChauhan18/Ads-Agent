@@ -6,7 +6,7 @@ from typing import List
 router = APIRouter(prefix="/outputs", tags=["Outputs"])
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+OUTPUT_DIR = os.path.join(os.path.dirname(BASE_DIR), "extra", "output")
 
 
 @router.get("/")

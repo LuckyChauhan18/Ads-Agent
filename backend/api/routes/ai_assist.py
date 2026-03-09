@@ -31,15 +31,19 @@ async def generate_description(
                 if len(content) > 0:
                     image_bytes.append(content)
         
-        # Handle existing file IDs from GridFS
+        # Handle existing file URLs
         if file_ids:
-            ids = [fid.strip() for fid in file_ids.split(",") if fid.strip()]
-            for fid in ids:
-                try:
-                    content, _ = await get_file_from_gridfs(fid)
-                    image_bytes.append(content)
-                except Exception as e:
-                    print(f"Error fetching GridFS file {fid}: {e}")
+            import httpx
+            urls = [fid.strip() for fid in file_ids.split(",") if fid.strip()]
+            async with httpx.AsyncClient() as client:
+                for url in urls:
+                    try:
+                        if url.startswith("http"):
+                            resp = await client.get(url)
+                            resp.raise_for_status()
+                            image_bytes.append(resp.content)
+                    except Exception as e:
+                        print(f"Error fetching image {url}: {e}")
 
         if not image_bytes:
             print("DEBUG: image_bytes is empty, raising 400")
@@ -55,32 +59,28 @@ async def generate_description(
         # Re-raise HTTP exceptions to avoid wrapping them in 500
         raise
     except Exception as e:
-        import traceback
-        with open("error_log.txt", "w") as f:
+        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "extra", "error_log.txt")
+        with open(log_path, "w") as f:
             f.write(traceback.format_exc())
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/upload-avatar")
 async def upload_avatar(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
-    """Uploads a manual avatar image to GridFS."""
+    """Uploads a manual avatar image to R2."""
     try:
+        from api.services.r2_service import upload_file_to_r2
+        import uuid
         content = await file.read()
-        file_id = await upload_file_to_gridfs(
-            filename=file.filename,
-            content=content,
-            metadata={
-                "type": "avatar", 
-                "source": "manual_upload",
-                "user_id": str(current_user["_id"]),
-                "content_type": file.content_type
-            }
-        )
+        extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"avatars/{current_user['_id']}/{uuid.uuid4()}{extension}"
+        
+        url = await upload_file_to_r2(unique_filename, content, file.content_type)
             
         return {
             "results": {
-                "id": file_id,
-                "url": f"/files/{file_id}",
+                "id": unique_filename,
+                "url": url,
                 "style": "Manual Upload",
                 "gender": "Unknown"
             }

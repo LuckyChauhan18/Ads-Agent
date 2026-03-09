@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Database, Brain, Target, Layout, FileText, User, Video, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react'
 import { workflowService } from '../services/api'
@@ -28,6 +29,8 @@ const STEPS = [
 ]
 
 function Wizard() {
+  const location = useLocation();
+
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState({ active: false, message: '' })
   const [state, setState] = useState({
@@ -41,11 +44,64 @@ function Wizard() {
     renderResult: null,
     renderFailed: false,
   })
+  const [dirty, setDirty] = useState({
+    1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true
+  })
+
+  useEffect(() => {
+    if (location.state && location.state.editCampaign) {
+      const c = location.state.editCampaign;
+      setState(prev => ({
+        ...prev,
+        product: {
+          brand_name: c.brand_name || '',
+          product_name: c.product_name || '',
+          category: c.category || c.campaign_psychology?.founder_data?.category || '',
+          root_product: c.root_product || c.campaign_psychology?.founder_data?.root_product || '',
+          ad_length: c.ad_length || 30,
+          platform: c.platform || 'instagram',
+          product_logo: c.product_logo || null,
+          product_images: c.product_images || [],
+        },
+        strategy: {
+          ...c.campaign_psychology?.founder_data,
+          campaign_id: c._id || c.campaign_id,
+        },
+        research: {
+          understanding: c.campaign_psychology?.product_understanding || null,
+          competitors: c.pattern_blueprint?.competitor_results || []
+        },
+        curatedBrands: c.curatedBrands || c.pattern_blueprint?.competitor_results?.map(comp => comp.brand) || [],
+        blueprint: {
+          campaign_psychology: c.campaign_psychology,
+          pattern_blueprint: c.pattern_blueprint?.pattern_blueprint
+        },
+        script: c.final_storyboard,
+        avatar: c.avatar_config || prev.avatar,
+        renderResult: c.video_url || null
+      }));
+      setDirty({
+        1: false, 2: false, 3: false,
+        4: !c.campaign_psychology,
+        5: !c.pattern_blueprint,
+        6: false,
+        7: false,
+        8: !c.video_url
+      });
+      // Clear location state to prevent reload loops
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const updateState = (key, val) => setState(prev => ({ ...prev, [key]: { ...prev[key], ...val } }))
 
   const handleNext = async () => {
     if (currentStep === 1) {
+      if (!dirty[1] && state.curatedBrands && state.curatedBrands.length > 0) {
+        setCurrentStep(2);
+        return;
+      }
+
       const camId = state.strategy?.campaign_id || `${state.product.brand_name?.toLowerCase().replace(/\s/g, '_') || 'ad'}_${new Date().getTime().toString().slice(-4)}`;
       setState(prev => ({ ...prev, strategy: { ...prev.strategy, campaign_id: camId } }));
 
@@ -71,14 +127,20 @@ function Wizard() {
       try {
         const res = await workflowService.runDiscovery(state.product)
         setState(prev => ({ ...prev, curatedBrands: res.data.results.brands, research: { understanding: res.data.results.understanding, competitors: [] } }))
+        setDirty(prev => ({ ...prev, 1: false }))
         setCurrentStep(2)
       } catch (e) { alert('Discovery failed.') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 2) {
+      if (!dirty[2] && state.research?.competitors?.length > 0) {
+        setCurrentStep(3);
+        return;
+      }
       setLoading({ active: true, message: 'Scraping Meta Ads DNA...' })
       try {
         const res = await workflowService.runResearch(state.product, state.curatedBrands)
         setState(prev => ({ ...prev, research: { ...prev.research, competitors: res.data.results } }))
+        setDirty(prev => ({ ...prev, 2: false }))
         setCurrentStep(3)
       } catch (e) { alert('Research failed.') }
       setLoading({ active: false, message: '' })
@@ -98,12 +160,18 @@ function Wizard() {
       }))
       setCurrentStep(4)
     } else if (currentStep === 4) {
+      if (!dirty[4] && state.blueprint) {
+        setCurrentStep(5);
+        return;
+      }
       setLoading({ active: true, message: 'Crafting Ad Pattern & Psychology...' })
       try {
         const res = await workflowService.runPsychology({
           founder_data: {
             ...state.strategy,
-            ad_length: state.product.ad_length || 30 // Ensure ad_length is included in strategy payload
+            ad_length: state.product.ad_length || 30,
+            category: state.product.category,
+            root_product: state.product.root_product
           },
           competitor_results: state.research.competitors,
           understanding: state.research.understanding
@@ -114,10 +182,15 @@ function Wizard() {
           blueprint: res.data.results,
           strategy: { ...prev.strategy, campaign_id: campaignId }
         }))
+        setDirty(prev => ({ ...prev, 4: false }))
         setCurrentStep(5)
       } catch (e) { alert('Psychology analysis failed.') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 5) {
+      if (!dirty[5] && state.script) {
+        setCurrentStep(6);
+        return;
+      }
       setLoading({ active: true, message: 'Generating Scene-by-Scene Script...' })
       try {
         const res = await workflowService.runScript({
@@ -129,10 +202,15 @@ function Wizard() {
           campaign_id: state.strategy.campaign_id
         })
         setState(prev => ({ ...prev, script: res.data.results }))
+        setDirty(prev => ({ ...prev, 5: false }))
         setCurrentStep(6)
       } catch (e) { alert('Script generation failed.') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 8) {
+      if (!dirty[8] && state.renderResult) {
+        setCurrentStep(9);
+        return;
+      }
       setLoading({ active: true, message: 'Initiating final video render...' })
       try {
         const res = await workflowService.runRender({
@@ -146,6 +224,7 @@ function Wizard() {
           const filename = variants[0].local_path.split(/[\\/]/).pop();
           const videoUrl = `http://localhost:8000/videos/${filename}`;
           setState(prev => ({ ...prev, renderResult: videoUrl }));
+          setDirty(prev => ({ ...prev, 8: false }))
           setCurrentStep(9);
         } else {
           alert('Render completed but video was not found.');
@@ -163,26 +242,44 @@ function Wizard() {
 
   const renderCurrentStep = () => {
     switch (currentStep) {
-      case 1: return <ProductStep data={state.product} updateData={(d) => updateState('product', d)} />
-      case 2: return <CurationStep brands={state.curatedBrands} updateBrands={(val) => setState(prev => ({ ...prev, curatedBrands: val }))} />
+      case 1: return <ProductStep data={state.product} updateData={(d) => {
+        updateState('product', d)
+        setDirty(prev => ({ ...prev, 1: true, 2: true, 4: true, 5: true, 8: true }))
+      }} />
+      case 2: return <CurationStep brands={state.curatedBrands} updateBrands={(val) => {
+        setState(prev => ({ ...prev, curatedBrands: val }))
+        setDirty(prev => ({ ...prev, 2: true, 4: true, 5: true, 8: true }))
+      }} />
       case 3: return <CompetitorStep research={state.research} updateCompetitor={(i, val) => {
         const newCompetitors = [...(state.research?.competitors || [])]
         if (newCompetitors[i]) {
           newCompetitors[i].top_punchline = val
         }
         setState(prev => ({ ...prev, research: { ...prev.research, competitors: newCompetitors } }))
+        setDirty(prev => ({ ...prev, 4: true, 5: true, 8: true }))
       }} />
-      case 4: return <StrategyStep data={state.strategy} updateData={(d) => updateState('strategy', d)} />
+      case 4: return <StrategyStep data={state.strategy} updateData={(d) => {
+        updateState('strategy', d)
+        setDirty(prev => ({ ...prev, 4: true, 5: true, 8: true }))
+      }} />
       case 5: return <PatternStep blueprint={state.blueprint?.pattern_blueprint} updateBlueprint={(d) => {
         setState(prev => ({ ...prev, blueprint: { ...prev.blueprint, pattern_blueprint: { ...prev.blueprint.pattern_blueprint, ...d } } }))
+        setDirty(prev => ({ ...prev, 5: true, 8: true }))
       }} />
       case 6: return <ScriptStep script={state.script} updateScene={(i, val) => {
         const newScenes = [...state.script.scenes]
         newScenes[i].voiceover = val
         setState(prev => ({ ...prev, script: { ...prev.script, scenes: newScenes } }))
+        setDirty(prev => ({ ...prev, 8: true }))
       }} />
-      case 7: return <AvatarStep data={state.avatar} updateData={(d) => updateState('avatar', d)} />
-      case 8: return <ReviewStep state={state} updateData={(d) => setState(prev => ({ ...prev, ...d }))} />
+      case 7: return <AvatarStep data={state.avatar} updateData={(d) => {
+        updateState('avatar', d)
+        setDirty(prev => ({ ...prev, 8: true }))
+      }} />
+      case 8: return <ReviewStep state={state} updateData={(d) => {
+        setState(prev => ({ ...prev, ...d }))
+        setDirty(prev => ({ ...prev, 8: true }))
+      }} />
       case 9: return <VideoStep videoUrl={state.renderResult} productUrl={state.product?.product_url} script={state.script} />
       default: return null
     }

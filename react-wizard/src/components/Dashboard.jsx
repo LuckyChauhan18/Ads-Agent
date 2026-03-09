@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Layout as LayoutIcon, Image as ImageIcon, FileText, User, ArrowLeft, ExternalLink, Calendar, Trash2 } from 'lucide-react';
+import { Layout as LayoutIcon, Image as ImageIcon, FileText, User, ArrowLeft, ExternalLink, Calendar, Trash2, Edit2 } from 'lucide-react';
 import { workflowService } from '../services/api';
 
 function Dashboard({ user }) {
@@ -46,13 +46,12 @@ function Dashboard({ user }) {
       </header>
 
       <nav className="dashboard-nav">
-        {['campaigns', 'logos', 'products', 'avatars'].map(tab => (
+        {['campaigns'].map(tab => (
           <button
             key={tab}
-            className={`nav-item ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab)}
+            className={`nav-item active`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            Campaign Tickets
           </button>
         ))}
       </nav>
@@ -93,7 +92,22 @@ function Dashboard({ user }) {
                   </button>
                   <div className="title-row">
                     <h2>{selectedCampaign.brand_name}: {selectedCampaign.product_name}</h2>
-                    <span className="platform-tag">{selectedCampaign.platform}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span className="platform-tag">{selectedCampaign.platform}</span>
+                      <button
+                        className="btn btn-premium"
+                        style={{ padding: '6px 16px', fontSize: '0.8rem', borderRadius: '12px' }}
+                        onClick={() => {
+                          const campaignAssets = {
+                            product_logo: selectedCampaign.product_logo,
+                            product_images: selectedCampaign.product_images || [],
+                          };
+                          navigate('/', { state: { editCampaign: { ...selectedCampaign, ...campaignAssets } } })
+                        }}
+                      >
+                        <Edit2 size={14} /> Recreate
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -182,20 +196,26 @@ function Dashboard({ user }) {
                   <div className="detail-grid">
                     <section className="detail-section">
                       <h3>Visual Assets</h3>
-                      <div className="asset-previews">
-                        {selectedCampaign.asset_id && (
-                          <div className="asset-item">
+                      <div className="asset-previews" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                        {selectedCampaign.product_images && selectedCampaign.product_images.length > 0 && (
+                          <div className="asset-item" style={{ flex: 1 }}>
                             <label>Product Images</label>
-                            <span className="info-text">Linked to Asset ID: {selectedCampaign.asset_id}</span>
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                              {selectedCampaign.product_images.map((imgUrl, idx) => (
+                                <img key={idx} src={imgUrl} alt={`Product ${idx}`} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                              ))}
+                            </div>
                           </div>
                         )}
                         {selectedCampaign.product_logo && (
-                          <div className="asset-item">
-                            <label>Logo</label>
-                            <img src={selectedCampaign.product_logo.startsWith('http') ? selectedCampaign.product_logo : `http://localhost:8000${selectedCampaign.product_logo}`} alt="Logo" className="mini-preview" />
+                          <div className="asset-item" style={{ flex: 1 }}>
+                            <label>Brand Logo</label>
+                            <img src={selectedCampaign.product_logo} alt="Logo" style={{ width: '80px', height: '80px', objectFit: 'contain', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', marginTop: '8px', padding: '4px' }} />
                           </div>
                         )}
-                        {!selectedCampaign.asset_id && !selectedCampaign.product_logo && <p className="info-text">Assets will appear after rendering.</p>}
+                        {(!selectedCampaign.product_images || selectedCampaign.product_images.length === 0) && !selectedCampaign.product_logo && (
+                          <p className="info-text">No uploaded assets found for this campaign.</p>
+                        )}
                       </div>
                     </section>
 
@@ -205,7 +225,7 @@ function Dashboard({ user }) {
                         {selectedCampaign.avatar_config ? (
                           <div className="avatar-preview-row">
                             {selectedCampaign.avatar_config.selected_avatars?.map((av, i) => (
-                              <img key={i} src={av.url.startsWith('http') ? av.url : `http://localhost:8000${av.url}`} alt="Avatar" className="avatar-thumb" />
+                              <img key={i} src={av.url} alt="Avatar" className="avatar-thumb" />
                             )) || <p className="info-text">Single avatar used.</p>}
                           </div>
                         ) : <p className="info-text">Avatar will appear after selection.</p>}
@@ -226,50 +246,7 @@ function Dashboard({ user }) {
             )}
           </div>
         )}
-
-        {activeTab === 'logos' && (
-          <div className="asset-grid">
-            {data?.assets?.logos?.length > 0 ? data.assets.logos.map(l => (
-              <div key={l.id} className="asset-card glass">
-                <img src={`http://localhost:8000${l.url}`} alt="Logo" />
-                <div className="asset-info">
-                  <p>{l.filename}</p>
-                </div>
-              </div>
-            )) : <p className="empty">No logos uploaded yet.</p>}
-          </div>
-        )}
-
-        {activeTab === 'products' && (
-          <div className="asset-grid">
-            {data?.assets?.products?.length > 0 ? data.assets.products.map(p => (
-              <div key={p.id} className="asset-card glass">
-                <img src={`http://localhost:8000${p.url}`} alt="Product" />
-                <div className="asset-info">
-                  <p>{p.filename}</p>
-                </div>
-              </div>
-            )) : <p className="empty">No product images yet.</p>}
-          </div>
-        )}
-
-        {activeTab === 'avatars' && (
-          <div className="asset-grid">
-            {data?.assets?.avatars?.length > 0 ? data.assets.avatars.map(a => (
-              <div key={a.id} className="asset-card glass-brutal">
-                <img src={`http://localhost:8000${a.url}`} alt="Avatar" />
-                <div className="asset-info">
-                  <p>{a.filename}</p>
-                  {a.created_at && (
-                    <small style={{ opacity: 0.5, fontSize: '0.7rem' }}>
-                      {new Date(a.created_at).toLocaleDateString()}
-                    </small>
-                  )}
-                </div>
-              </div>
-            )) : <p className="empty">No AI avatars generated yet.</p>}
-          </div>
-        )}
+        {/* Removed legacy independent asset grids. Visuals are now strictly bound inside Campaign tickets. */}
       </div>
 
       <style>{`

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 from dotenv import load_dotenv
+from utils.logger import logger
 
 # Load environment variables before any other imports that might use them
 load_dotenv()
@@ -15,7 +16,6 @@ from api.routes.files import router as files_router
 from api.routes.auth import router as auth_router
 
 from api.services.db_mongo_service import connect_to_mongo, close_mongo_connection
-from api.services.memory_service import connect_to_ltm, close_ltm_connection
 
 app = FastAPI(
     title="Spectra AI API",
@@ -28,8 +28,8 @@ async def log_exceptions_middleware(request, call_next):
     try:
         return await call_next(request)
     except Exception as e:
-        import traceback
-        with open("global_error_log.txt", "a") as f:
+        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "extra", "global_error_log.txt")
+        with open(log_path, "a") as f:
             f.write(f"\n\n--- ERROR AT {os.path.basename(__file__)} ---\n")
             f.write(traceback.format_exc())
         raise e
@@ -38,13 +38,10 @@ async def log_exceptions_middleware(request, call_next):
 async def startup_db_client():
     # Connect to MongoDB for all storage requirements
     await connect_to_mongo()
-    # Connect to separate LTM database for long-term memory
-    await connect_to_ltm()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await close_mongo_connection()
-    await close_ltm_connection()
 
 # Enable CORS for frontend integration
 # IMPORTANT: CORSMiddleware must be added last or near last to wrap other middlewares?
@@ -65,8 +62,8 @@ from fastapi import Request
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     import traceback
-    error_msg = traceback.format_exc()
-    with open("global_error_log.txt", "a") as f:
+    log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "extra", "global_error_log.txt")
+    with open(log_path, "a") as f:
         f.write(f"\n\n--- GLOBAL EXCEPTION HANDLER ---\n")
         f.write(error_msg)
     
@@ -90,8 +87,15 @@ async def global_exception_handler(request: Request, exc: Exception):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Mount Static Files
-app.mount("/videos", StaticFiles(directory=os.path.join(BASE_DIR, "agents", "video")), name="videos")
-app.mount("/assets", StaticFiles(directory=os.path.join(BASE_DIR, "assets")), name="assets")
+try:
+    app.mount("/videos", StaticFiles(directory=os.path.join(os.path.dirname(BASE_DIR), "extra", "video")), name="videos")
+except RuntimeError:
+    logger.warning("⚠️ Warning: extra/video directory not found on startup")
+
+try:
+    app.mount("/assets", StaticFiles(directory=os.path.join(os.path.dirname(BASE_DIR), "extra", "assets")), name="assets")
+except RuntimeError:
+    logger.warning("⚠️ Warning: extra/assets directory not found on startup")
 
 # Include Routers
 app.include_router(auth_router)

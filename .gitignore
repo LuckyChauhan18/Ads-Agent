@@ -44,11 +44,7 @@ react-wizard/dist/
 .env.production.local
 
 # Project Specific
-logs/
-output/
-tmp/
-assets/
-video/
+extra/
 
 # IDEs and Editors
 .vscode/

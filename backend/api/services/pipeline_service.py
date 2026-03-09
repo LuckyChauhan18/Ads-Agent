@@ -6,6 +6,7 @@ if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
 from agents.graph import build_ad_graph
+from utils.logger import logger
 
 def run_pipeline_background(initial_state: dict = None):
     """
@@ -13,10 +14,14 @@ def run_pipeline_background(initial_state: dict = None):
     This function will be called as a background task.
     """
     try:
-        print("Starting background LangGraph pipeline execution...")
+        logger.info("============== STARTING NEW PIPELINE RUN ==============")
+        logger.info(f"Initial State: {list(initial_state.keys()) if initial_state else 'None'}")
+        
         graph = build_ad_graph()
         state = initial_state or {}
         graph.invoke(state)
-        print("Background pipeline execution finished successfully.")
+        
+        logger.info("✅ Background pipeline execution finished successfully.")
+        logger.info("=======================================================")
     except Exception as e:
-        print(f"Error during background pipeline execution: {e}")
+        logger.error(f"❌ Error during background pipeline execution: {e}", exc_info=True)

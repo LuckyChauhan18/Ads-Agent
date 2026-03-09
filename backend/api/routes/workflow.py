@@ -4,11 +4,12 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File,
 import traceback
 import shutil
 from api.services.pipeline_service import run_pipeline_background
+from utils.logger import logger
 
 router = APIRouter(prefix="/workflow", tags=["Workflow"])
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+OUTPUT_DIR = os.path.join(os.path.dirname(BASE_DIR), "extra", "output")
 VIDEO_OUTPUT_FILE = os.path.join(OUTPUT_DIR, "video_output.json")
 
 from api.services.db_mongo_service import (
@@ -40,33 +41,9 @@ async def get_dashboard(current_user: dict = Depends(get_current_user)):
     # Fetch campaigns
     campaigns = await get_all_documents("campaigns", limit=50, user_id=user_id)
     
-    # Fetch assets from Redis
-    assets_list = await get_user_assets(user_id)
-    
-    # Group assets
-    assets = {"logos": [], "products": [], "avatars": []}
-    for asset in assets_list:
-        metadata = asset.get("metadata", {})
-        asset_type = metadata.get("asset_type") or metadata.get("type")
-        asset_id = str(asset["_id"])
-        url = f"/files/{asset_id}"
-        
-        if asset_type == "logo":
-            assets["logos"].append({"id": asset_id, "url": url, "filename": asset["filename"]})
-        elif asset_type == "product":
-            assets["products"].append({"id": asset_id, "url": url, "filename": asset["filename"]})
-        elif asset_type == "avatar":
-            # asset['file_id'] is an ObjectId from get_user_assets
-            assets["avatars"].append({
-                "id": asset_id, 
-                "url": url, 
-                "filename": asset["filename"], 
-                "created_at": asset["file_id"].generation_time.isoformat() if hasattr(asset["file_id"], "generation_time") else None
-            })
-
     return clean_objectids({
         "campaigns": campaigns,
-        "assets": assets,
+        "assets": {"logos": [], "products": [], "avatars": []}, # Deprecated, keeping for backwards compatibility strictly
         "user_info": {
             "username": current_user["username"],
             "email": current_user.get("email"),
@@ -80,29 +57,42 @@ class StepRequest(BaseModel):
 
 @router.post("/upload-assets/{campaign_id}/{asset_type}")
 async def upload_campaign_assets(campaign_id: str, asset_type: str, files: list[UploadFile] = File(...), current_user: dict = Depends(get_current_user)):
-    """Upload product or logo assets for a specific campaign to GridFS."""
+    """Upload product or logo assets for a specific campaign to Cloudflare R2 and link them to the Campaign Document."""
+    import uuid
+    from api.services.r2_service import upload_file_to_r2
     if asset_type not in ["product", "logo"]:
         raise HTTPException(status_code=400, detail="Invalid asset type. Must be 'product' or 'logo'.")
     
-    saved_file_ids = []
+    saved_urls = []
     for file in files:
         content = await file.read()
-        file_id = await upload_file_to_gridfs(
-            filename=file.filename,
-            content=content,
-            metadata={
-                "campaign_id": campaign_id,
-                "asset_type": asset_type,
-                "content_type": file.content_type,
-                "user_id": str(current_user["_id"])
-            }
-        )
-        saved_file_ids.append(file_id)
+        extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{campaign_id}/{asset_type}/{uuid.uuid4()}{extension}"
+        
+        url = await upload_file_to_r2(unique_filename, content, file.content_type)
+        saved_urls.append(url)
+        
+    # Upsert to unified campaign document (create if not exists)
+    campaign = await get_document("campaigns", campaign_id)
+    if not campaign:
+        campaign = {
+            "_id": campaign_id,
+            "campaign_id": campaign_id,
+            "user_id": str(current_user["_id"]),
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    if asset_type == "logo":
+        campaign["product_logo"] = saved_urls[0] if saved_urls else None
+    elif asset_type == "product":
+        # Keep existing images and append new ones
+        campaign["product_images"] = campaign.get("product_images", []) + saved_urls
+        
+    await save_document("campaigns", campaign)
         
     return {
-        "message": f"Successfully uploaded {len(saved_file_ids)} {asset_type} assets to GridFS.",
-        "file_ids": saved_file_ids,
-        "urls": [f"/files/{fid}" for fid in saved_file_ids]
+        "message": f"Successfully uploaded {len(saved_urls)} {asset_type} assets to R2 and updated campaign.",
+        "urls": saved_urls
     }
 
 @router.post("/step/discover")
@@ -115,15 +105,7 @@ async def run_step_discover(req: StepRequest, current_user: dict = Depends(get_c
     
     state_in = {"product_input": req.data, "scrape_enabled": False}
 
-    # Inject LTM if company_id is available on the user
-    company_id = current_user.get("company_id")
-    if company_id:
-        from api.services.memory_service import get_company_memory
-        memory = await get_company_memory(company_id)
-        state_in["memory"] = memory
-        state_in["company_id"] = company_id
-
-    # LangGraph invoke with thread_id for memory
+    # LangGraph invoke with thread_id for state tracking
     config = {"configurable": {"thread_id": campaign_id}}
     state_out = await research_graph.ainvoke(state_in, config)
     
@@ -154,14 +136,19 @@ async def run_step_research(req: StepRequest, current_user: dict = Depends(get_c
     state_out = await research_graph.ainvoke(state_in, config)
     results = state_out.get("research", {}).get("competitor_results", [])
     
-    # Save to MongoDB
+    # Save to unified campaigns document
     product_data = req.data["product"]
-    product_data["user_id"] = user_id
-    product_id = await save_document("products", product_data)
     
-    research_data = {"product_id": product_id, "results": results, "user_id": user_id}
-    research_id = await save_document("research", research_data)
-    return {"product_id": product_id, "research_id": research_id, "results": results}
+    campaign = await get_document("campaigns", campaign_id)
+    if not campaign:
+        campaign = {"_id": campaign_id, "campaign_id": campaign_id, "user_id": user_id}
+        
+    campaign["product_info"] = product_data
+    campaign["research"] = {"results": results}
+    
+    await save_document("campaigns", campaign)
+    
+    return {"campaign_id": campaign_id, "results": results}
 
 @router.post("/step/psychology")
 async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get_current_user)):
@@ -180,14 +167,7 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
             }
         }
 
-        # Inject LTM if company_id is available
-        company_id = current_user.get("company_id")
-        if company_id:
-            from api.services.memory_service import get_company_memory
-            memory = await get_company_memory(company_id)
-            state_in["memory"] = memory
-            state_in["company_id"] = company_id
-
+        # Langgraph Invoke Config
         campaign_req_id = req.data.get("founder_data", {}).get("campaign_id", f"camp_{int(datetime.now().timestamp())}")
         config = {"configurable": {"thread_id": campaign_req_id}}
         
@@ -227,7 +207,7 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        print(f"Psychology endpoint crash: {e}")
+        logger.error(f"❌ Psychology endpoint crash: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal processing error: {str(e)}")
 
 @router.post("/step/script")
@@ -252,37 +232,29 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
         }
     }
 
-    # Inject LTM if company_id is available
-    company_id = current_user.get("company_id")
-    if company_id:
-        from api.services.memory_service import get_company_memory
-        memory = await get_company_memory(company_id)
-        state_in["memory"] = memory
-        state_in["company_id"] = company_id
 
     config = {"configurable": {"thread_id": campaign_req_id}}
     state_out = await creative_graph.ainvoke(state_in, config)
     results = state_out.get("creative", {}).get("script_output", {})
-    
-    print(f"DEBUG: run_step_script results keys: {list(results.keys()) if results else 'NONE'}")
+    logger.info(f"📝 Script generation completed. Results keys: {list(results.keys()) if results else 'NONE'}")
     # Update individual script record
     script_data = {"content": results, "user_id": user_id}
     script_id = await save_document("scripts", script_data)
 
     # NEW: Sync results back to the campaign document if campaign_id is provided
     campaign_id = req.data.get("campaign_id") or req.data.get("campaign_psychology", {}).get("campaign_id")
-    print(f"DEBUG: run_step_script syncing to campaign_id: {campaign_id}")
+    logger.debug(f"Syncing script results to campaign_id: {campaign_id}")
     if campaign_id:
         campaign = await get_document("campaigns", campaign_id)
         if campaign:
-            print(f"DEBUG: found campaign document for {campaign_id}. Syncing storyboard...")
+            logger.info(f"🔄 Found campaign '{campaign_id}'. Syncing storyboard...")
             campaign["final_storyboard"] = results
             campaign["platform"] = state_in["platform"]
             campaign["ad_length"] = state_in["ad_length"]
             await save_document("campaigns", campaign)
-            print(f"   🔄 Campaign {campaign_id} synced with new script data.")
+            logger.info(f"✅ Campaign {campaign_id} synced with new script data.")
         else:
-            print(f"DEBUG: campaign document NOT FOUND for {campaign_id}")
+            logger.warning(f"⚠️ Campaign document NOT FOUND for {campaign_id}")
 
     return {"script_id": script_id, "results": results}
 
@@ -339,11 +311,11 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
 
         # Update the campaign history with the final storyboard and avatar config
         campaign_id = req.data.get("campaign_id") or req.data.get("campaign_psychology", {}).get("campaign_id")
-        print(f"DEBUG: run_step_render syncing to campaign_id: {campaign_id}")
+        logger.debug(f"Render step syncing to campaign_id: {campaign_id}")
         if campaign_id:
             campaign = await get_document("campaigns", campaign_id)
             if campaign:
-                print(f"DEBUG: found campaign document for {campaign_id}. Syncing render data...")
+                logger.info(f"🔄 Syncing render data to Campaign: {campaign_id}")
                 campaign["final_storyboard"] = req.data["script_output"]
                 campaign["avatar_config"] = req.data["avatar_config"]
                 campaign["asset_id"] = asset_id
@@ -351,22 +323,36 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
                 video_url = None
                 if "render_results" in results and results["render_results"]:
                     first_variant = results["render_results"][0]
-                    if "local_path" in first_variant:
-                        filename = os.path.basename(first_variant['local_path'])
-                        video_url = f"http://localhost:8000/videos/{filename}"
+                    if "local_path" in first_variant and os.path.exists(first_variant['local_path']):
+                        try:
+                            from api.services.r2_service import upload_file_to_r2
+                            import uuid
+                            filename = os.path.basename(first_variant['local_path'])
+                            r2_filename = f"renders/{campaign_id}/{uuid.uuid4()}_{filename}"
+                            logger.info(f"📤 Uploading {filename} to R2 as {r2_filename}...")
+                            
+                            with open(first_variant['local_path'], 'rb') as f:
+                                video_bytes = f.read()
+                                
+                            video_url = await upload_file_to_r2(r2_filename, video_bytes, "video/mp4")
+                            logger.info(f"✅ Successfully uploaded video to R2 at {video_url}")
+                        except Exception as e:
+                            logger.error(f"❌ Error uploading video to R2: {e}")
+                            filename = os.path.basename(first_variant['local_path'])
+                            video_url = f"http://localhost:8000/videos/{filename}"
+                            
                 campaign["video_url"] = video_url # Set video_url here
                 await save_document("campaigns", campaign)
-                print(f"   🔄 Campaign {campaign_id} synced with video render result.")
+                logger.info(f"✅ Campaign {campaign_id} synced with video render result.")
             else:
-                print(f"DEBUG: campaign document NOT FOUND for {campaign_id}")
+                logger.warning(f"⚠️ Campaign document NOT FOUND for {campaign_id}")
 
         return clean_objectids({"asset_id": asset_id, "results": results})
     except Exception as e:
         import traceback
         with open("render_error.txt", "w") as f:
             f.write(traceback.format_exc())
-        print(f"Render endpoint crash: {e}")
-        traceback.print_exc()
+        logger.error(f"❌ Render endpoint crash: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Render error: {str(e)}")
 
 
@@ -381,16 +367,10 @@ class FeedbackRequest(BaseModel):
 
 @router.post("/feedback")
 async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get_current_user)):
-    """Submit feedback for a generated video ad. Validates, structures, and learns from it."""
+    """Submit feedback for a generated video ad."""
     from api.services.db_mongo_service import save_feedback
-    from agents.shared.feedback_validator import FeedbackValidator
-    from api.services.memory_service import (
-        save_feedback_to_history,
-        process_structured_feedback,
-    )
 
     user_id = str(current_user["_id"])
-    company_id = current_user.get("company_id")
 
     feedback_data = {
         "user_id": user_id,
@@ -404,29 +384,7 @@ async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get
 
     # 1. Save raw feedback to main DB
     feedback_id = await save_feedback(feedback_data)
-    print(f"   📝 Feedback saved: rating={req.rating}, id={feedback_id}")
-
-    # 2. If company_id exists, run the two-stage evaluation pipeline
-    evaluation_result = None
-    if company_id and req.feedback_text.strip():
-        # Save to LTM history
-        await save_feedback_to_history(company_id, feedback_data)
-
-        # Stage 1 + 2: Validate and extract
-        validator = FeedbackValidator()
-        evaluation_result = validator.evaluate(req.feedback_text)
-
-        # 3. If valid, process structured feedback via memory service
-        if evaluation_result.get("valid") and evaluation_result.get("structured_feedback"):
-            memory_results = await process_structured_feedback(
-                company_id=company_id,
-                structured_feedback=evaluation_result["structured_feedback"],
-                confidence=evaluation_result.get("confidence", 0.0),
-            )
-            evaluation_result["memory_results"] = memory_results
-            print(f"   🧠 Memory processing complete for {company_id}")
-        else:
-            print(f"   ⛔ Feedback not valid or no structured feedback extracted.")
+    logger.info(f"📝 Feedback saved: rating={req.rating}, id={feedback_id}")
 
     return {
         "status": "ok",

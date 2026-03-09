@@ -26,6 +26,7 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.mongodb import MongoDBSaver
 from pymongo import MongoClient
 
+from utils.logger import logger
 from agents.shared.state import AdGenState
 from agents.research.agent import run_research
 from agents.strategy.agent import run_strategy
@@ -46,13 +47,13 @@ if mongodb_url:
         client.admin.command('ping')
         
         checkpointer = MongoDBSaver(client)
-        print(" [Memory] MongoDB checkpointer (sync) connected successfully")
+        logger.info("🧠 [Memory] MongoDB checkpointer (sync) connected successfully")
     except Exception as e:
-        print(f" [Memory] Failed to connect to MongoDB for checkpoints: {e}")
+        logger.error(f"❌ [Memory] Failed to connect to MongoDB for checkpoints: {e}")
         client = None
         checkpointer = None
 else:
-    print(" [Memory] MONGODB_URL not found in environment. Running without memory.")
+    logger.warning("⚠️ [Memory] MONGODB_URL not found in environment. Running without memory.")
 
 
 def build_ad_graph(checkpointer=None):
@@ -82,7 +83,7 @@ def build_ad_graph(checkpointer=None):
 
     # ── Compile with Checkpointer ─────────────────────────────
     compiled = graph.compile(checkpointer=checkpointer) if checkpointer else graph.compile()
-    print(" Ad Generation Graph compiled successfully")
+    logger.info("✅ Full Ad Generation Graph compiled successfully")
     return compiled
 
 
@@ -110,6 +111,7 @@ def build_step_graph(step_name: str, checkpointer=None):
     graph.add_edge(step_name, END)
     
     compiled = graph.compile(checkpointer=checkpointer) if checkpointer else graph.compile()
+    logger.info(f"✅ Single-step graph '{step_name}' compiled successfully")
     return compiled
 
 

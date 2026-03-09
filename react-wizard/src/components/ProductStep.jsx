@@ -14,7 +14,9 @@ const ProductStep = ({ data, updateData }) => {
     const existingIds = [];
 
     // Extract IDs from existing logo
-    if (data.product_logo && typeof data.product_logo === 'string' && data.product_logo.includes('/api/files/')) {
+    if (data.product_logo && typeof data.product_logo === 'string' && data.product_logo.startsWith('http')) {
+      existingIds.push(data.product_logo);
+    } else if (data.product_logo && typeof data.product_logo === 'string' && data.product_logo.includes('/api/files/')) {
       const id = data.product_logo.split('/api/files/')[1];
       if (id) existingIds.push(id);
     }
@@ -22,7 +24,9 @@ const ProductStep = ({ data, updateData }) => {
     // Extract IDs from existing images
     if (data.product_images) {
       data.product_images.forEach(url => {
-        if (typeof url === 'string' && url.includes('/api/files/')) {
+        if (typeof url === 'string' && url.startsWith('http')) {
+          existingIds.push(url);
+        } else if (typeof url === 'string' && url.includes('/api/files/')) {
           const id = url.split('/api/files/')[1];
           if (id) existingIds.push(id);
         }

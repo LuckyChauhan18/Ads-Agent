@@ -12,8 +12,8 @@ from google.genai import types
 from PIL import Image
 from dotenv import load_dotenv
 
-# Load .env from root directory (parent of src)
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+# Load .env from root directory (parent of backend)
+dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), '..', '.env')
 load_dotenv(dotenv_path)
 
 class GeminiRenderer:
@@ -57,8 +57,8 @@ class GeminiRenderer:
         else:
             self.client = None
             
-        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.video_dir = os.path.join(self.base_dir, "video")
+        self.base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # Points to backend
+        self.video_dir = os.path.join(os.path.dirname(self.base_dir), "extra", "video")
         os.makedirs(self.video_dir, exist_ok=True)
         
         # Assets will be loaded during initialize()

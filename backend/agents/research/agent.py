@@ -25,7 +25,7 @@ from agents.research.ai_competitor_finder import AICompetitorFinder
 from agents.research.multi_ad_extractor import run_extraction
 from agents.research.filter import DNAFilter
 
-OUTPUT_DIR = os.path.join(BASE_DIR, "output")
+OUTPUT_DIR = os.path.join(os.path.dirname(BASE_DIR), "extra", "output")
 
 
 def run_research(state: AdGenState) -> dict:
