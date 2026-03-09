@@ -1,5 +1,5 @@
 """
-Global Shared State for the AI Ad Generator Multi-Agent System.
+Global Shared State for the Spectra AI Multi-Agent System.
 
 Every agent reads from this state and writes ONLY its own output keys.
 This makes it safe to add memory later — each agent's "memory" will be

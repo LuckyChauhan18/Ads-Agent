@@ -47,8 +47,8 @@ const AvatarStep = ({ data, updateData }) => {
       if (res.data.results) {
         const newAvatar = res.data.results;
         setOptions(prev => [newAvatar, ...prev]);
-        // Auto-select the newly generated one (add to list)
-        toggleAvatar(newAvatar);
+        // Auto-select the newly generated one exclusively
+        selectExclusively(newAvatar);
       } else {
         alert('Generation failed. This often happens if the prompt contains names of famous people, celebrities, or restricted content due to AI safety policies.');
       }
@@ -76,7 +76,7 @@ const AvatarStep = ({ data, updateData }) => {
       if (res.data.results) {
         const newAvatar = res.data.results;
         setOptions(prev => [newAvatar, ...prev]);
-        toggleAvatar(newAvatar);
+        selectExclusively(newAvatar);
       }
     } catch (err) {
       alert('Upload failed.');
@@ -84,6 +84,16 @@ const AvatarStep = ({ data, updateData }) => {
       setUploading(false);
       e.target.value = ''; // Reset input
     }
+  };
+
+  const selectExclusively = (opt) => {
+    updateData({
+      selected_avatars: [opt],
+      custom_avatar_url: opt.url,
+      avatar_id: opt.id,
+      style: opt.style,
+      gender: opt.gender
+    });
   };
 
   const toggleAvatar = (opt) => {

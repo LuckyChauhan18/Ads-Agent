@@ -1,0 +1,235 @@
+{
+  "_id": "69ae6b9fd642d240fc13d269",
+  "campaign_psychology": {
+    "campaign_id": "hero_4130",
+    "funnel_stage": "warm",
+    "emotions": [
+      "Belonging",
+      "Nostalgia",
+      "Excitement"
+    ],
+    "user_problem_raw": "High fuel cost in daily commuting, Low mileage bikes increasing monthly expenses, Expensive bike maintenance, Poor road comfort on rough Indian roads, Lack of reliable bikes for long-term use, High price of premium motorcycles, Difficulty finding affordable yet durable bikes, Weak suspension on village or broken roads, Bikes that are not suitable for daily office travel, Lack of trusted service network in small towns",
+    "objections": [],
+    "trust_signals": [
+      "Powerful engine",
+      "High mileage",
+      "Affordable pricing",
+      "Strong build quality",
+      "Comfortable seating",
+      "Good suspension for Indian roads",
+      "Low maintenance cost",
+      "Reliable performance",
+      "Wide service network",
+      "Easy spare parts availability",
+      "Good resale value",
+      "Fuel efficient technology",
+      "Durable design",
+      "Suitable for city and rural roads",
+      "Smooth ride quality"
+    ],
+    "offer": {
+      "offers": [
+        {
+          "discount": "",
+          "guarantee": ""
+        }
+      ]
+    },
+    "platform": "instagram",
+    "brand_voice": "Empathetic & Soft",
+    "market_context": {
+      "total_ads_analyzed": 4,
+      "dominant_hook_type": "Emotion",
+      "dominant_tone": "Neutral",
+      "dominant_angle": "General",
+      "common_cta": "Learn More",
+      "dominant_text_density": "medium",
+      "hook_type_weights": {},
+      "tone_weights": {},
+      "angle_weights": {},
+      "cta_weights": {},
+      "text_density_weights": {},
+      "signal_tiers": {
+        "hook_type": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "tone": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "angle": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "cta": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "text_density": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        }
+      },
+      "avg_text_length": 0,
+      "top_punch_lines": []
+    },
+    "funnel_constraints": {
+      "allowed_cta": [
+        "See Reviews",
+        "View Details"
+      ],
+      "focus": "trust",
+      "urgency": "medium"
+    },
+    "ai_strategy": {
+      "psychological_hook_strategy": "Start with a relatable story of a daily commuter frustrated by rising fuel costs and unreliable bikes. Use a contrarian hook by introducing a surprising fact about how affordable bikes can actually save money in the long run, challenging the notion that cheaper means lower quality. This personal narrative will captivate the audience and invite them to explore a solution that breaks the norm.",
+      "empathy_statement": "I know the struggle of juggling monthly expenses while trying to find a reliable bike that won\u2019t let you down on those bumpy village roads.",
+      "objection_handling_plan": "Address trust concerns by sharing testimonials from real users who experienced significant savings and comfort after switching to our bikes. Highlight the strong build quality and wide service network to reassure those worried about maintenance and support. Use visuals of our bikes thriving on challenging roads, showcasing their durability.",
+      "recommended_angles": [
+        "Behind-the-scenes of the bike development process, showcasing the attention to detail and user feedback that shaped our bikes.",
+        "Founder story that shares the personal journey of creating a bike that truly meets the needs of everyday commuters, emphasizing empathy and understanding.",
+        "User journey highlighting a day in the life of a satisfied customer, illustrating how our bike transformed their daily commute and financial outlook."
+      ],
+      "competitor_success_logic": "Competitor ads work by evoking emotions and presenting a neutral tone, but they often lack a personal touch and relatable storytelling. By infusing raw, relatable narratives and focusing on unique user experiences, we can create a stronger emotional connection and differentiate ourselves in the market.",
+      "winning_punch_line_strategy": {
+        "framework": "Confession + Revelation",
+        "punch_line": "What if the bike you thought was out of reach is actually the key to saving money and enjoying your commute?"
+      },
+      "narrative_approach": "Utilize the 'before_after' style by illustrating a user's life before finding our bike\u2014filled with stress from high costs and unreliable rides\u2014then transition to their life after, showcasing newfound freedom, savings, and comfort on the road, making the transformation feel tangible and relatable.",
+      "trigger_implementation": {
+        "fear_of_missing_out": "Highlight limited-time offers or exclusive access to certain models, encouraging users to act quickly.",
+        "curiosity_gap": "Introduce surprising statistics about cost savings and bike performance to pique interest, leading to a call to action to learn more.",
+        "identity_alignment": "Position our bike as not just a mode of transport but a part of a lifestyle choice that reflects values of smart spending and reliable commuting."
+      },
+      "compliance_reminders": "Ensure all claims are backed by real user testimonials and data. Maintain an empathetic and soft brand voice throughout the ad. Avoid overly aggressive sales tactics and focus on building trust.",
+      "final_brief": "Imagine waking up each day without the stress of high fuel costs or unreliable bikes. Our campaign will tell the powerful story of everyday commuters, relatable struggles, and the surprising solution that not only saves money but transforms your daily ride into an enjoyable experience. Let\u2019s craft an ad that speaks authentically, captures attention, and invites our audience to be part of a community that values comfort, reliability, and smart choices."
+    },
+    "creative_dna": {
+      "narrative_style": "before_after",
+      "psychological_triggers": [
+        "fear_of_missing_out",
+        "curiosity_gap",
+        "identity_alignment"
+      ],
+      "pattern_break": {
+        "hook_pattern_break": "Use curiosity or contrarian hook instead",
+        "tone_pattern_break": "Use raw, relatable storytelling",
+        "rationale": "Competitors mostly use 'Emotion' hooks with 'Neutral' tone. We deliberately break this pattern to capture attention in a crowded feed."
+      },
+      "market_gaps": [
+        "Behind-the-scenes",
+        "Founder story",
+        "User journey"
+      ],
+      "hook_patterns": {
+        "hook_structure_distribution": {},
+        "dominant_hook_structure": "statement_hook"
+      }
+    },
+    "product_understanding": {
+      "product_name": "Hero Bike",
+      "brand_name": "Hero",
+      "category": "Motorcycle",
+      "description": "Introducing the Hero Bike, where premium quality meets exceptional performance. Designed for the modern rider, this bike combines sleek aesthetics with cutting-edge technology, delivering an unparalleled riding experience. Its powerful engine ensures smooth acceleration and reliability, while the lightweight frame offers agility and control on any terrain. With comfortable seating and advanced suspension, every ride becomes a pleasure, whether commuting through the city or exploring winding roads. Equipped with stylish graphics and sophisticated design, the Hero Bike stands out as a statement of adventure and freedom. Elevate your journey with a bike that embodies durability and sophistication\u2014choose Hero Bike for your next ride.",
+      "price_range": "Premium (Price Not Specified)",
+      "features": [
+        "Premium quality",
+        "Exceptional performance",
+        "Sleek aesthetics",
+        "Cutting-edge technology",
+        "Powerful engine",
+        "Smooth acceleration",
+        "Reliability",
+        "Lightweight frame",
+        "Agility and control on any terrain",
+        "Comfortable seating",
+        "Advanced suspension",
+        "Stylish graphics",
+        "Sophisticated design",
+        "Durability"
+      ],
+      "target_user": "Modern riders seeking a versatile, high-performance, and stylish motorcycle for both urban commuting and adventurous explorations.",
+      "brand_fame_level": "famous",
+      "product_url": "https://www.bikewale.com/hero-bikes/xtreme-125r/",
+      "root_product": "Bike"
+    }
+  },
+  "pattern_blueprint": {
+    "campaign_id": "hero_4130",
+    "pattern_name": "Curiosity x Performance Strategy",
+    "strategic_goal": "Start with a relatable story of a daily commuter frustrated by rising fuel costs and unreliable bikes. Use a contrarian hook by introducing a surprising fact about how affordable bikes can actually save money in the long run, challenging the notion that cheaper means lower quality. This personal narrative will captivate the audience and invite them to explore a solution that breaks the norm.",
+    "pattern_blueprint": {
+      "hook_type": "Curiosity",
+      "opening_style": "Story-based",
+      "angle": "Performance",
+      "tone": "Friendly",
+      "scene_flow": [
+        "Hook",
+        "Problem",
+        "Solution",
+        "Trust",
+        "Proof",
+        "CTA"
+      ],
+      "cta": "See Reviews",
+      "text_density": "medium"
+    },
+    "derived_from": {
+      "funnel_stage": "warm",
+      "total_ads_analyzed": 4,
+      "market_weights": {
+        "hook_type": {},
+        "tone": {},
+        "angle": {},
+        "cta": {},
+        "text_density": {}
+      },
+      "signal_tiers": {
+        "hook_type": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "tone": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "angle": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "cta": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        },
+        "text_density": {
+          "baseline": {},
+          "variation": {},
+          "weak": {}
+        }
+      }
+    }
+  },
+  "product_name": "Hero Bike",
+  "brand_name": "Hero",
+  "platform": "instagram",
+  "ad_length": 30,
+  "funnel_stage": "warm",
+  "primary_emotions": [
+    "Belonging",
+    "Nostalgia",
+    "Excitement"
+  ],
+  "timestamp": "2026-03-09T12:11:35.143155",
+  "user_id": "69ae69cdd642d240fc13d25a",
+  "updated_at": "2026-03-09T12:11:35.143155"
+}

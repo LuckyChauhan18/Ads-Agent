@@ -274,11 +274,14 @@ function Dashboard({ user }) {
 
       <style>{`
         .dashboard-container {
-          width: 900px;
-          height: 700px;
-          padding: 40px;
+          width: 100%;
+          flex: 1;
+          min-height: 0;
           display: flex;
           flex-direction: column;
+          padding: 24px 40px 40px;
+          margin: 0 auto;
+          max-width: 1400px;
         }
         .dashboard-header {
           display: flex;
@@ -339,6 +342,7 @@ function Dashboard({ user }) {
           flex: 1;
           overflow-y: auto;
           padding-right: 10px;
+          min-height: 0;
         }
         .item-card.clickable {
             cursor: pointer;
@@ -352,16 +356,13 @@ function Dashboard({ user }) {
         
         /* Detail View Styles */
         .campaigns-view {
-          height: 100%;
           display: flex;
           flex-direction: column;
         }
         .campaign-detail-view {
-          flex: 1;
           display: flex;
           flex-direction: column;
           padding: 24px;
-          overflow: hidden;
           background: rgba(0, 0, 0, 0.3);
           border-radius: 16px;
         }
@@ -396,9 +397,8 @@ function Dashboard({ user }) {
           font-weight: 700;
         }
         .detail-scroll-content {
-          flex: 1;
-          overflow-y: auto;
           padding-right: 12px;
+          padding-bottom: 20px;
           display: flex;
           flex-direction: column;
           gap: 30px;
@@ -420,10 +420,17 @@ function Dashboard({ user }) {
           background: rgba(255,255,255,0.05);
         }
         .scene-row {
-          padding: 15px;
-          margin-bottom: 10px;
-          background: rgba(255,255,255,0.02);
-          border-radius: 8px;
+          padding: 18px 24px;
+          margin-bottom: 15px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 12px;
+          transition: all 0.3s ease;
+        }
+        .scene-row:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(99, 102, 241, 0.3);
+          transform: translateY(-2px);
         }
         .scene-meta {
           display: flex;

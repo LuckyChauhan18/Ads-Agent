@@ -33,8 +33,11 @@ class GeminiRenderer:
             self.avatar_list = avatar_config
             self.avatar = avatar_config[0] if avatar_config else {}
         elif isinstance(avatar_config, dict):
-            # Handle cases where avatar_config might be nested in 'results' from frontend
-            avatar_data = avatar_config.get("results", avatar_config)
+            # Handle cases where avatar_config might be nested or have plural selection
+            avatar_data = avatar_config.get("selected_avatars")
+            if not avatar_data:
+                avatar_data = avatar_config.get("results", avatar_config)
+            
             if isinstance(avatar_data, list):
                 self.avatar_list = avatar_data
                 self.avatar = avatar_data[0] if avatar_data else {}
@@ -89,8 +92,10 @@ class GeminiRenderer:
             items = await get_user_assets(user_id)
             for item in items:
                 metadata = item.get("metadata", {})
+                item_campaign_id = metadata.get("campaign_id")
+                
                 # Check for campaign_id match (if provided)
-                if campaign_id and metadata.get("campaign_id") != campaign_id:
+                if campaign_id and item_campaign_id and str(item_campaign_id) != str(campaign_id):
                     continue
                 
                 asset_type = metadata.get("asset_type")
@@ -122,7 +127,9 @@ class GeminiRenderer:
         # --- Custom Avatar Reference (Priority) ---
         avatar_obj = scene.get("avatar") or {}
         # Prioritize scene-specific avatar first, then top-level self.avatar
-        custom_avatar_url = avatar_obj.get("custom_image_url") or self.avatar.get("url") or self.avatar.get("custom_image_url")
+        custom_avatar_url = avatar_obj.get("custom_image_url") or avatar_obj.get("url")
+        if not custom_avatar_url:
+            custom_avatar_url = self.avatar.get("custom_image_url") or self.avatar.get("url")
         
         if custom_avatar_url:
             file_id = None
@@ -139,7 +146,7 @@ class GeminiRenderer:
                         reference_type="ASSET"
                     )
                     references.append(ref)
-                    print(f"       Using custom avatar reference: {file_id}")
+                    print(f"       ✅ Using custom avatar reference for scene: {file_id}")
         
         # --- D2C STORY ARC: NO product in Hook/Problem ---
         if scene_name in ("Hook", "Problem", "Relatable Moment", "Stop scroll", "Agitate pain"):
@@ -216,10 +223,13 @@ class GeminiRenderer:
         offer_statement = f"announces {discount_msg} {guarantee_msg}" if (discount_msg or guarantee_msg) else "speaks enthusiastically"
         
         # Get avatar info for prompt customization
-        gender = self.avatar.get("gender", "young Indian person")
-        style = self.avatar.get("style", "cinematic")
-        if gender.lower() in ("unknown", "auto"): gender = "young Indian person"
-        if style.lower() == "manual upload": style = "realistic presenter"
+        gender = self.avatar.get("gender") or self.avatar.get("avatar_preferences", {}).get("gender", "young Indian person")
+        style = self.avatar.get("style") or self.avatar.get("avatar_preferences", {}).get("style", "cinematic")
+        
+        if not gender or str(gender).lower() in ("unknown", "auto"): 
+            gender = "young Indian person"
+        if str(style).lower() == "manual upload": 
+            style = "realistic presenter"
 
         # Get language
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")

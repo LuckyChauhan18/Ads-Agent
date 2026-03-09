@@ -8,7 +8,7 @@ if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
 if __name__ == "__main__":
-    print("Starting AI Ad Generator API...")
+    print("Starting Spectra AI API...")
     # Run the FastAPI app via Uvicorn
     # Make sure to run this script from the project root.
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)

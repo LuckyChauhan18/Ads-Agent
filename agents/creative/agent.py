@@ -36,7 +36,9 @@ def run_creative(state: AdGenState) -> dict:
     pattern_blueprint = strategy_data.get("pattern_blueprint", {})
     
     creative_data = state.get("creative", {})
-    avatar_config = creative_data.get("avatar_config", {})
+    # Prioritize avatar_config passed directly in state.creative
+    avatar_config = creative_data.get("avatar_config") or creative_data.get("avatar_config", {})
+    
     language = state.get("language", "Hindi")
     platform = state.get("platform", "Instagram Reels")
     ad_length = state.get("ad_length", 30)
@@ -60,23 +62,31 @@ def run_creative(state: AdGenState) -> dict:
 
         if "scenes" in script_output and script_output["scenes"]:
             print(f"   🔄 Enhancing {len(script_output['scenes'])} scenes via LLM filter...")
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    script_output["scenes"] = pool.submit(
-                        asyncio.run,
-                        ai_assist_service.filter_storyboard_scenes_parallel(
-                            script_output["scenes"], language=language
-                        )
-                    ).result()
-            else:
-                script_output["scenes"] = asyncio.run(
-                    ai_assist_service.filter_storyboard_scenes_parallel(
-                        script_output["scenes"], language=language
+            
+            # Use a fresh event loop in a separate thread to avoid "loop already running" or "no loop" issues
+            import concurrent.futures
+            
+            def safe_async_run(coro_func, *args, **kwargs):
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(coro_func(*args, **kwargs))
+                finally:
+                    loop.close()
+
+            try:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(
+                        safe_async_run, 
+                        ai_assist_service.filter_storyboard_scenes_parallel, 
+                        script_output["scenes"], 
+                        language=language
                     )
-                )
-            print(f"   ✅ Scenes enhanced")
+                    script_output["scenes"] = future.result(timeout=60)
+                print(f"   ✅ Scenes enhanced")
+            except Exception as e:
+                print(f"   ⚠️ Scene enhancement error (internal): {e}")
+                # Fall back to original scenes if enhancement fails
     except Exception as e:
         errors.append(f"SceneEnhancement error: {e}")
         print(f"   ⚠️ Scene enhancement failed (non-fatal): {e}")

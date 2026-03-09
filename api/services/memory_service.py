@@ -1,5 +1,5 @@
 """
-Long-Term Memory (LTM) Service for the AI Ad Generator.
+Long-Term Memory (LTM) Service for Spectra AI.
 
 Uses a SEPARATE MongoDB database (ai_ad_memory) to store per-company
 learned preferences. Implements:
@@ -14,7 +14,7 @@ from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 LTM_MONGODB_URL = os.getenv("LTM_MONGODB_URL")
 if not LTM_MONGODB_URL:
@@ -38,16 +38,25 @@ ltm = LTMDatabase()
 
 
 async def connect_to_ltm():
-    """Initialize the LTM MongoDB connection."""
-    ltm.client = AsyncIOMotorClient(LTM_MONGODB_URL)
-    ltm.db = ltm.client[LTM_DB_NAME]
+    """Initialize the LTM MongoDB connection with resilience."""
+    try:
+        # Lower timeout and fail fast
+        ltm.client = AsyncIOMotorClient(LTM_MONGODB_URL, serverSelectionTimeoutMS=5000)
+        ltm.db = ltm.client[LTM_DB_NAME]
+        
+        # Verify connection
+        await ltm.client.admin.command('ping')
 
-    # Create indexes for fast lookups
-    await ltm.db.company_memory.create_index("company_id", unique=True)
-    await ltm.db.temporary_memory.create_index([("company_id", 1), ("agent", 1), ("suggestion", 1)])
-    await ltm.db.feedback_history.create_index([("company_id", 1), ("created_at", -1)])
+        # Create indexes for fast lookups
+        await ltm.db.company_memory.create_index("company_id", unique=True)
+        await ltm.db.temporary_memory.create_index([("company_id", 1), ("agent", 1), ("suggestion", 1)])
+        await ltm.db.feedback_history.create_index([("company_id", 1), ("created_at", -1)])
 
-    print(f"Connected to LTM Database: {LTM_MONGODB_URL[:40]}...")
+        print(f"✅ Connected to LTM Database: {LTM_MONGODB_URL[:30]}...")
+    except Exception as e:
+        print(f"❌ LTM Connection Failed: {e}")
+        ltm.client = None
+        ltm.db = None
 
 
 async def close_ltm_connection():
@@ -66,6 +75,15 @@ async def get_company_memory(company_id: str) -> dict:
     Retrieve the long-term memory for a company.
     Returns an empty structure if no memory exists yet.
     """
+    if ltm.db is None:
+        return {
+            "company_id": company_id,
+            "research_memory": {},
+            "strategy_memory": {},
+            "creative_memory": {},
+            "production_memory": {},
+            "version": 0,
+        }
     doc = await ltm.db.company_memory.find_one({"company_id": company_id})
 
     if doc:

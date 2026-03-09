@@ -256,9 +256,8 @@ class AvatarSelector:
         scored = [(score_fn(item, requirements), item) for item in items]
         scored.sort(key=lambda x: x[0], reverse=True)
         
-        # Pick randomly from top 3 (for variety)
-        top = scored[:3]
-        selected_score, selected = random.choice(top)
+        # Pick the top-scored item (deterministic)
+        selected_score, selected = scored[0]
         return selected.get(id_key, ""), selected.get(name_key, ""), selected_score
     
     def generate_output(self) -> Dict:

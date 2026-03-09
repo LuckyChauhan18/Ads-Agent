@@ -285,19 +285,25 @@ class StoryboardBuilder:
         
         return " | ".join(parts) if parts else None
     
-    def _bind_assets(self, scene_name):
-        """Binds real asset files to a scene based on rules."""
+    def _bind_assets(self, scene_name, scene_index=0):
+        """Binds real asset files to a scene based on rules.
+        Uses a rotation logic to ensure all available assets are used across scenes.
+        """
         rules = SCENE_ASSET_RULES.get(scene_name, SCENE_ASSET_RULES["Hook"])
         bound_assets = []
         
         for category in rules["asset_categories"]:
             files = self.available_assets.get(category, [])
             if files:
-                # Use the first available asset from each category
+                # Rotation logic: Pick asset based on scene index and category
+                # This ensures if we have 3 images and 6 scenes, each image is used twice
+                asset_index = (scene_index) % len(files)
+                selected_file = files[asset_index]
+                
                 bound_assets.append({
                     "category": category,
-                    "file_path": files[0],
-                    "file_name": os.path.basename(files[0])
+                    "file_path": selected_file,
+                    "file_name": os.path.basename(selected_file)
                 })
             else:
                 bound_assets.append({
@@ -326,12 +332,13 @@ class StoryboardBuilder:
             if self.selected_avatars:
                 avatar_obj = self.selected_avatars[idx % len(self.selected_avatars)]
                 current_avatar_url = avatar_obj.get("url") or avatar_obj.get("id")
+                print(f"   [Storyboard] Scene {idx}: Binding avatar {current_avatar_url} (Selection count: {len(self.selected_avatars)})")
             
             # Determine text overlay per scene
             text_overlay = trust_overlay if scene_name == "Trust" else (cta_text if scene_name == "CTA" else None)
             
-            # Bind real assets
-            bound_assets = self._bind_assets(scene_name)
+            # Bind real assets (rotating through available ones)
+            bound_assets = self._bind_assets(scene_name, scene_index=idx)
             
             shot = {
                 "scene": scene_name,

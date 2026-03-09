@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-load_dotenv()
+load_dotenv(override=True)
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.mongodb import MongoDBSaver
@@ -40,11 +40,17 @@ checkpointer = None
 if mongodb_url:
     try:
         # MongoDBSaver expects a synchronous pymongo.MongoClient
-        client = MongoClient(mongodb_url)
+        # serverSelectionTimeoutMS=5000 ensures it doesn't hang for 20s if DNS/Auth fails
+        client = MongoClient(mongodb_url, serverSelectionTimeoutMS=5000)
+        # Verify connection immediately
+        client.admin.command('ping')
+        
         checkpointer = MongoDBSaver(client)
         print(" [Memory] MongoDB checkpointer (sync) connected successfully")
     except Exception as e:
         print(f" [Memory] Failed to connect to MongoDB for checkpoints: {e}")
+        client = None
+        checkpointer = None
 else:
     print(" [Memory] MONGODB_URL not found in environment. Running without memory.")
 

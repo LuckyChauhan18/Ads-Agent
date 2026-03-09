@@ -15,7 +15,7 @@ const Layout = ({ children, user, onLogout }) => {
             onClick={() => navigate('/')}
             style={{ cursor: 'pointer' }}
           >
-            AD<span className="highlight">GEN</span>
+            SPECTRA
           </h1>
 
           <div className="header-actions">
@@ -95,6 +95,7 @@ const Layout = ({ children, user, onLogout }) => {
           overflow: hidden;
           display: flex;
           flex-direction: column;
+          min-height: 0;
         }
       `}</style>
     </div>

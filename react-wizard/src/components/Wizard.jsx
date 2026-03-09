@@ -101,11 +101,19 @@ function Wizard() {
       setLoading({ active: true, message: 'Crafting Ad Pattern & Psychology...' })
       try {
         const res = await workflowService.runPsychology({
-          founder_data: state.strategy,
+          founder_data: {
+            ...state.strategy,
+            ad_length: state.product.ad_length || 30 // Ensure ad_length is included in strategy payload
+          },
           competitor_results: state.research.competitors,
           understanding: state.research.understanding
         })
-        setState(prev => ({ ...prev, blueprint: res.data.results }))
+        const campaignId = res.data.campaign_id;
+        setState(prev => ({
+          ...prev,
+          blueprint: res.data.results,
+          strategy: { ...prev.strategy, campaign_id: campaignId }
+        }))
         setCurrentStep(5)
       } catch (e) { alert('Psychology analysis failed.') }
       setLoading({ active: false, message: '' })
@@ -115,10 +123,13 @@ function Wizard() {
         const res = await workflowService.runScript({
           pattern_blueprint: state.blueprint.pattern_blueprint,
           campaign_psychology: state.blueprint.campaign_psychology,
-          language: state.avatar.language
+          avatar_config: state.avatar,
+          ad_length: state.product.ad_length || 30, // FIXED: accurately pass selection
+          language: state.avatar.language,
+          campaign_id: state.strategy.campaign_id
         })
         setState(prev => ({ ...prev, script: res.data.results }))
-        setCurrentStep(7)
+        setCurrentStep(6)
       } catch (e) { alert('Script generation failed.') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 8) {
@@ -127,7 +138,8 @@ function Wizard() {
         const res = await workflowService.runRender({
           script_output: state.script,
           avatar_config: state.avatar,
-          campaign_psychology: state.blueprint.campaign_psychology
+          campaign_psychology: state.blueprint.campaign_psychology,
+          campaign_id: state.strategy.campaign_id
         })
         const variants = res.data.results.render_results;
         if (variants && variants.length > 0 && variants[0].local_path) {
@@ -241,7 +253,8 @@ function Wizard() {
         .wizard-inner-container {
           display: flex;
           flex-direction: column;
-          height: 100%;
+          flex: 1;
+          min-height: 0;
           width: 100%;
           gap: 20px;
         }

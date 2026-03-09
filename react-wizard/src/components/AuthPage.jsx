@@ -46,8 +46,8 @@ function AuthPage({ onLogin }) {
       if (isLogin) {
         const res = await authService.login(formData.username, formData.password);
         const { access_token } = res.data;
-        localStorage.setItem('adgen_token', access_token);
-        localStorage.setItem('adgen_user', formData.username);
+        localStorage.setItem('spectra_token', access_token);
+        localStorage.setItem('spectra_user', formData.username);
         onLogin(formData.username);
         navigate('/');
       } else {
@@ -205,7 +205,7 @@ function AuthPage({ onLogin }) {
             className="brand-title"
             style={{ x: textX, y: textY }}
           >
-            {["A", "D", "G", "E", "N"].map((letter, index) => (
+            {["S", "P", "E", "C", "T", "R", "A"].map((letter, index) => (
               <motion.span
                 key={index}
                 initial={{ opacity: 0, scale: 0, rotateY: -90 }}
@@ -333,13 +333,16 @@ function AuthPage({ onLogin }) {
         }
 
         .brand-title {
-          font-size: 11rem;
+          font-size: 8.5rem;
           font-weight: 900;
           letter-spacing: -3px;
-          margin: 0;
+          margin: 0 40px;
           display: flex;
-          gap: 15px;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 10px;
           color: white;
+          max-width: 80%;
         }
 
         .brand-title span {

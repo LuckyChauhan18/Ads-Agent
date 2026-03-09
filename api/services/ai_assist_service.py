@@ -131,12 +131,45 @@ class AIAssistService:
         return None
 
     async def filter_scene_text(self, scene: dict, language: str = "English") -> dict:
-        # ... (unchanged)
+        """Uses LLM to polish and improve a single scene's copy and visual continuity."""
+        if not self.client:
+            return scene
+            
+        prompt = f"""
+        Polish the following ad scene for better emotional impact and visual clarity.
+        TARGET LANGUAGE: {language}
+        
+        SCENE DATA:
+        - Intent: {scene.get('intent')}
+        - Voiceover: {scene.get('voiceover')}
+        - Visual Continuity: {scene.get('visual_continuity')}
+        
+        Return a refined version of the voiceover and visual continuity.
+        The voiceover should be high-impact, natural, and authentic.
+        The visual continuity should be specific and cinematic.
+        Keep the response in JSON format: {{"voiceover": "...", "visual_continuity": "..."}}
+        """
+        
+        try:
+            import json
+            response = self.client.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
+            refined = json.loads(response.text)
+            scene["voiceover"] = refined.get("voiceover", scene["voiceover"])
+            scene["visual_continuity"] = refined.get("visual_continuity", scene["visual_continuity"])
+        except Exception as e:
+            print(f"AIAssistService: filter_scene_text error: {e}")
+            
         return scene
 
     async def filter_storyboard_scenes_parallel(self, scenes: list, language: str = "English") -> list:
-        # ... (unchanged)
-        return scenes
+        """Parallel filters all scenes in a storyboard."""
+        import asyncio
+        tasks = [self.filter_scene_text(scene, language=language) for scene in scenes]
+        return await asyncio.gather(*tasks)
 
     async def generate_fallback_image(self, prompt: str) -> str:
         """Generates a static fallback scene image using Imagen and saves to GridFS."""

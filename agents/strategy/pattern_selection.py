@@ -4,22 +4,38 @@ import os
 
 # --- Step 2: Pattern Design Space ---
 PATTERN_SPACE = {
-    "hook_type": ["Problem", "Curiosity", "Relatable", "Authority"],
+    "hook_type": [
+        "Problem", "Curiosity", "Relatable", "Authority", 
+        "Pattern Interrupt", "The Question", "Counter-Intuitive", "Direct Benefit"
+    ],
     "opening_style": [
         "Story-based",
         "POV Relatable",
         "Problem-first",
-        "Comparison"
+        "Comparison",
+        "Cinematic",
+        "Tutorial/How-to",
+        "Micro-Documentary",
+        "Rapid Fire Facts"
     ],
-    "angle": ["Comfort", "Performance", "Trust", "Lifestyle"],
-    "tone": ["Neutral", "Friendly", "Empathetic"],
+    "angle": [
+        "Comfort", "Performance", "Trust", "Lifestyle",
+        "Security", "Social Proof", "Status", "Ease of Use",
+        "Transformation", "Professionalism"
+    ],
+    "tone": [
+        "Neutral", "Friendly", "Empathetic", "Professional",
+        "Energetic", "Minimalist", "Bold", "Trustworthy"
+    ],
     "scene_flow": [
         ["Hook", "Problem", "Relatable Moment", "Solution", "Trust", "CTA"],
         ["Hook", "Problem", "Solution", "Trust", "Proof", "CTA"],
-        ["Hook", "Relatable Moment", "Solution", "Trust", "Proof", "CTA"]
+        ["Hook", "Relatable Moment", "Solution", "Trust", "Proof", "CTA"],
+        ["Hook", "Direct Value", "Feature 1", "Benefit", "Social Proof", "CTA"],
+        ["Hook", "Transformation Story", "The Gap", "The Bridge", "Results", "CTA"]
     ],
 
-    "text_density": ["short", "medium"]
+    "text_density": ["short", "medium", "dense"]
 }
 
 # --- Funnel Bias Rules ---

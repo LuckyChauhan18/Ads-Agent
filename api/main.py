@@ -18,7 +18,7 @@ from api.services.db_mongo_service import connect_to_mongo, close_mongo_connecti
 from api.services.memory_service import connect_to_ltm, close_ltm_connection
 
 app = FastAPI(
-    title="AI Ad Generator API",
+    title="Spectra AI API",
     description="Backend API for the automated ad generation pipeline",
     version="1.0.0",
 )
@@ -104,4 +104,4 @@ app.include_router(ai_assist_router)
 @app.get("/", tags=["Health"])
 def health_check():
     """Simple health check endpoint to verify the API is running."""
-    return {"status": "ok", "message": "AI Ad Generator API is running"}
+    return {"status": "ok", "message": "Spectra AI API is running"}

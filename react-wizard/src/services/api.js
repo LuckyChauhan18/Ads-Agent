@@ -15,7 +15,7 @@ api.interceptors.request.use((config) => {
     // Let the browser set the boundary by removing the custom Content-Type
     delete config.headers['Content-Type'];
   }
-  const token = localStorage.getItem('adgen_token');
+  const token = localStorage.getItem('spectra_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

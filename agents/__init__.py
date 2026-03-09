@@ -1,1 +1,1 @@
-# AI Ad Generator - Multi-Agent System
+# Spectra AI - Multi-Agent System

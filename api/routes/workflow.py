@@ -207,9 +207,21 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
         results["timestamp"] = datetime.now().isoformat()
         results["user_id"] = user_id
         
+        # Use the frontend's campaign_id if available so we don't lose the link to uploaded assets!
+        frontend_cam_id = req.data["founder_data"].get("campaign_id")
+        if frontend_cam_id:
+            results["_id"] = frontend_cam_id
+        
         campaign_id = await save_document("campaigns", results)
-        # CRITICAL: Inject campaign_id into the results for downstream steps
+        
+        # CRITICAL: Inject the REAL database campaign_id everywhere
         results["campaign_id"] = campaign_id
+        if "campaign_psychology" in results:
+             results["campaign_psychology"]["campaign_id"] = campaign_id
+        if "pattern_blueprint" in results:
+             results["pattern_blueprint"]["campaign_id"] = campaign_id
+             if "pattern_blueprint" in results["pattern_blueprint"]:
+                  results["pattern_blueprint"]["pattern_blueprint"]["campaign_id"] = campaign_id
         
         return clean_objectids({"campaign_id": campaign_id, "results": results})
     except ValueError as ve:
@@ -234,7 +246,10 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
         },
         "language": req.data.get("language", "English"),
         "platform": req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels"),
-        "ad_length": req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length", 30)
+        "ad_length": req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length") or 30,
+        "creative": {
+            "avatar_config": req.data.get("avatar_config", {})
+        }
     }
 
     # Inject LTM if company_id is available
@@ -249,20 +264,25 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
     state_out = await creative_graph.ainvoke(state_in, config)
     results = state_out.get("creative", {}).get("script_output", {})
     
+    print(f"DEBUG: run_step_script results keys: {list(results.keys()) if results else 'NONE'}")
     # Update individual script record
     script_data = {"content": results, "user_id": user_id}
     script_id = await save_document("scripts", script_data)
 
     # NEW: Sync results back to the campaign document if campaign_id is provided
-    campaign_id = req.data.get("campaign_psychology", {}).get("campaign_id") or req.data.get("campaign_id")
+    campaign_id = req.data.get("campaign_id") or req.data.get("campaign_psychology", {}).get("campaign_id")
+    print(f"DEBUG: run_step_script syncing to campaign_id: {campaign_id}")
     if campaign_id:
         campaign = await get_document("campaigns", campaign_id)
         if campaign:
+            print(f"DEBUG: found campaign document for {campaign_id}. Syncing storyboard...")
             campaign["final_storyboard"] = results
             campaign["platform"] = state_in["platform"]
             campaign["ad_length"] = state_in["ad_length"]
             await save_document("campaigns", campaign)
             print(f"   🔄 Campaign {campaign_id} synced with new script data.")
+        else:
+            print(f"DEBUG: campaign document NOT FOUND for {campaign_id}")
 
     return {"script_id": script_id, "results": results}
 
@@ -318,20 +338,27 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
         asset_id = await save_document("assets", results)
 
         # Update the campaign history with the final storyboard and avatar config
-        campaign_id = req.data.get("campaign_psychology", {}).get("campaign_id")
+        campaign_id = req.data.get("campaign_id") or req.data.get("campaign_psychology", {}).get("campaign_id")
+        print(f"DEBUG: run_step_render syncing to campaign_id: {campaign_id}")
         if campaign_id:
             campaign = await get_document("campaigns", campaign_id)
             if campaign:
+                print(f"DEBUG: found campaign document for {campaign_id}. Syncing render data...")
                 campaign["final_storyboard"] = req.data["script_output"]
                 campaign["avatar_config"] = req.data["avatar_config"]
                 campaign["asset_id"] = asset_id
                 campaign["user_id"] = user_id
+                video_url = None
                 if "render_results" in results and results["render_results"]:
                     first_variant = results["render_results"][0]
                     if "local_path" in first_variant:
                         filename = os.path.basename(first_variant['local_path'])
-                        campaign["video_url"] = f"http://localhost:8000/videos/{filename}"
+                        video_url = f"http://localhost:8000/videos/{filename}"
+                campaign["video_url"] = video_url # Set video_url here
                 await save_document("campaigns", campaign)
+                print(f"   🔄 Campaign {campaign_id} synced with video render result.")
+            else:
+                print(f"DEBUG: campaign document NOT FOUND for {campaign_id}")
 
         return clean_objectids({"asset_id": asset_id, "results": results})
     except Exception as e:

@@ -10,11 +10,11 @@ import Layout from './components/Layout';
 import './index.css';
 
 function App() {
-  const [user, setUser] = useState(localStorage.getItem('adgen_user'));
+  const [user, setUser] = useState(localStorage.getItem('spectra_user'));
 
   const handleLogout = () => {
-    localStorage.removeItem('adgen_token');
-    localStorage.removeItem('adgen_user');
+    localStorage.removeItem('spectra_token');
+    localStorage.removeItem('spectra_user');
     setUser(null);
     window.location.href = '/auth';
   };
@@ -96,19 +96,7 @@ function App() {
         .bg-step-8 { background: radial-gradient(circle at 50% 10%, #4338ca 0%, #020617 100%); }
         .bg-step-9 { background: radial-gradient(circle at 50% 90%, #1e1b4b 0%, #020617 100%); }
 
-        .glass-container {
-          background: rgba(255, 255, 255, 0.03);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 32px;
-          display: flex;
-          flex-direction: column;
-          position: relative;
-          z-index: 10;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-          overflow: hidden;
-        }
+
 
         .header {
           padding: 24px 40px;

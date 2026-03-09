@@ -144,8 +144,16 @@ class ScriptGenerator:
             print("   Gemini client not initialized for Script. Falling back to templates.")
             return self.generate_script(fallback=True)
             
-        # Calculate required scenes: e.g., 30s / 8s = 3.75 -> 4 scenes
-        scene_count = math.ceil(ad_length / 8)
+        # Calculate required scenes based on user request:
+        if ad_length >= 60:
+            scene_count = 9
+        elif ad_length >= 45:
+            scene_count = 6
+        elif ad_length >= 30:
+            scene_count = 4
+        else:
+            scene_count = math.ceil(ad_length / 6)
+            
         scene_count = max(2, scene_count) # Minimum Hook + CTA
         
         print(f"   Generating {language} script for {platform} ({ad_length}s, {scene_count} scenes) with Gemini AI...")
@@ -162,6 +170,12 @@ class ScriptGenerator:
         features = product_info.get("features", [])
         user_problem = self.context.get("user_problem_raw", "the problem")
         category = product_info.get("category", "")
+        
+        # Detect available visual assets for better visual_continuity suggestions
+        product_images = product_info.get("product_images", [])
+        logo_images = product_info.get("logos", [])
+        image_count = len(product_images)
+        logo_count = len(logo_images)
         
         if language.lower() == "hindi":
             lang_constraints = """STRICT HINDI CONSTRAINTS:
@@ -238,8 +252,17 @@ CAMPAIGN DETAILS:
 - User Problem: {user_problem}
 - SPECIFIC OFFERS (MUST USE THESE NUMBERS/DETAILS): {offer_str if offer_str else "NONE PROVIDED - DO NOT MENTION ANY DISCOUNTS OR OFFERS"}
 - Flow: Hook, Problem, Solution, Trust, Proof, CTA
-{creative_dna_section}
 {lang_constraints}
+{creative_dna_section}
+
+VISUAL ASSETS AVAILABLE:
+- Product Images: {image_count} different shots of the product.
+- Logos: {logo_count} brand logo variants.
+
+CRITICAL VISUAL RULES:
+1. You MUST vary the `visual_continuity` for each scene. 
+2. Since we have {image_count} product images, describe DIFFERENT visual scenarios across the Solution, Trust, and Proof scenes to leverage all of them (e.g., 'Close up of the heel detail', 'Wide shot of the shoe in motion', 'Top-down flat lay').
+3. Do NOT just repeat 'Show product' in every scene. Be specific about WHAT part of the product or WHAT angle should be shown.
 
 CRITICAL RULES (DO NOT IGNORE):
 1. The word "{product}" MUST appear literally in Solution and CTA copy.
@@ -252,10 +275,17 @@ CRITICAL RULES (DO NOT IGNORE):
 
 WARNING: If Solution or CTA copy does NOT contain "{product}" by name, or ignores the SPECIFIC OFFER rules, the output is INVALID.
 
-Return ONLY valid JSON with exactly {scene_count} scenes:
+Return ONLY valid JSON with exactly {scene_count} scenes. 
+
+STRICT SCENE STRUCTURE:
+1. The FIRST scene (index 0) MUST be named "Hook".
+2. Subsequent scenes can have creative names relevant to the ad content (e.g., "Problem Breakdown", "Visual Metaphor", "The Transformation", "Feature Spotlight", "Rapid Fire Benefits").
+3. The FINAL scene MUST be the "CTA".
+
+FORMAT:
 [
   {{"scene": "Hook", "intent": "Stop scroll", "copy": "{language} text about {category} world", "visual_continuity": "Establish environment"}},
-  ... (add more scenes depending on the count)
+  ... ({scene_count - 2} intermediate scenes with creative, descriptive names relevant to the script flow)
   {{"scene": "CTA", "intent": "Drive action", "copy": "{language} text WITH {product} name + BUY NOW", "visual_continuity": "Final payoff"}}
 ]
 """
