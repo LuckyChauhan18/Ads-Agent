@@ -295,9 +295,15 @@ async def get_user_avatar_history(user_id: str):
     }).sort("_id", -1)
     
     async for doc in cursor:
+        metadata = doc.get("metadata", {})
+        # Prioritize URL from metadata (R2 public URL)
+        url = metadata.get("url")
+        if not url:
+            url = f"/files/{str(doc['file_id'])}"
+            
         avatars.append({
             "id": str(doc["file_id"]),
-            "url": f"/files/{str(doc['file_id'])}",
+            "url": url,
             "filename": doc.get("filename", "Previous Avatar"),
             "created_at": doc["_id"].generation_time.isoformat()
         })

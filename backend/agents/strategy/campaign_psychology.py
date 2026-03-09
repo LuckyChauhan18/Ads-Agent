@@ -53,10 +53,6 @@ TONE_BREAK_STRATEGIES = {
     "Aggressive": "Use calm, understated confidence",
 }
 
-# Memory file path
-MEMORY_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "memory")
-WINNING_CAMPAIGNS_FILE = os.path.join(MEMORY_DIR, "winning_campaigns.json")
-
 
 class CampaignPsychologyEngine:
     FUNNEL_RULES = {
@@ -77,10 +73,11 @@ class CampaignPsychologyEngine:
         }
     }
 
-    def __init__(self, founder_input: Dict, competitor_data: List[Dict], api_key: str = None):
+    def __init__(self, founder_input: Dict, competitor_data: List[Dict], api_key: str = None, memory_context: Dict = None):
         self.founder_input = founder_input
         self.competitor_data = competitor_data
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+        self.memory_context = memory_context or {}
 
         # ── Improvement #6: temperature 0.7 for creative variation ──
         self.llm = ChatOpenAI(
@@ -285,55 +282,28 @@ class CampaignPsychologyEngine:
             "hook_patterns": self.extract_hook_patterns(),
         }
 
-    # ────────────────────────────────────────────────────────────────
-    # Improvement #9: Winning Strategy Memory
-    # ────────────────────────────────────────────────────────────────
-
-    def _load_winning_campaigns(self) -> List[Dict]:
-        """Load historical winning campaigns from memory."""
-        if os.path.exists(WINNING_CAMPAIGNS_FILE):
-            try:
-                with open(WINNING_CAMPAIGNS_FILE, "r") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return []
-
-    def save_winning_campaign(self, campaign_data: Dict) -> None:
-        """Save a campaign result to the winning strategies memory."""
-        os.makedirs(MEMORY_DIR, exist_ok=True)
-        history = self._load_winning_campaigns()
-        entry = {
-            "timestamp": datetime.now().isoformat(),
-            "hook_type": campaign_data.get("creative_dna", {}).get("pattern_break", {}).get("hook_pattern_break", ""),
-            "narrative_style": campaign_data.get("creative_dna", {}).get("narrative_style", ""),
-            "psychological_triggers": campaign_data.get("creative_dna", {}).get("psychological_triggers", []),
-            "angle": campaign_data.get("market_context", {}).get("dominant_angle", ""),
-            "tone": campaign_data.get("brand_voice", ""),
-            "funnel_stage": campaign_data.get("funnel_stage", ""),
-        }
-        history.append(entry)
-        # Keep last 50 entries
-        history = history[-50:]
-        with open(WINNING_CAMPAIGNS_FILE, "w") as f:
-            json.dump(history, f, indent=2)
-        print(f"   💾 Campaign saved to winning strategies memory ({len(history)} total)")
-
     def _get_past_strategies_summary(self) -> str:
-        """Summarize past campaigns to avoid repetition."""
-        history = self._load_winning_campaigns()
-        if not history:
-            return "No past campaigns on record."
-
-        recent = history[-5:]
+        """Summarize past campaigns from memory_context."""
+        memories = self.memory_context.get("successful_past_campaigns", [])
+        company_ltm = self.memory_context.get("company_ltm", {})
+        
         lines = []
-        for h in recent:
-            lines.append(
-                f"  - Style: {h.get('narrative_style')}, "
-                f"Triggers: {', '.join(h.get('psychological_triggers', []))}, "
-                f"Hook: {h.get('hook_type')}"
-            )
-        return "Recent past campaigns (AVOID repeating these exact combos):\n" + "\n".join(lines)
+        
+        # 1. Include specific learned preferences from LTM service
+        strategy_ltm = company_ltm.get("strategy_memory", {})
+        if strategy_ltm.get("learned_preference"):
+            lines.append(f"CORE LEARNED PREFERENCE (HIGH PRIORITY): {strategy_ltm['learned_preference']}")
+
+        # 2. Include specific winning campaigns
+        if memories:
+            lines.append("\nSUCCESSFUL past campaigns (LEARN from these):")
+            for h in memories[:5]:
+                lines.append(
+                    f"  - Product: {h.get('product')}, Style: {h.get('hook_style')}, "
+                    f"Angle: {h.get('angle')} (Rating: {h.get('performance_rating')}/5)"
+                )
+        
+        return "\n".join(lines) if lines else "No past campaigns or LTM on record."
 
     # ────────────────────────────────────────────────────────────────
     # Main generation (Improvements #6, #7, #8 — core rewrite)
@@ -469,8 +439,7 @@ Return ONLY a JSON object with these keys:
                 "creative_dna": creative_dna,
             }
 
-            # ── Improvement #9: Save to winning campaigns memory ──
-            self.save_winning_campaign(campaign_psychology)
+            # ── Note: Saving is now handled by the API/Feedback workflow ──
 
             return campaign_psychology
 

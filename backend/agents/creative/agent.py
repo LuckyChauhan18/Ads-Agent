@@ -17,9 +17,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from utils.logger import logger
 from agents.shared.state import AdGenState
 from agents.creative.script_generator import ScriptGenerator
 from agents.creative.storyboard_builder import StoryboardBuilder
+from agents.creative.scene_planner import ScenePlanner
 
 
 def run_creative(state: AdGenState) -> dict:
@@ -28,7 +30,7 @@ def run_creative(state: AdGenState) -> dict:
     
     Generates the ad script, selects avatars, and builds the storyboard.
     """
-    print("\n🎨 [Creative Agent] Starting...")
+    logger.info("🎨 [Creative Agent] Starting...")
     errors = list(state.get("errors", []))
 
     strategy_data = state.get("strategy", {})
@@ -43,17 +45,42 @@ def run_creative(state: AdGenState) -> dict:
     platform = state.get("platform", "Instagram Reels")
     ad_length = state.get("ad_length", 30)
 
+    # ── Step 0: Scene Planning (NEW) ─────────────────────────
+    scene_plan = None
+    try:
+        # Build avatar list from avatar_config
+        avatar_list = []
+        if isinstance(avatar_config, list):
+            avatar_list = avatar_config
+        elif isinstance(avatar_config, dict):
+            selected = avatar_config.get("selected_avatars", avatar_config.get("results", []))
+            if isinstance(selected, list):
+                avatar_list = selected
+            elif selected:
+                avatar_list = [selected]
+        
+        logger.info(f"   🧠 Running Scene Planner for {ad_length}s ad with {len(avatar_list)} avatar(s)...")
+        planner = ScenePlanner(campaign_psychology, avatar_list=avatar_list)
+        scene_plan = planner.plan_scenes_llm(ad_length, platform)
+        logger.info(f"   ✅ Scene plan ready: {len(scene_plan)} scenes")
+    except Exception as e:
+        errors.append(f"ScenePlanner error: {e}")
+        logger.warning(f"   ⚠️ Scene planning failed (non-fatal): {e}. Script will use defaults.")
+
     # ── Step 1: Script Generation ─────────────────────────────
     try:
+        logger.info(f"   🔄 Generating script ({ad_length}s, {language}, {platform})...")
         pattern_data = pattern_blueprint.get("pattern_blueprint", pattern_blueprint)
-        engine_script = ScriptGenerator(pattern_data, campaign_psychology)
-        script_output = engine_script.generate_output(language=language, platform=platform, ad_length=ad_length)
+        memory = strategy_data.get("memory", {})
+        engine_script = ScriptGenerator(pattern_data, campaign_psychology, memory=memory)
+        script_output = engine_script.generate_output(language=language, platform=platform, ad_length=ad_length, scene_plan=scene_plan)
         scene_count = len(script_output.get("scenes", []))
-        print(f"   ✅ Script generated: {scene_count} scenes in {language}")
+        logger.info(f"   ✅ Script generated: {scene_count} scenes in {language}")
     except Exception as e:
         errors.append(f"ScriptGeneration error: {e}")
         script_output = {"scenes": []}
-        print(f"   ⚠️ Script generation failed: {e}")
+        logger.error(f"   ⚠️ Script generation failed: {e}")
+
 
     # ── Step 2: LLM Scene Enhancement ────────────────────────
     try:
@@ -61,7 +88,7 @@ def run_creative(state: AdGenState) -> dict:
         import asyncio
 
         if "scenes" in script_output and script_output["scenes"]:
-            print(f"   🔄 Enhancing {len(script_output['scenes'])} scenes via LLM filter...")
+            logger.info(f"   🔄 Enhancing {len(script_output['scenes'])} scenes via LLM filter...")
             
             # Use a fresh event loop in a separate thread to avoid "loop already running" or "no loop" issues
             import concurrent.futures
@@ -83,39 +110,41 @@ def run_creative(state: AdGenState) -> dict:
                         language=language
                     )
                     script_output["scenes"] = future.result(timeout=60)
-                print(f"   ✅ Scenes enhanced")
+                logger.info(f"   ✅ Scenes enhanced")
             except Exception as e:
-                print(f"   ⚠️ Scene enhancement error (internal): {e}")
+                logger.warning(f"   ⚠️ Scene enhancement error (internal): {e}")
                 # Fall back to original scenes if enhancement fails
     except Exception as e:
         errors.append(f"SceneEnhancement error: {e}")
-        print(f"   ⚠️ Scene enhancement failed (non-fatal): {e}")
+        logger.warning(f"   ⚠️ Scene enhancement failed (non-fatal): {e}")
 
     # ── Step 3: Storyboard Building ───────────────────────────
     try:
+        logger.info("   🔄 Building storyboard...")
         engine_sb = StoryboardBuilder(script_output, avatar_config, campaign_psychology)
         storyboard_output = engine_sb.generate_output()
-        print(f"   ✅ Storyboard built")
+        logger.info(f"   ✅ Storyboard built")
     except Exception as e:
         errors.append(f"StoryboardBuilder error: {e}")
         storyboard_output = script_output  # fallback: use raw script
-        print(f"   ⚠️ Storyboard building failed: {e}")
+        logger.error(f"   ⚠️ Storyboard building failed: {e}")
 
     # ── Step 4: Reflection Loop (Self-Critique) ───────────────
     reflection_results = []
     try:
+        logger.info("   🔄 Running reflection loop...")
         from agents.creative.reflection_agent import run_reflection_loop
         script_output, reflection_results = run_reflection_loop(
             script_output, campaign_psychology, max_iterations=2
         )
         if reflection_results:
             final_score = reflection_results[-1].get("score", "N/A")
-            print(f"   🔍 Reflection complete: final score={final_score}/10")
+            logger.info(f"   🔍 Reflection complete: final score={final_score}/10")
     except Exception as e:
         errors.append(f"ReflectionLoop error: {e}")
-        print(f"   ⚠️ Reflection loop failed (non-fatal): {e}")
+        logger.warning(f"   ⚠️ Reflection loop failed (non-fatal): {e}")
 
-    print("🎨 [Creative Agent] Complete.\n")
+    logger.info("🎨 [Creative Agent] Complete.")
 
     return {
         "creative": {

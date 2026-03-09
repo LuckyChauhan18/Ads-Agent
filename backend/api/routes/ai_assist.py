@@ -77,6 +77,24 @@ async def upload_avatar(file: UploadFile = File(...), current_user: dict = Depen
         
         url = await upload_file_to_r2(unique_filename, content, file.content_type)
             
+        # Index in MongoDB so it shows up in history/gallery
+        from api.services.db_mongo_service import mongo
+        from bson import ObjectId
+        if mongo.db is not None:
+            await mongo.db.user_assets.insert_one({
+                "user_id": current_user["_id"],
+                "file_id": ObjectId(), # Generate a unique ID for this asset
+                "filename": file.filename,
+                "metadata": {
+                    "asset_type": "avatar",
+                    "type": "avatar",
+                    "url": url,
+                    "style": "Manual Upload",
+                    "gender": "Unknown",
+                    "storage": "r2"
+                }
+            })
+
         return {
             "results": {
                 "id": unique_filename,

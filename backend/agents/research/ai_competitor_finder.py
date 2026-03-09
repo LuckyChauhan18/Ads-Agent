@@ -18,8 +18,9 @@ class AgentState(TypedDict):
     error: str
 
 class AICompetitorFinder:
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, research_memory: dict = None):
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
+        self.research_memory = research_memory or {}
         
         # Initialize the LLM via OpenRouter
         self.llm = ChatOpenAI(
@@ -139,6 +140,7 @@ class AICompetitorFinder:
             
             Deep Web Research Context (Tavily):
             {tavily_context}
+            {ltm_context}
             
             CRITICAL RULES:
             1. DO NOT include "{own_brand}".

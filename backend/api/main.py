@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import traceback
 from dotenv import load_dotenv
 from utils.logger import logger
 
@@ -16,6 +17,7 @@ from api.routes.files import router as files_router
 from api.routes.auth import router as auth_router
 
 from api.services.db_mongo_service import connect_to_mongo, close_mongo_connection
+from api.services.memory_service import connect_to_ltm, close_ltm_connection
 
 app = FastAPI(
     title="Spectra AI API",
@@ -38,10 +40,12 @@ async def log_exceptions_middleware(request, call_next):
 async def startup_db_client():
     # Connect to MongoDB for all storage requirements
     await connect_to_mongo()
+    await connect_to_ltm()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await close_mongo_connection()
+    await close_ltm_connection()
 
 # Enable CORS for frontend integration
 # IMPORTANT: CORSMiddleware must be added last or near last to wrap other middlewares?
@@ -61,17 +65,16 @@ from fastapi import Request
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    import traceback
     log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "extra", "global_error_log.txt")
     with open(log_path, "a") as f:
         f.write(f"\n\n--- GLOBAL EXCEPTION HANDLER ---\n")
-        f.write(error_msg)
+        f.write(str(exc))
     
     # Return a JSON response that the frontend can actually read
+    allowed_origins = ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"]
     origin = request.headers.get("origin")
-    # If no origin, fallback to one of the allowed origins
-    if not origin or origin not in ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173"]:
-        origin = "http://localhost:5173"
+    if not origin or origin not in allowed_origins:
+        origin = allowed_origins[0]
 
     return JSONResponse(
         status_code=500,

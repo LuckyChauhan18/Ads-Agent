@@ -98,12 +98,19 @@ async def upload_campaign_assets(campaign_id: str, asset_type: str, files: list[
 @router.post("/step/discover")
 async def run_step_discover(req: StepRequest, current_user: dict = Depends(get_current_user)):
     """Phase 1: Discovery"""
+    user_id = str(current_user["_id"])
     from agents.graph import research_graph
     
     # Generate a temporary ID for discovery phase
     campaign_id = req.data.get("campaign_id") or f"discovery_{datetime.now().timestamp()}"
     
-    state_in = {"product_input": req.data, "scrape_enabled": False}
+    company_id = current_user.get("company_id") or "default_company"
+    state_in = {
+        "product_input": req.data,
+        "scrape_enabled": False,
+        "user_id": user_id,
+        "company_id": company_id
+    }
 
     # LangGraph invoke with thread_id for state tracking
     config = {"configurable": {"thread_id": campaign_id}}
@@ -114,13 +121,26 @@ async def run_step_discover(req: StepRequest, current_user: dict = Depends(get_c
         "understanding": research_state.get("product_understanding", {}),
         "brands": research_state.get("curated_brands", []) or state_out.get("curated_brands", [])
     }
-    results["user_id"] = str(current_user["_id"])
-    return {"results": results}
+    results["user_id"] = user_id
+    
+    # NEW: Store initial discovery in the unified campaign document
+    campaign = {
+        "_id": campaign_id,
+        "campaign_id": campaign_id,
+        "user_id": user_id,
+        "product_info": req.data,
+        "discovery_results": results,
+        "timestamp": datetime.now().isoformat()
+    }
+    await save_document("campaigns", campaign)
+    
+    return {"campaign_id": campaign_id, "results": results}
 
 @router.post("/step/research")
 async def run_step_research(req: StepRequest, current_user: dict = Depends(get_current_user)):
     """Phase 2: Research"""
     user_id = str(current_user["_id"])
+    company_id = current_user.get("company_id") or "default_company"
     from agents.graph import research_graph
     
     # The frontend creates campaign_id in wizard later, but we need it here if possible.
@@ -130,7 +150,9 @@ async def run_step_research(req: StepRequest, current_user: dict = Depends(get_c
     state_in = {
         "product_input": req.data["product"],
         "curated_brands": req.data["curated_brands"],
-        "scrape_enabled": True
+        "scrape_enabled": True,
+        "user_id": user_id,
+        "company_id": company_id
     }
     config = {"configurable": {"thread_id": campaign_id}}
     state_out = await research_graph.ainvoke(state_in, config)
@@ -145,6 +167,7 @@ async def run_step_research(req: StepRequest, current_user: dict = Depends(get_c
         
     campaign["product_info"] = product_data
     campaign["research"] = {"results": results}
+    campaign["curated_brands"] = req.data["curated_brands"]
     
     await save_document("campaigns", campaign)
     
@@ -155,6 +178,7 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
     """Step 2 & 4: Psychology & Patterns"""
     try:
         user_id = str(current_user["_id"])
+        company_id = current_user.get("company_id") or "default_company"
         # req.data should contain founder_data and competitor_results and understanding
         understanding = req.data.get("understanding", {})
         
@@ -164,7 +188,9 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
             "research": {
                 "competitor_results": req.data["competitor_results"],
                 "product_understanding": understanding
-            }
+            },
+            "user_id": user_id,
+            "company_id": company_id
         }
 
         # Langgraph Invoke Config
@@ -184,15 +210,38 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
         results["ad_length"] = req.data["founder_data"].get("ad_length", 30)
         results["funnel_stage"] = req.data["founder_data"].get("funnel_stage", "cold")
         results["primary_emotions"] = req.data["founder_data"].get("primary_emotions", [])
+        
+        # Additional fields for Recreation
+        results["category"] = req.data["founder_data"].get("category", "")
+        results["root_product"] = req.data["founder_data"].get("root_product", "")
+        results["price_range"] = req.data["founder_data"].get("price_range", "")
+        results["product_url"] = req.data["founder_data"].get("product_url", "")
+        results["description"] = req.data["founder_data"].get("description", "")
+        results["features"] = req.data["founder_data"].get("features", [])
+        
+        # Save brands for recreation skip-logic
+        results["curated_brands"] = [
+            (comp.get("brand") if isinstance(comp, dict) else comp) 
+            for comp in req.data.get("competitor_results", []) if comp
+        ]
+        
         results["timestamp"] = datetime.now().isoformat()
         results["user_id"] = user_id
         
         # Use the frontend's campaign_id if available so we don't lose the link to uploaded assets!
         frontend_cam_id = req.data["founder_data"].get("campaign_id")
-        if frontend_cam_id:
-            results["_id"] = frontend_cam_id
+        campaign_id = frontend_cam_id or f"camp_{int(datetime.now().timestamp())}"
         
-        campaign_id = await save_document("campaigns", results)
+        # Load existing campaign to merge
+        campaign = await get_document("campaigns", campaign_id)
+        if not campaign:
+            campaign = {"_id": campaign_id, "campaign_id": campaign_id, "user_id": user_id}
+            
+        # Merge new psychology results
+        campaign.update(results)
+        campaign["_id"] = campaign_id # Ensure ID parity
+        
+        await save_document("campaigns", campaign)
         
         # CRITICAL: Inject the REAL database campaign_id everywhere
         results["campaign_id"] = campaign_id
@@ -214,22 +263,30 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
 async def run_step_script(req: StepRequest, current_user: dict = Depends(get_current_user)):
     """Step 5: Script"""
     user_id = str(current_user["_id"])
+    company_id = current_user.get("company_id") or "default_company"
     
     from agents.graph import creative_graph
     
     campaign_req_id = req.data.get("campaign_psychology", {}).get("campaign_id", f"camp_{int(datetime.now().timestamp())}")
     
+    # Construct modular AdGenState for the production graph
+    platform = req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels")
+    ad_length = req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length") or 30
+    language = req.data.get("language", "English")
+
     state_in = {
         "strategy": {
             "pattern_blueprint": req.data["pattern_blueprint"],
             "campaign_psychology": req.data["campaign_psychology"]
         },
-        "language": req.data.get("language", "English"),
-        "platform": req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels"),
-        "ad_length": req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length") or 30,
+        "language": language,
+        "platform": platform,
+        "ad_length": ad_length,
         "creative": {
             "avatar_config": req.data.get("avatar_config", {})
-        }
+        },
+        "user_id": user_id,
+        "company_id": company_id
     }
 
 
@@ -237,8 +294,8 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
     state_out = await creative_graph.ainvoke(state_in, config)
     results = state_out.get("creative", {}).get("script_output", {})
     logger.info(f"📝 Script generation completed. Results keys: {list(results.keys()) if results else 'NONE'}")
-    # Update individual script record
-    script_data = {"content": results, "user_id": user_id}
+    # Keep individual scripts for now but focus on campaign unification
+    script_data = {"content": results, "user_id": user_id, "campaign_id": campaign_req_id}
     script_id = await save_document("scripts", script_data)
 
     # NEW: Sync results back to the campaign document if campaign_id is provided
@@ -246,15 +303,19 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
     logger.debug(f"Syncing script results to campaign_id: {campaign_id}")
     if campaign_id:
         campaign = await get_document("campaigns", campaign_id)
-        if campaign:
-            logger.info(f"🔄 Found campaign '{campaign_id}'. Syncing storyboard...")
-            campaign["final_storyboard"] = results
-            campaign["platform"] = state_in["platform"]
-            campaign["ad_length"] = state_in["ad_length"]
-            await save_document("campaigns", campaign)
-            logger.info(f"✅ Campaign {campaign_id} synced with new script data.")
-        else:
-            logger.warning(f"⚠️ Campaign document NOT FOUND for {campaign_id}")
+        if not campaign:
+            campaign = {"_id": campaign_id, "campaign_id": campaign_id, "user_id": user_id}
+            
+        logger.info(f"🔄 Syncing script data to Campaign: {campaign_id}")
+        campaign["final_storyboard"] = results
+        campaign["platform"] = state_in["platform"]
+        campaign["ad_length"] = state_in["ad_length"]
+        campaign["avatar_config"] = req.data.get("avatar_config", {})
+        
+        await save_document("campaigns", campaign)
+        logger.info(f"✅ Campaign {campaign_id} synced with new script data.")
+    else:
+        logger.warning("⚠️ No campaign_id found to sync script data.")
 
     return {"script_id": script_id, "results": results}
 
@@ -275,6 +336,7 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
     """Step 7: Render"""
     try:
         user_id = str(current_user["_id"])
+        company_id = current_user.get("company_id") or "default_company"
         
         from agents.graph import production_graph
         
@@ -292,6 +354,7 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
             },
             "campaign_id": campaign_req_id,
             "user_id": user_id,
+            "company_id": company_id,
             "platform": req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels"),
             "ad_length": req.data.get("ad_length") or req.data.get("campaign_psychology", {}).get("ad_length", 30)
         }
@@ -366,11 +429,12 @@ class FeedbackRequest(BaseModel):
 
 
 @router.post("/feedback")
-async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get_current_user)):
+async def submit_feedback(req: FeedbackRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Submit feedback for a generated video ad."""
     from api.services.db_mongo_service import save_feedback
 
     user_id = str(current_user["_id"])
+    company_id = current_user.get("company_id") or "default_company"
 
     feedback_data = {
         "user_id": user_id,
@@ -386,11 +450,71 @@ async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get
     feedback_id = await save_feedback(feedback_data)
     logger.info(f"📝 Feedback saved: rating={req.rating}, id={feedback_id}")
 
+    # 2. Trigger LTM processing if rating is high or feedback is detailed
+    if req.rating >= 4 or len(req.feedback_text) > 10:
+        background_tasks.add_task(process_feedback_for_ltm, feedback_data)
+
     return {
         "status": "ok",
-        "feedback_id": feedback_id,
-        "evaluation": evaluation_result,
+        "feedback_id": feedback_id
     }
+
+async def process_feedback_for_ltm(feedback_data: dict):
+    """Background task to structure feedback and update LTM."""
+    try:
+        from api.services.memory_service import process_structured_feedback
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, HumanMessage
+        import json
+
+        # Fetch campaign to get context
+        campaign_id = feedback_data.get("campaign_id")
+        campaign = await get_document("campaigns", campaign_id)
+        if not campaign:
+            return
+
+        company_id = campaign.get("company_id") or "default_company"
+        
+        # 1. Use LLM to structure the feedback
+        llm = ChatOpenAI(
+            model="gpt-4o-mini",
+            openai_api_key=os.getenv("OPENROUTER_API_KEY"),
+            openai_api_base="https://openrouter.ai/api/v1",
+            temperature=0,
+        )
+
+        system_prompt = """You are a feedback analyst. Structure the user's feedback into actionable 'learned preferences' for different agents.
+Return a JSON with:
+- "research_feedback": preferred competitors, niches, or data sources
+- "strategy_feedback": psychological triggers, emotional tones, or angles
+- "creative_feedback": script style, visual tropes, hook preferences
+- "production_feedback": resolution, branding, or overlay preferences
+- "confidence": 0-1 score based on how clear the preference is
+"""
+
+        prompt = f"""Campaign: {campaign.get('product_name')}
+Feedback Rating: {feedback_data.get('rating')}/5
+Feedback Text: "{feedback_data.get('feedback_text')}"
+
+Extract learning preferences for the AI agents."""
+
+        response = llm.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=prompt)
+        ])
+        
+        content = response.content.strip()
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        
+        structured = json.loads(content)
+        confidence = structured.pop("confidence", 0.5)
+
+        # 2. Update LTM
+        await process_structured_feedback(company_id, structured, confidence)
+        logger.info(f"🧠 [LTM] Feedback processed for {company_id}")
+    except Exception as e:
+        logger.error(f"❌ [LTM] Feedback processing failed: {e}")
 
 
 @router.get("/feedback")

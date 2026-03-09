@@ -314,7 +314,7 @@ const AvatarStep = ({ data, updateData }) => {
                           className={`avatar-card-premium ${selIndex ? 'selected' : ''}`}
                           onClick={() => toggleAvatar(opt)}
                         >
-                          <img src={`http://localhost:8000${opt.url}`} alt="Avatar" />
+                          <img src={opt.url.startsWith('http') ? opt.url : `http://localhost:8000${opt.url}`} alt="Avatar" />
 
                           <AnimatePresence>
                             {selIndex && (

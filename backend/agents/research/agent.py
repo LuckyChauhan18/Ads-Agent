@@ -19,6 +19,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from utils.logger import logger
 from agents.shared.state import AdGenState
 from agents.research.product_understanding import ProductUnderstandingEngine
 from agents.research.ai_competitor_finder import AICompetitorFinder
@@ -35,7 +36,7 @@ def run_research(state: AdGenState) -> dict:
     Phase 1: Discovery — Analyze product, find competitors.
     Phase 2: Research  — Scrape Meta ads, extract DNA.
     """
-    print("\n🔍 [Research Agent] Starting...")
+    logger.info("🔍 [Research Agent] Starting...")
     errors = list(state.get("errors", []))
 
     product_data = state.get("product_input", {})
@@ -47,38 +48,46 @@ def run_research(state: AdGenState) -> dict:
         understanding = engine.get_understanding()
         if product_data.get("root_product"):
             understanding["root_product"] = product_data["root_product"]
-        print(f"   ✅ Product understood: {understanding.get('product_name', 'Unknown')}")
+        logger.info(f"   ✅ Product understood: {understanding.get('product_name', 'Unknown')}")
     except Exception as e:
         errors.append(f"ProductUnderstanding error: {e}")
         understanding = {"product_name": product_data.get("product_name", "Unknown")}
-        print(f"   ⚠️ Product understanding failed: {e}")
+        logger.warning(f"   ⚠️ Product understanding failed: {e}")
 
     # ── Step 2: Competitor Discovery (if no curated brands) ───
     if not curated_brands:
         try:
-            ai_finder = AICompetitorFinder()
+            # Extract research memory
+            memory = state.get("memory", {})
+            research_memory = memory.get("company_ltm", {}).get("research_memory", {})
+            
+            ai_finder = AICompetitorFinder(research_memory=research_memory)
             brand_queue = ai_finder.find_competitors(understanding)
             brands = list(dict.fromkeys(
                 [b for b in brand_queue if " ads" not in b.lower() and len(b) > 2]
             ))[:5]
             curated_brands = [{"name": b, "target_count": 3} for b in brands]
-            print(f"   ✅ Discovered {len(curated_brands)} competitor brands")
+            logger.info(f"   ✅ Discovered {len(curated_brands)} competitor brands")
         except Exception as e:
             errors.append(f"CompetitorDiscovery error: {e}")
             curated_brands = []
-            print(f"   ⚠️ Competitor discovery failed: {e}")
+            logger.warning(f"   ⚠️ Competitor discovery failed: {e}")
 
     # ── Step 3: Meta Ads Scraping & DNA Extraction ────────────
     competitor_results = []
     
     if state.get("scrape_enabled", True):
-        ai_finder = AICompetitorFinder()
+        # Extract research memory
+        memory = state.get("memory", {})
+        research_memory = memory.get("company_ltm", {}).get("research_memory", {})
+        
+        ai_finder = AICompetitorFinder(research_memory=research_memory)
         for brand_info in curated_brands:
             brand_name = brand_info["name"]
             target_count = brand_info.get("target_count", 3)
             product_context = understanding.get("root_product") or understanding.get("category", "")
 
-            print(f"   📡 Scraping {brand_name} (target: {target_count})...")
+            logger.info(f"   📡 Scraping {brand_name} (target: {target_count})...")
 
             try:
                 competitor_output_path = os.path.join(OUTPUT_DIR, f"ads_dna_{brand_name.lower()}.json")
@@ -104,7 +113,7 @@ def run_research(state: AdGenState) -> dict:
                     "top_punchline": brand_verified[0]["dna"]["punch_line"] if brand_verified else "No ads found",
                     "ads": brand_verified
                 })
-                print(f"   ✅ {brand_name}: {len(brand_verified)} verified ads")
+                logger.info(f"   ✅ {brand_name}: {len(brand_verified)} verified ads")
             except Exception as e:
                 errors.append(f"Scraping {brand_name} error: {e}")
                 competitor_results.append({
@@ -115,11 +124,11 @@ def run_research(state: AdGenState) -> dict:
                     "top_punchline": "Scraping failed",
                     "ads": []
                 })
-                print(f"   ⚠️ Scraping {brand_name} failed: {e}")
+                logger.warning(f"   ⚠️ Scraping {brand_name} failed: {e}")
 
-        print(f"🔍 [Research Agent] Scraping Complete. {len(competitor_results)} brands processed.\n")
+        logger.info(f"🔍 [Research Agent] Scraping Complete. {len(competitor_results)} brands processed.")
     else:
-        print(f"🔍 [Research Agent] Discovery Complete. Scraping paused.\n")
+        logger.info(f"🔍 [Research Agent] Discovery Complete. Scraping paused.")
 
     return {
         "research": {

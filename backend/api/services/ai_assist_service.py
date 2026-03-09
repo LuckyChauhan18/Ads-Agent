@@ -109,10 +109,27 @@ class AIAssistService:
                 import uuid
                 
                 # Save directly to Cloudflare R2
-                unique_filename = f"avatars/{user_id}/{uuid.uuid4()}.jpg"
                 url = await upload_file_to_r2(unique_filename, img_data, "image/jpeg")
                 
-                print(f"AIAssistService: Successfully saved avatar to R2 at {url}")
+                # Index in MongoDB so it shows up in history/gallery
+                from api.services.db_mongo_service import mongo
+                from bson import ObjectId
+                if mongo.db is not None:
+                    await mongo.db.user_assets.insert_one({
+                        "user_id": user_id,
+                        "file_id": ObjectId(), # Generate a unique ID for this asset
+                        "filename": unique_filename.split("/")[-1],
+                        "metadata": {
+                            "asset_type": "avatar",
+                            "type": "avatar",
+                            "url": url,
+                            "style": style,
+                            "gender": gender,
+                            "storage": "r2"
+                        }
+                    })
+
+                print(f"AIAssistService: Successfully saved avatar to R2 and indexed in Mongo: {url}")
                 return {
                     "id": unique_filename,
                     "url": url,

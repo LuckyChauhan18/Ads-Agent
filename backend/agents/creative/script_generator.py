@@ -2,8 +2,14 @@ import os
 import math
 import json
 import random
+import sys
 from google import genai
 from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+from utils.logger import logger
 
 # Load .env
 dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
@@ -78,14 +84,16 @@ class ScriptGenerator:
     STEP 3 decides 'WHAT words express it'.
     """
     
-    def __init__(self, pattern_blueprint, campaign_context):
+    def __init__(self, pattern_blueprint, campaign_context, memory: dict = None):
         """
         Args:
             pattern_blueprint: Output from Step 2 (the pattern_blueprint dict)
             campaign_context: Output from Step 1 (the campaign_psychology dict)
+            memory: Optional historical success data
         """
         self.pattern = pattern_blueprint
         self.context = campaign_context
+        self.memory = memory or {}
         
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if api_key:
@@ -138,25 +146,36 @@ class ScriptGenerator:
         
         return line
     
-    def generate_script_llm(self, language="Hindi", platform="Instagram Reels", ad_length=30):
-        """Uses Gemini AI to generate a high-quality ad script in the target language."""
+    def generate_script_llm(self, language="Hindi", platform="Instagram Reels", ad_length=30, scene_plan=None):
+        """Uses Gemini AI to generate a high-quality ad script in the target language.
+        
+        Args:
+            scene_plan: Optional list of {scene, duration, avatar_role} from ScenePlanner.
+                        If provided, the LLM will use these exact scene names and durations.
+        """
         if not self.client:
-            print("   Gemini client not initialized for Script. Falling back to templates.")
+            logger.warning("   Gemini client not initialized for Script. Falling back to templates.")
             return self.generate_script(fallback=True)
             
-        # Calculate required scenes based on user request:
-        if ad_length >= 60:
-            scene_count = 9
-        elif ad_length >= 45:
-            scene_count = 6
-        elif ad_length >= 30:
-            scene_count = 4
+        # Use scene plan if provided, otherwise calculate scene count
+        if scene_plan:
+            scene_count = len(scene_plan)
+            scene_names = [s["scene"] for s in scene_plan]
+            scene_durations = [s.get("duration", "5s") for s in scene_plan]
         else:
-            scene_count = math.ceil(ad_length / 6)
-            
-        scene_count = max(2, scene_count) # Minimum Hook + CTA
+            if ad_length >= 60:
+                scene_count = 9
+            elif ad_length >= 45:
+                scene_count = 6
+            elif ad_length >= 30:
+                scene_count = 4
+            else:
+                scene_count = math.ceil(ad_length / 6)
+            scene_count = max(2, scene_count)
+            scene_names = None
+            scene_durations = None
         
-        print(f"   Generating {language} script for {platform} ({ad_length}s, {scene_count} scenes) with Gemini AI...")
+        logger.info(f"   Generating {language} script for {platform} ({ad_length}s, {scene_count} scenes) with LLM...")
         
         funnel = self.context.get("funnel_stage", "cold")
         tone = self.pattern.get("tone", "Neutral")
@@ -236,6 +255,39 @@ PLATFORM STYLE GUIDELINES:
 - Current Platform: {platform}
 """
         
+        # ── Build Past Success Section ──
+        memory_section = ""
+        memories = self.memory.get("successful_past_campaigns", [])
+        company_ltm = self.memory.get("company_ltm", {})
+        
+        ltm_notes = []
+        creative_ltm = company_ltm.get("creative_memory", {})
+        if creative_ltm.get("learned_preference"):
+            ltm_notes.append(f"CORE CREATIVE PREFERENCE (HIGH PRIORITY): {creative_ltm['learned_preference']}")
+
+        if memories:
+            memory_list = "\n".join([
+                f"- Product: {m.get('product')}, Angle: {m.get('angle')}, Hook: {m.get('hook_style')} (Rating: {m.get('performance_rating')}/5)"
+                for m in memories[:3] # Top 3
+            ])
+            ltm_notes.append(f"PAST SUCCESSFUL HOOKS/ANGLES:\n{memory_list}")
+            
+        if ltm_notes:
+            memory_section = "\nMEMORY & LEARNED PREFERENCES:\n" + "\n\n".join(ltm_notes) + "\n"
+        
+        # ── Build scene structure prompt ──
+        if scene_names and scene_durations:
+            scene_list_str = "\n".join([f"{i+1}. \"{scene_names[i]}\" ({scene_durations[i]})" for i in range(len(scene_names))])
+            scene_structure_prompt = f"""EXACT SCENE STRUCTURE (USE THESE NAMES AND DURATIONS):
+{scene_list_str}
+
+STRICT SCENE STRUCTURE:
+1. The FIRST scene (index 0) MUST be named 'Hook'.
+2. Subsequent scenes can have creative names relevant to the ad content.
+3. The FINAL scene MUST be the 'CTA'."""
+        else:
+            scene_structure_prompt = f"Return ONLY valid JSON with exactly {scene_count} scenes."
+
         prompt = f"""You are a {writer_role}.
 Create a high-converting {language} video ad script for {product} by {brand}.
 
@@ -254,6 +306,7 @@ CAMPAIGN DETAILS:
 - Flow: Hook, Problem, Solution, Trust, Proof, CTA
 {lang_constraints}
 {creative_dna_section}
+{memory_section}
 
 VISUAL ASSETS AVAILABLE:
 - Product Images: {image_count} different shots of the product.
@@ -275,18 +328,13 @@ CRITICAL RULES (DO NOT IGNORE):
 
 WARNING: If Solution or CTA copy does NOT contain "{product}" by name, or ignores the SPECIFIC OFFER rules, the output is INVALID.
 
-Return ONLY valid JSON with exactly {scene_count} scenes. 
-
-STRICT SCENE STRUCTURE:
-1. The FIRST scene (index 0) MUST be named "Hook".
-2. Subsequent scenes can have creative names relevant to the ad content (e.g., "Problem Breakdown", "Visual Metaphor", "The Transformation", "Feature Spotlight", "Rapid Fire Benefits").
-3. The FINAL scene MUST be the "CTA".
+{scene_structure_prompt}
 
 FORMAT:
 [
-  {{"scene": "Hook", "intent": "Stop scroll", "copy": "{language} text about {category} world", "visual_continuity": "Establish environment"}},
-  ... ({scene_count - 2} intermediate scenes with creative, descriptive names relevant to the script flow)
-  {{"scene": "CTA", "intent": "Drive action", "copy": "{language} text WITH {product} name + BUY NOW", "visual_continuity": "Final payoff"}}
+  {{"scene": "Hook", "duration": "{scene_durations[0] if scene_durations else '5s'}", "intent": "Stop scroll", "copy": "{language} text about {category} world", "visual_continuity": "Establish environment"}},
+  ...
+  {{"scene": "CTA", "duration": "{scene_durations[-1] if scene_durations else '5s'}", "intent": "Drive action", "copy": "{language} text WITH {product} name + BUY NOW", "visual_continuity": "Final payoff"}}
 ]
 """
         try:
@@ -294,7 +342,7 @@ FORMAT:
             openrouter_key = os.getenv("OPENROUTER_API_KEY")
             
             if openrouter_key:
-                print(f"   Generating {language} script with OpenRouter (GPT-4o-mini)...")
+                logger.info(f"   Generating {language} script with OpenRouter (GPT-4o-mini)...")
                 response = requests.post(
                     url="https://openrouter.ai/api/v1/chat/completions",
                     headers={
@@ -318,7 +366,7 @@ FORMAT:
                 else:
                     raise Exception(f"OpenRouter API returned {response.status_code}: {response.text}")
             elif self.client:
-                print(f"   Generating {language} script with Gemini AI...")
+                logger.info(f"   Generating {language} script with Gemini AI...")
                 response = self.client.models.generate_content(
                     model="gemini-flash-latest",
                     contents=prompt,
@@ -356,12 +404,14 @@ FORMAT:
                         "scene": scene_type,
                         "intent": intent,
                         "voiceover": copy,
+                        "duration": scene.get("duration", "5s"),
+                        "avatar_role": scene.get("avatar_role", ""),
                         "visual_continuity": scene.get("visual_continuity", "")
                     })
             
             return processed_scenes
         except Exception as e:
-            print(f"   LLM Script failed: {e}. Falling back.")
+            logger.error(f"   LLM Script failed: {e}. Falling back.")
             return self.generate_script(fallback=True)
 
     def generate_script(self, fallback=False):
@@ -412,9 +462,13 @@ FORMAT:
         
         return script
     
-    def generate_output(self, language="Hindi", platform="Instagram Reels", ad_length=30):
-        """Produces the full STEP 3 output object."""
-        script = self.generate_script_llm(language, platform, ad_length)
+    def generate_output(self, language="Hindi", platform="Instagram Reels", ad_length=30, scene_plan=None):
+        """Produces the full STEP 3 output object.
+        
+        Args:
+            scene_plan: Optional pre-computed scene plan from ScenePlanner.
+        """
+        script = self.generate_script_llm(language, platform, ad_length, scene_plan=scene_plan)
         return {
             "campaign_id": self.context.get("campaign_id", "unknown"),
             "ad_length": ad_length,

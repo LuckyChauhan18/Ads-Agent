@@ -16,6 +16,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from utils.logger import logger
 from agents.shared.state import AdGenState
 from agents.strategy.campaign_psychology import CampaignPsychologyEngine
 from agents.strategy.pattern_selection import PatternSelectionEngine
@@ -27,7 +28,7 @@ def run_strategy(state: AdGenState) -> dict:
     
     Generates campaign psychology and selects the optimal ad pattern.
     """
-    print("\n🧠 [Strategy Agent] Starting...")
+    logger.info("🧠 [Strategy Agent] Starting...")
     errors = list(state.get("errors", []))
 
     strategy_data = state.get("strategy", {})
@@ -38,35 +39,39 @@ def run_strategy(state: AdGenState) -> dict:
 
     # ── Step 1: Campaign Psychology Engine ─────────────────────
     try:
-        engine_1 = CampaignPsychologyEngine(founder_data, competitor_results)
+        logger.info("   🔄 Generating campaign psychology...")
+        memory_context = state.get("memory", {})
+        engine_1 = CampaignPsychologyEngine(founder_data, competitor_results, memory_context=memory_context)
         campaign_psychology = engine_1.generate_campaign_psychology()
 
         # Inject product understanding into psychology context
         if product_understanding:
             campaign_psychology["product_understanding"] = product_understanding
 
-        print(f"   ✅ Campaign psychology generated")
+        logger.info(f"   ✅ Campaign psychology generated")
     except Exception as e:
         errors.append(f"CampaignPsychology error: {e}")
         campaign_psychology = {"product_understanding": product_understanding}
-        print(f"   ⚠️ Campaign psychology failed: {e}")
+        logger.error(f"   ⚠️ Campaign psychology failed: {e}")
 
     # ── Step 2: Pattern Selection Engine ───────────────────────
     try:
+        logger.info("   🔄 Selecting ad pattern...")
         engine_2 = PatternSelectionEngine(campaign_psychology)
         pattern_blueprint = engine_2.generate_blueprint()
-        print(f"   ✅ Ad pattern selected: {pattern_blueprint.get('pattern_name', 'Unknown')}")
+        logger.info(f"   ✅ Ad pattern selected: {pattern_blueprint.get('pattern_name', 'Unknown')}")
     except Exception as e:
         errors.append(f"PatternSelection error: {e}")
         pattern_blueprint = {}
-        print(f"   ⚠️ Pattern selection failed: {e}")
+        logger.error(f"   ⚠️ Pattern selection failed: {e}")
 
-    print("🧠 [Strategy Agent] Complete.\n")
+    logger.info("🧠 [Strategy Agent] Complete.")
 
     return {
         "strategy": {
             "campaign_psychology": campaign_psychology,
             "pattern_blueprint": pattern_blueprint,
+            "memory": state.get("memory", {})
         },
         "errors": errors,
     }

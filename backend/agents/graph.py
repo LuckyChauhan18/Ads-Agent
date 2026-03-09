@@ -32,6 +32,7 @@ from agents.research.agent import run_research
 from agents.strategy.agent import run_strategy
 from agents.creative.agent import run_creative
 from agents.production.agent import run_production
+from agents.memory.agent import run_memory
 
 # ── MongoDB Checkpointer Setup ────────────────────────────────
 mongodb_url = os.getenv("MONGODB_URL")
@@ -69,13 +70,15 @@ def build_ad_graph(checkpointer=None):
     graph = StateGraph(AdGenState)
 
     # ── Register Nodes ────────────────────────────────────────
+    graph.add_node("memory", run_memory)
     graph.add_node("research", run_research)
     graph.add_node("strategy", run_strategy)
     graph.add_node("creative", run_creative)
     graph.add_node("production", run_production)
 
     # ── Define Edges (linear pipeline) ────────────────────────
-    graph.set_entry_point("research")
+    graph.set_entry_point("memory")
+    graph.add_edge("memory", "research")
     graph.add_edge("research", "strategy")
     graph.add_edge("strategy", "creative")
     graph.add_edge("creative", "production")
@@ -96,6 +99,7 @@ def build_step_graph(step_name: str, checkpointer=None):
         step_name: One of 'research', 'strategy', 'creative', 'production'
     """
     node_map = {
+        "memory": run_memory,
         "research": run_research,
         "strategy": run_strategy,
         "creative": run_creative,

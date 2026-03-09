@@ -54,24 +54,28 @@ function Wizard() {
       setState(prev => ({
         ...prev,
         product: {
-          brand_name: c.brand_name || '',
-          product_name: c.product_name || '',
-          category: c.category || c.campaign_psychology?.founder_data?.category || '',
-          root_product: c.root_product || c.campaign_psychology?.founder_data?.root_product || '',
-          ad_length: c.ad_length || 30,
-          platform: c.platform || 'instagram',
-          product_logo: c.product_logo || null,
-          product_images: c.product_images || [],
+          brand_name: c.brand_name || c.product_info?.brand_name || '',
+          product_name: c.product_name || c.product_info?.product_name || '',
+          category: c.category || c.product_info?.category || c.campaign_psychology?.founder_data?.category || '',
+          root_product: c.root_product || c.product_info?.root_product || c.campaign_psychology?.founder_data?.root_product || '',
+          ad_length: c.ad_length || c.product_info?.ad_length || 30,
+          platform: c.platform || c.product_info?.platform || 'instagram',
+          product_logo: c.product_logo || c.product_info?.product_logo || null,
+          product_images: c.product_images || c.product_info?.product_images || [],
+          description: c.description || c.product_info?.description || c.campaign_psychology?.product_understanding?.description || '',
+          price_range: c.price_range || c.product_info?.price_range || '',
+          product_url: c.product_url || c.product_info?.product_url || '',
+          features: c.features || c.product_info?.features || c.campaign_psychology?.product_understanding?.features || [],
         },
         strategy: {
           ...c.campaign_psychology?.founder_data,
           campaign_id: c._id || c.campaign_id,
         },
         research: {
-          understanding: c.campaign_psychology?.product_understanding || null,
-          competitors: c.pattern_blueprint?.competitor_results || []
+          understanding: c.campaign_psychology?.product_understanding || c.discovery_results?.understanding || null,
+          competitors: c.research?.results || c.pattern_blueprint?.competitor_results || []
         },
-        curatedBrands: c.curatedBrands || c.pattern_blueprint?.competitor_results?.map(comp => comp.brand) || [],
+        curatedBrands: c.curated_brands || c.discovery_results?.brands || [],
         blueprint: {
           campaign_psychology: c.campaign_psychology,
           pattern_blueprint: c.pattern_blueprint?.pattern_blueprint
@@ -97,13 +101,19 @@ function Wizard() {
 
   const handleNext = async () => {
     if (currentStep === 1) {
-      if (!dirty[1] && state.curatedBrands && state.curatedBrands.length > 0) {
-        setCurrentStep(2);
+      const hasBrands = state.curatedBrands && state.curatedBrands.length > 0;
+      const hasResearch = state.research?.competitors && state.research.competitors.length > 0;
+
+      // Skip Discovery/Research if we already have the data and Step 1 isn't dirty
+      if (!dirty[1] && (hasBrands || hasResearch)) {
+        setCurrentStep(hasResearch ? 3 : 2); // Go to research results if we already have them, else curation
         return;
       }
 
       const camId = state.strategy?.campaign_id || `${state.product.brand_name?.toLowerCase().replace(/\s/g, '_') || 'ad'}_${new Date().getTime().toString().slice(-4)}`;
-      setState(prev => ({ ...prev, strategy: { ...prev.strategy, campaign_id: camId } }));
+      if (!state.strategy?.campaign_id) {
+        setState(prev => ({ ...prev, strategy: { ...prev.strategy, campaign_id: camId } }));
+      }
 
       if (state.product.product_logo_file) {
         setLoading({ active: true, message: 'Uploading brand logo...' });
@@ -125,8 +135,12 @@ function Wizard() {
 
       setLoading({ active: true, message: 'LLM is discovering competitors...' })
       try {
-        const res = await workflowService.runDiscovery(state.product)
-        setState(prev => ({ ...prev, curatedBrands: res.data.results.brands, research: { understanding: res.data.results.understanding, competitors: [] } }))
+        const res = await workflowService.runDiscovery({ ...state.product, campaign_id: camId })
+        setState(prev => ({
+          ...prev,
+          curatedBrands: res.data.results.brands,
+          research: { understanding: res.data.results.understanding, competitors: [] }
+        }))
         setDirty(prev => ({ ...prev, 1: false }))
         setCurrentStep(2)
       } catch (e) { alert('Discovery failed.') }
@@ -138,7 +152,10 @@ function Wizard() {
       }
       setLoading({ active: true, message: 'Scraping Meta Ads DNA...' })
       try {
-        const res = await workflowService.runResearch(state.product, state.curatedBrands)
+        const res = await workflowService.runResearch({
+          ...state.product,
+          campaign_id: state.strategy.campaign_id
+        }, state.curatedBrands)
         setState(prev => ({ ...prev, research: { ...prev.research, competitors: res.data.results } }))
         setDirty(prev => ({ ...prev, 2: false }))
         setCurrentStep(3)
@@ -168,6 +185,7 @@ function Wizard() {
       try {
         const res = await workflowService.runPsychology({
           founder_data: {
+            ...state.product,
             ...state.strategy,
             ad_length: state.product.ad_length || 30,
             category: state.product.category,
