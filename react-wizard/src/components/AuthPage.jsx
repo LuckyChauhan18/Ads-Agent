@@ -140,6 +140,15 @@ function AuthPage({ onLogin }) {
                       required
                     />
                   </div>
+                  <div className="input-group-glass" style={{ marginBottom: '14px' }}>
+                    <Building2 size={18} />
+                    <input
+                      type="text"
+                      placeholder="Company / Brand Name"
+                      value={formData.companyId}
+                      onChange={e => setFormData({ ...formData, companyId: e.target.value })}
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -151,17 +160,6 @@ function AuthPage({ onLogin }) {
                 placeholder="Username"
                 value={formData.username}
                 onChange={e => setFormData({ ...formData, username: e.target.value })}
-                required
-              />
-            </motion.div>
-
-            <motion.div className="input-group-glass" variants={itemVariants}>
-              <Building2 size={18} />
-              <input
-                type="text"
-                placeholder="Company ID"
-                value={formData.companyId}
-                onChange={e => setFormData({ ...formData, companyId: e.target.value })}
                 required
               />
             </motion.div>

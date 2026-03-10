@@ -20,12 +20,13 @@ if BASE_DIR not in sys.path:
 from agents.shared.state import AdGenState
 from agents.production.variant_engine import VariantEngine
 from agents.production.gemini_renderer import GeminiRenderer
+from agents.memory.memory_injector import get_production_preferences, build_memory_context_prompt
 
 
 async def run_production(state: AdGenState) -> dict:
     """
     LangGraph node for the Production Agent.
-    
+
     Generates variants and renders the final video with overlays.
     """
     print("\n[Production Agent] Starting...")
@@ -35,6 +36,13 @@ async def run_production(state: AdGenState) -> dict:
     storyboard_output = creative_data.get("storyboard_output", {})
     script_output = creative_data.get("script_output", {})
     avatar_config = creative_data.get("avatar_config", {})
+
+    # ── Memory: Load LTM preferences ──────────────────────────
+    memory = state.get("memory", {})
+    production_prefs = get_production_preferences(memory)
+    memory_context = build_memory_context_prompt(production_prefs, "Production")
+    if memory_context:
+        print(f"   🧠 LTM loaded for production agent")
     
     strategy_data = state.get("strategy", {})
     campaign_psychology = strategy_data.get("campaign_psychology", {})

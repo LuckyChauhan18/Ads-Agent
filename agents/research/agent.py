@@ -24,6 +24,7 @@ from agents.research.product_understanding import ProductUnderstandingEngine
 from agents.research.ai_competitor_finder import AICompetitorFinder
 from agents.research.multi_ad_extractor import run_extraction
 from agents.research.filter import DNAFilter
+from agents.memory.memory_injector import get_research_preferences, build_memory_context_prompt
 
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
@@ -31,7 +32,7 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 def run_research(state: AdGenState) -> dict:
     """
     LangGraph node for the Research Agent.
-    
+
     Phase 1: Discovery — Analyze product, find competitors.
     Phase 2: Research  — Scrape Meta ads, extract DNA.
     """
@@ -40,6 +41,21 @@ def run_research(state: AdGenState) -> dict:
 
     product_data = state.get("product_input", {})
     curated_brands = state.get("curated_brands", [])
+
+    # ── Memory: Load LTM preferences ──────────────────────────
+    memory = state.get("memory", {})
+    research_prefs = get_research_preferences(memory)
+    memory_context = build_memory_context_prompt(research_prefs, "Research")
+    if memory_context:
+        print(f"   🧠 LTM loaded for research agent")
+        # Add preferred/avoided competitors from memory
+        if research_prefs.get("preferred_competitors"):
+            for comp in research_prefs["preferred_competitors"]:
+                if not any(b["name"] == comp for b in curated_brands):
+                    curated_brands.append({"name": comp, "target_count": 3, "source": "memory"})
+        if research_prefs.get("avoided_competitors"):
+            avoided = set(research_prefs["avoided_competitors"])
+            curated_brands = [b for b in curated_brands if b["name"] not in avoided]
 
     # ── Step 1: Product Understanding ─────────────────────────
     try:

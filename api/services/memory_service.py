@@ -61,7 +61,7 @@ async def connect_to_ltm():
 
 async def close_ltm_connection():
     """Close the LTM MongoDB connection."""
-    if ltm.client:
+    if ltm.client is not None:
         ltm.client.close()
         print("Closed LTM connection")
 

@@ -13,6 +13,8 @@ from api.routes.workflow import router as workflow_router
 from api.routes.ai_assist import router as ai_assist_router
 from api.routes.files import router as files_router
 from api.routes.auth import router as auth_router
+from api.routes.analytics import router as analytics_router
+from api.routes.publish import router as publish_router
 
 from api.services.db_mongo_service import connect_to_mongo, close_mongo_connection
 from api.services.memory_service import connect_to_ltm, close_ltm_connection
@@ -36,10 +38,13 @@ async def log_exceptions_middleware(request, call_next):
 
 @app.on_event("startup")
 async def startup_db_client():
-    # Connect to MongoDB for all storage requirements
     await connect_to_mongo()
-    # Connect to separate LTM database for long-term memory
     await connect_to_ltm()
+    # Initialize analytics & publish indexes
+    from api.services.analytics_service import init_analytics_indexes
+    from api.services.publish_service import init_publish_indexes
+    await init_analytics_indexes()
+    await init_publish_indexes()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
@@ -100,6 +105,8 @@ app.include_router(inputs_router)
 app.include_router(outputs_router)
 app.include_router(workflow_router)
 app.include_router(ai_assist_router)
+app.include_router(analytics_router)
+app.include_router(publish_router)
 
 @app.get("/", tags=["Health"])
 def health_check():

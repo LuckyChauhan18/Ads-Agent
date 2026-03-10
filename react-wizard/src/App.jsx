@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import AuthPage from './components/AuthPage';
 import Dashboard from './components/Dashboard';
 import Wizard from './components/Wizard';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+import PublishCenter from './components/PublishCenter';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 
@@ -60,6 +62,28 @@ function App() {
           }
         />
 
+        <Route
+          path="/analytics"
+          element={
+            <ProtectedRoute>
+              <Layout user={user} onLogout={handleLogout}>
+                <AnalyticsDashboard user={user} />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/publish"
+          element={
+            <ProtectedRoute>
+              <Layout user={user} onLogout={handleLogout}>
+                <PublishCenter user={user} />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -85,7 +109,6 @@ function App() {
         .bg-auth { background: radial-gradient(circle at 70% 30%, #1e1b4b 0%, #020617 100%); }
         .bg-dashboard { background: radial-gradient(circle at 30% 70%, #171717 0%, #0a0a0a 100%); }
 
-        /* Step Backgrounds */
         .bg-step-1 { background: radial-gradient(circle at 20% 20%, #1e1b4b 0%, #020617 100%); }
         .bg-step-2 { background: radial-gradient(circle at 80% 20%, #312e81 0%, #020617 100%); }
         .bg-step-3 { background: radial-gradient(circle at 20% 80%, #1e1b4b 0%, #020617 100%); }
@@ -95,8 +118,6 @@ function App() {
         .bg-step-7 { background: radial-gradient(circle at 90% 50%, #1e1b4b 0%, #020617 100%); }
         .bg-step-8 { background: radial-gradient(circle at 50% 10%, #4338ca 0%, #020617 100%); }
         .bg-step-9 { background: radial-gradient(circle at 50% 90%, #1e1b4b 0%, #020617 100%); }
-
-
 
         .header {
           padding: 24px 40px;

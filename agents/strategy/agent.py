@@ -19,12 +19,13 @@ if BASE_DIR not in sys.path:
 from agents.shared.state import AdGenState
 from agents.strategy.campaign_psychology import CampaignPsychologyEngine
 from agents.strategy.pattern_selection import PatternSelectionEngine
+from agents.memory.memory_injector import get_strategy_preferences, build_memory_context_prompt
 
 
 def run_strategy(state: AdGenState) -> dict:
     """
     LangGraph node for the Strategy Agent.
-    
+
     Generates campaign psychology and selects the optimal ad pattern.
     """
     print("\n🧠 [Strategy Agent] Starting...")
@@ -35,6 +36,20 @@ def run_strategy(state: AdGenState) -> dict:
     research_data = state.get("research", {})
     competitor_results = research_data.get("competitor_results", [])
     product_understanding = research_data.get("product_understanding", {})
+
+    # ── Memory: Load LTM preferences ──────────────────────────
+    memory = state.get("memory", {})
+    strategy_prefs = get_strategy_preferences(memory)
+    memory_context = build_memory_context_prompt(strategy_prefs, "Strategy")
+    if memory_context:
+        print(f"   🧠 LTM loaded for strategy agent")
+        # Inject preferences into founder_data so engines can use them
+        if strategy_prefs.get("preferred_tones"):
+            founder_data.setdefault("preferred_tones", strategy_prefs["preferred_tones"])
+        if strategy_prefs.get("preferred_hooks"):
+            founder_data.setdefault("preferred_hooks", strategy_prefs["preferred_hooks"])
+        if strategy_prefs.get("learned_preference"):
+            founder_data["memory_note"] = strategy_prefs["learned_preference"]
 
     # ── Step 1: Campaign Psychology Engine ─────────────────────
     try:

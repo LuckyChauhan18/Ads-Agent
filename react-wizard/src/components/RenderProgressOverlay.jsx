@@ -175,7 +175,7 @@ const RenderProgressOverlay = ({ active, scenes, message, failed }) => {
           width: 80px;
           height: 80px;
         }
-        .circular-progress svg {
+        .circular-progress > svg {
           transform: rotate(-90deg);
           width: 100%;
           height: 100%;

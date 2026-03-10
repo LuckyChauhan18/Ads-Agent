@@ -20,12 +20,13 @@ if BASE_DIR not in sys.path:
 from agents.shared.state import AdGenState
 from agents.creative.script_generator import ScriptGenerator
 from agents.creative.storyboard_builder import StoryboardBuilder
+from agents.memory.memory_injector import get_creative_preferences, build_memory_context_prompt
 
 
 def run_creative(state: AdGenState) -> dict:
     """
     LangGraph node for the Creative Agent.
-    
+
     Generates the ad script, selects avatars, and builds the storyboard.
     """
     print("\n🎨 [Creative Agent] Starting...")
@@ -34,14 +35,30 @@ def run_creative(state: AdGenState) -> dict:
     strategy_data = state.get("strategy", {})
     campaign_psychology = strategy_data.get("campaign_psychology", {})
     pattern_blueprint = strategy_data.get("pattern_blueprint", {})
-    
+
     creative_data = state.get("creative", {})
-    # Prioritize avatar_config passed directly in state.creative
     avatar_config = creative_data.get("avatar_config") or creative_data.get("avatar_config", {})
-    
+
     language = state.get("language", "Hindi")
     platform = state.get("platform", "Instagram Reels")
     ad_length = state.get("ad_length", 30)
+
+    # ── Memory: Load LTM preferences ──────────────────────────
+    memory = state.get("memory", {})
+    creative_prefs = get_creative_preferences(memory)
+    memory_context = build_memory_context_prompt(creative_prefs, "Creative")
+    if memory_context:
+        print(f"   🧠 LTM loaded for creative agent")
+        # Apply language preference from memory
+        if creative_prefs.get("preferred_languages"):
+            pref_lang = creative_prefs["preferred_languages"][0]
+            if not state.get("language"):
+                language = pref_lang
+        # Inject brand voice notes into psychology context
+        if creative_prefs.get("brand_voice_notes"):
+            campaign_psychology["memory_brand_voice"] = creative_prefs["brand_voice_notes"]
+        if creative_prefs.get("learned_preference"):
+            campaign_psychology["memory_creative_note"] = creative_prefs["learned_preference"]
 
     # ── Step 1: Script Generation ─────────────────────────────
     try:

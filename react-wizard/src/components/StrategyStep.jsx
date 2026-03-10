@@ -311,23 +311,33 @@ const StrategyStep = ({ data, updateData }) => {
           </div>
 
           <div className="input-group glass-card">
-            <label className="field-label">Target Platform <span className="mandatory">*</span></label>
+            <label className="field-label">Target Platforms (Select Multiple) <span className="mandatory">*</span></label>
             <div className="platform-grid">
               {[
                 { id: 'instagram', icon: Instagram, name: 'Instagram' },
                 { id: 'facebook', icon: Facebook, name: 'Facebook' },
                 { id: 'x', icon: Twitter, name: 'X / Twitter' },
                 { id: 'youtube', icon: Youtube, name: 'YouTube' }
-              ].map(plat => (
-                <div
-                  key={plat.id}
-                  className={`platform-btn ${data.platform === plat.id ? 'active' : ''}`}
-                  onClick={() => updateData({ platform: plat.id })}
-                >
-                  <plat.icon size={20} />
-                  <span>{plat.name}</span>
-                </div>
-              ))}
+              ].map(plat => {
+                const platforms = data.platforms || (data.platform ? [data.platform] : []);
+                const isActive = platforms.includes(plat.id);
+                return (
+                  <div
+                    key={plat.id}
+                    className={`platform-btn ${isActive ? 'active' : ''}`}
+                    onClick={() => {
+                      const current = data.platforms || (data.platform ? [data.platform] : []);
+                      const updated = isActive
+                        ? current.filter(p => p !== plat.id)
+                        : [...current, plat.id];
+                      updateData({ platforms: updated, platform: updated[0] || '' });
+                    }}
+                  >
+                    <plat.icon size={20} />
+                    <span>{plat.name}</span>
+                  </div>
+                );
+              })}
               <div className="platform-other pt-2">
                 <input
                   type="text"
@@ -336,7 +346,10 @@ const StrategyStep = ({ data, updateData }) => {
                   value={otherPlatform}
                   onChange={(e) => {
                     setOtherPlatform(e.target.value);
-                    updateData({ platform: e.target.value });
+                    if (e.target.value.trim()) {
+                      const current = data.platforms || (data.platform ? [data.platform] : []);
+                      updateData({ platforms: [...current.filter(p => p !== otherPlatform), e.target.value.trim()], platform: current[0] || e.target.value.trim() });
+                    }
                   }}
                 />
               </div>

@@ -163,7 +163,7 @@ async def create_user(user_data: dict):
 
 async def close_mongo_connection():
     """Close the MongoDB connection."""
-    if mongo.client:
+    if mongo.client is not None:
         mongo.client.close()
         print("🔌 Closed MongoDB connection")
 

@@ -60,9 +60,23 @@ class GeminiRenderer:
         self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.video_dir = os.path.join(self.base_dir, "video")
         os.makedirs(self.video_dir, exist_ok=True)
-        
+
+        # Check if ffmpeg/ffprobe are available
+        self._ffmpeg_available = self._check_ffmpeg()
+
         # Assets will be loaded during initialize()
         self.assets = {"product": [], "logo": [], "lifestyle": []}
+
+    @staticmethod
+    def _check_ffmpeg() -> bool:
+        """Check if ffmpeg and ffprobe are available on PATH."""
+        try:
+            subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=5)
+            subprocess.run(["ffprobe", "-version"], capture_output=True, timeout=5)
+            return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            print("   [GeminiRenderer] WARNING: ffmpeg/ffprobe not found. Video merging and overlays will use fallback mode.")
+            return False
 
     async def initialize(self):
         """Asynchronous initialization: loads assets from Redis/GridFS."""
@@ -184,191 +198,152 @@ class GeminiRenderer:
         
         return references[:3]
 
+    def _get_scene_context(self) -> Dict:
+        """Extracts all product/brand/avatar context for prompt generation."""
+        product_info = self.context.get("product_understanding", {})
+        offer_info = self.context.get("offer_and_risk_reversal", {})
+        offers = offer_info.get("offers", [])
+        discount = offers[0].get("discount", "") if offers else ""
+        guarantee = offers[0].get("guarantee", "") if offers else ""
+
+        gender = self.avatar.get("gender") or self.avatar.get("avatar_preferences", {}).get("gender", "")
+        if not gender or str(gender).lower() in ("unknown", "auto"):
+            gender = "young Indian woman"
+
+        language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
+
+        return {
+            "product_name": product_info.get("product_name") or self.context.get("product_name", "the product"),
+            "brand": product_info.get("brand_name") or self.context.get("brand_name", "the brand"),
+            "category": product_info.get("category", "consumer product"),
+            "features": product_info.get("features", []),
+            "description": product_info.get("description", ""),
+            "user_problem": self.context.get("user_problem_raw", "a common problem"),
+            "brand_voice": self.context.get("brand_voice", "premium"),
+            "language": language,
+            "gender": gender,
+            "discount": discount,
+            "guarantee": guarantee,
+        }
+
     def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
-        """Uses Gemini Flash to generate product-specific cinematic prompts for Veo.
-        
-        Uses the 'visual_continuity' hints from the script to ensure a smooth flow.
+        """Uses Gemini Flash to generate hyper-specific photorealistic Veo prompts.
+
+        Focus: short, visually precise descriptions with real camera/lighting
+        language that Veo understands. Avoids abstract instructions.
         """
         if hasattr(self, '_cached_scene_prompts'):
             return self._cached_scene_prompts
-        
-        # Build continuity map from scene_list
+
+        ctx = self._get_scene_context()
         continuity_hints = "\n".join([
             f"- {s.get('scene')}: {s.get('visual_continuity', 'Maintain consistency')}"
             for s in scene_list
         ])
-        
-        product_info = self.context.get("product_understanding", {})
-        product_name = product_info.get("product_name") or self.context.get("product_name", "the product")
-        brand = product_info.get("brand_name") or self.context.get("brand_name", "the brand")
-        category = product_info.get("category", "consumer product")
 
-        features = product_info.get("features", [])
-        description = product_info.get("description", "")
-        user_problem = self.context.get("user_problem_raw", "a common user problem")
-        brand_voice = self.context.get("brand_voice", "premium and modern")
-        
-        # Get offer/discount data for CTA
-        # We need to handle cases where the user provided NO offer.
-        offer_info = self.context.get("offer_and_risk_reversal", {})
-        offers = offer_info.get("offers", [])
-        
-        discount = offers[0].get("discount", "") if offers else ""
-        guarantee = offers[0].get("guarantee", "") if offers else ""
-        trust_signals = self.context.get("trust_signals", [])
-        reviews_text = trust_signals[0] if trust_signals else ""
-        
-        discount_msg = f"'{discount}'" if discount else ""
-        guarantee_msg = f"'{guarantee}'" if guarantee else ""
-        offer_statement = f"announces {discount_msg} {guarantee_msg}" if (discount_msg or guarantee_msg) else "speaks enthusiastically"
-        
-        # Get avatar info for prompt customization
-        gender = self.avatar.get("gender") or self.avatar.get("avatar_preferences", {}).get("gender", "young Indian person")
-        style = self.avatar.get("style") or self.avatar.get("avatar_preferences", {}).get("style", "cinematic")
-        
-        if not gender or str(gender).lower() in ("unknown", "auto"): 
-            gender = "young Indian person"
-        if str(style).lower() == "manual upload": 
-            style = "realistic presenter"
+        prompt = f"""You are a cinematographer writing SHORT, PRECISE video prompts for Google Veo 3.1 AI video generator.
 
-        # Get language
-        language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
-        
-        # Extract competitor DNA
-        market_ctx = self.context.get("market_context", {})
-        competitor_hooks = market_ctx.get("top_punch_lines", [])
-        competitor_hooks_str = "\n".join([f"  - {h}" for h in competitor_hooks[:5]]) if competitor_hooks else "N/A"
-        
-        prompt = f"""You are a D2C brand video ad director creating a cinematic 9:16 vertical ad.
+PRODUCT: {ctx['product_name']} by {ctx['brand']} ({ctx['category']})
+FEATURES: {', '.join(ctx['features'][:4]) if ctx['features'] else 'premium quality'}
+PROBLEM IT SOLVES: {ctx['user_problem']}
+PRESENTER: {ctx['gender']}, speaking in {ctx['language']}
 
-PRODUCT: {product_name}
-BRAND: {brand}
-CATEGORY: {category}
-FEATURES: {', '.join(features[:5]) if features else 'N/A'}
-DESCRIPTION: {description}
-USER PROBLEM: {user_problem}
-BRAND VOICE: {brand_voice}
-LANGUAGE: {language}
-
-DISCOUNT OFFER: {discount if discount else 'N/A'}
-GUARANTEE: {guarantee if guarantee else 'N/A'}
-REVIEWS: {reviews_text if reviews_text else 'N/A'}
-
-COMPETITOR AD HOOKS (for inspiration):
-{competitor_hooks_str}
-
-=== STRICT D2C STORY ARC WITH SPEAKING AVATAR ===
-
-EVERY scene MUST include the person defined by the provided reference image.
-The person SPEAKS in {language}.
-If a reference image of a person is provided, the person in the video MUST be an EXACT visual match to that person (identity, clothes, hair, facial features).
-DO NOT use a random person or a generic avatar if a reference image exists.
-
-VISUAL CONTINUITY PLAN (ADHERE STRICTLY):
+SCENE CONTINUITY NOTES:
 {continuity_hints}
 
-ENVIRONMENTAL CONSISTENCY RULES:
-1. Locations MUST persist across scenes (e.g. if Hook is in a Park, Solution is also in a Park).
-2. The actor (presenter) MUST maintain identical appearance (clothes, hair) in all scenes.
-3. Use lighting and camera flow that builds on the previous scene's hint.
+=== RULES FOR WRITING VEO PROMPTS ===
+1. Each prompt must be 2-3 sentences MAX. Veo works best with concise, specific descriptions.
+2. ALWAYS specify: camera angle, lens type, lighting, exact setting, and what the person is doing.
+3. Use REAL filmmaking terms: "85mm lens", "shallow depth of field", "golden hour", "tracking shot", "rack focus", "handheld", "steadicam", "close-up", "medium shot", "wide establishing shot".
+4. Describe the person's EXACT appearance, clothing, and expression.
+5. Specify the EXACT location (e.g. "modern minimalist apartment with white walls and warm pendant lights" not just "a room").
+6. NEVER use vague words like "cinematic", "premium", "dynamic". Be SPECIFIC about what makes it look that way.
+7. The person speaks directly to camera in {ctx['language']}.
+8. For product scenes: describe the product's REAL physical appearance (color, shape, size, packaging).
 
-CRITICAL: All visuals MUST be relevant to the {category} category.
-For example: if {category} is Motorcycles, show bikes/riders/roads. If Shoes, show running/feet/tracks. etc.
+Write prompts for these scenes:
 
-1. HOOK: A relatable {category} scene. A person SPEAKS to camera.
-   - Show a {category}-relevant situation (e.g., for Motorcycles: a rider on a boring road, for Shoes: a runner warming up).
-   - The person speaks in {language} about a relatable {category} situation. NO product visible.
-   
-2. PROBLEM: Person SPEAKS emotionally about the {category}-specific pain point.
-   - Show {category}-specific frustration visually (e.g., for Motorcycles: old bike struggling in traffic, for Shoes: worn out shoes on painful feet).
-   - Close-up, frustrated expression. NO product visible. The viewer must FEEL the problem.
+HOOK: The presenter in a real {ctx['category']}-related setting, speaking to camera about {ctx['user_problem']}. No product visible. Show genuine emotion.
 
-3. SOLUTION: Person excitedly REVEALS {product_name} — FIRST TIME product appears!
-   - They MUST say the name "{product_name}" while presenting it.
-   - IMPORTANT: If the product is a large physical item (like a motorcycle, car, or furniture), they MUST NOT hold it (stand next to it or sit on it). Describe the EXACT type of product (e.g. a Royal Enfield motorcycle, NOT a generic scooter).
-   - They speak about "{product_name}" features excitedly in {language}.
+PROBLEM: Same presenter, same setting. Frustrated expression, speaking emotionally about the pain of {ctx['user_problem']}. Tight framing on face.
 
-4. TRUST: Person SPEAKS confidently about {brand}'s credibility.
-   - Professional setting with {brand} logo visible.
-   - Person mentions "{brand}" by name, speaks about reviews and trust in {language}.
+SOLUTION: Presenter's face lights up with excitement. They present {ctx['product_name']} to camera. First time product appears. Describe the product physically.
 
-5. PROOF: Multiple happy people using {product_name} in {category}-relevant situations.
-   - Presenter speaks about results in {language}, mentions "{product_name}" by name.
-   - Dynamic scenes of satisfied {category} users.
+TRUST: Presenter in a clean, well-lit setting. Speaking confidently about {ctx['brand']}. Professional and trustworthy energy.
 
-6. CTA: MARKETING FINALE — Person speaks with URGENCY about {product_name}.
-   - Show {product_name} hero shot + {brand} logo prominently on screen.
-   - Person {offer_statement} and says "{product_name}" by name.
-   - Urgent, exciting energy. "Buy {product_name} now!" vibe.
+PROOF: Presenter demonstrating {ctx['product_name']} in use. Show the product being used naturally. Happy, satisfied expression.
 
-7. RELATABLE MOMENT: Alternative opening — candid {category}-related everyday moment.
+CTA: Presenter holds/shows {ctx['product_name']} close to camera with energy. {"Mentions " + ctx['discount'] + ". " if ctx['discount'] else ""}Urgent, excited call to action.
 
-For each scene, write a 3-4 sentence visual+audio description IN ENGLISH.
-Include WHAT THE PERSON SAYS (in {language}), camera movements, and mood.
-ALWAYS specify 9:16 vertical.
+RELATABLE MOMENT: Candid slice-of-life moment. The presenter in an everyday {ctx['category']}-related situation before discovering the product.
 
-Return ONLY valid JSON:
+Return ONLY valid JSON with scene names as keys and prompt strings as values.
 {{
-  "Hook": "description with dialogue...",
-  "Problem": "description with dialogue...",
-  "Solution": "description with dialogue...",
-  "Trust": "description with dialogue...",
-  "Proof": "description with dialogue...",
-  "CTA": "description with marketing...",
-  "Relatable Moment": "description..."
-}}
-"""
-        
+  "Hook": "prompt...",
+  "Problem": "prompt...",
+  "Solution": "prompt...",
+  "Trust": "prompt...",
+  "Proof": "prompt...",
+  "CTA": "prompt...",
+  "Relatable Moment": "prompt..."
+}}"""
+
         try:
             if self.client:
                 response = self.client.models.generate_content(
-                    model="gemini-flash-latest",
+                    model="gemini-2.5-flash-preview-05-20",
                     contents=prompt,
                     config={'response_mime_type': 'application/json'}
                 )
                 self._cached_scene_prompts = json.loads(response.text)
-                print(f"     Generated {len(self._cached_scene_prompts)} D2C scene prompts with voice via Gemini")
+                print(f"     Generated {len(self._cached_scene_prompts)} photorealistic scene prompts via Gemini")
                 return self._cached_scene_prompts
         except Exception as e:
             print(f"     LLM scene prompt generation failed: {e}. Using fallback.")
-        
-        # Fallback: D2C-aware prompts with speaking avatar
+
+        # Fallback: highly specific photorealistic prompts
+        ctx = self._get_scene_context()
         self._cached_scene_prompts = {
-            "Hook": f"A young Indian person looks at the camera and speaks in {language} about {user_problem}. They look concerned and relatable. Cinematic close-up, warm lighting. No product visible. 9:16 vertical.",
-            "Problem": f"The same person speaks emotionally in {language} about the frustration of {user_problem}. Push-in camera, dramatic lighting. No product visible. 9:16 vertical.",
-            "Solution": f"The person's expression changes to excitement as they proudly reveal the {product_name}! They stand next to the {category} and speak excitedly in {language} about its features. 360-degree dynamic showcase. 9:16 vertical.",
-            "Trust": f"The person speaks confidently in {language} about {brand}'s reputation. Premium clean environment with floating review stars. 9:16 vertical.",
-            "Proof": f"Multiple happy people using {product_name} in the real world. The presenter speaks in {language} about amazing results. Dynamic tracking shots. 9:16 vertical.",
-            "CTA": f"Marketing finale: the person {offer_statement} with energy in {language}! Hero shot of {product_name} with {brand} text visible. Urgent buying energy. 9:16 vertical.",
-            "Relatable Moment": f"A young person in a candid everyday moment dealing with {user_problem}. No product visible. Natural lighting. 9:16 vertical."
+            "Hook": f"Medium close-up of a {ctx['gender']} standing in a naturally lit {ctx['category']}-related environment, looking directly into camera with a concerned expression. Shot on 50mm lens, shallow depth of field, warm natural window light. The person speaks in {ctx['language']} about {ctx['user_problem']}.",
+            "Problem": f"Tight close-up on the same {ctx['gender']}'s face, 85mm lens with creamy bokeh. Soft directional light from the left. Frustrated expression, slightly furrowed brow. They speak emotionally in {ctx['language']} about the struggle with {ctx['user_problem']}. Handheld camera with subtle movement.",
+            "Solution": f"Medium shot of the same {ctx['gender']} holding {ctx['product_name']} up to camera with both hands, face lit up with genuine excitement. Clean bright background with soft diffused lighting. 35mm lens. They speak enthusiastically in {ctx['language']} about {ctx['product_name']}.",
+            "Trust": f"The same {ctx['gender']} in a modern, clean white environment with soft overhead lighting. Medium shot, 50mm lens. Confident posture, direct eye contact with camera. Speaking in {ctx['language']} about {ctx['brand']}'s quality and reputation.",
+            "Proof": f"The same {ctx['gender']} naturally using {ctx['product_name']} in a real-life setting. Tracking shot following the action, 35mm lens, natural daylight. Satisfied, happy expression. Speaking in {ctx['language']} about the results.",
+            "CTA": f"Close-up of the same {ctx['gender']} energetically presenting {ctx['product_name']} to camera. Bright, punchy lighting. 50mm lens. Excited expression, urgent tone, speaking in {ctx['language']}. {'Mentions ' + ctx['discount'] + '.' if ctx['discount'] else ''}",
+            "Relatable Moment": f"Wide shot of a {ctx['gender']} in an everyday {ctx['category']}-related situation. Natural lighting, 35mm lens. Candid, documentary style. No product visible. Slight handheld camera movement."
         }
         return self._cached_scene_prompts
 
     def _build_prompt(self, scene: Dict) -> str:
-        """Builds a product-specific cinematic prompt for Veo with Hindi speaking dialogue."""
+        """Builds a photorealistic Veo prompt with dialogue and cinematic quality cues."""
         scene_name = scene.get("scene", "")
         directives = scene.get("realistic_directives", "")
-        copy_text = scene.get("voiceover", "")  # Hindi spoken dialogue
-        
-        # Get language for voice direction
+        copy_text = scene.get("voiceover", "")
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
-        
+
         # Get dynamically generated scene prompts
-        scene_prompts = self._generate_scene_prompts(self.variants.get("variants", [])[0].get("storyboard", []))
-        
-        prompt = scene_prompts.get(scene_name, 
-            f"Cinematic footage of {self.context.get('product_understanding', {}).get('product_name', 'the product')}. "
-            f"Premium lifestyle, 9:16 vertical."
+        storyboard = []
+        variants = self.variants.get("variants", [])
+        if variants:
+            storyboard = variants[0].get("storyboard", [])
+        scene_prompts = self._generate_scene_prompts(storyboard)
+
+        prompt = scene_prompts.get(scene_name,
+            f"A person presenting a product to camera. 50mm lens, soft natural lighting, "
+            f"shallow depth of field. Clean modern background. Photorealistic."
         )
-        
-        # Add Hindi spoken dialogue as voice-over instruction for Veo
+
+        # Add spoken dialogue for Veo's native audio generation
         if copy_text:
-            prompt += f' The person in the video speaks in {language} and says: "{copy_text}"'
-        
-        # Add stylistic directives from storyboard
+            prompt += f' The person speaks in {language} and says: "{copy_text}"'
+
+        # Add scene-specific directives from the storyboard
         if directives:
             prompt += f" {directives}"
-        
+
+        # Photorealism quality suffix — keeps Veo grounded in realistic output
+        prompt += " Photorealistic, natural skin texture, real-world lighting. No CGI, no animation, no text overlays."
+
         return prompt
 
     def _download_video(self, video_uri: str, output_path: str) -> bool:
@@ -415,14 +390,24 @@ Return ONLY valid JSON:
             except:
                 pass
 
-            # Build config with reference images if available
+            # Build config with quality-optimized parameters
             config_args = {
                 "number_of_videos": 1,
-                "duration_seconds": duration_sec
+                "duration_seconds": duration_sec,
+                "aspect_ratio": "9:16",
+                "person_generation": "allow_all",
+                "enhance_prompt": True,
+                "generate_audio": True,
+                "negative_prompt": (
+                    "blurry, low quality, distorted face, extra fingers, "
+                    "deformed hands, cartoon, anime, CGI, 3D render, "
+                    "text overlay, watermark, logo, artificial lighting, "
+                    "plastic skin, uncanny valley, bad anatomy"
+                ),
             }
             if reference_images:
                 config_args["reference_images"] = reference_images
-                
+
             config = types.GenerateVideosConfig(**config_args)
             
             # Call Veo 3.1
@@ -471,23 +456,27 @@ Return ONLY valid JSON:
             return False
 
     def merge_videos(self, video_paths: List[str], final_output_path: str):
-        """Merges multiple video files using FFmpeg with smooth cross-fade transitions."""
+        """Merges multiple video files using FFmpeg with smooth cross-fade transitions.
+        Falls back to copying the first scene if ffmpeg is not available."""
+        import shutil
         print(f"   Merging {len(video_paths)} scenes into {final_output_path}...")
-        
+
         if len(video_paths) == 1:
-            import shutil
             shutil.copy2(video_paths[0], final_output_path)
-            print(f"     Single scene  copied directly.")
+            print(f"     Single scene copied directly.")
             return
-        
+
+        # If ffmpeg is not installed, just copy the first scene as the final video
+        if not self._ffmpeg_available:
+            print("     ffmpeg not available — copying first scene as final output.")
+            shutil.copy2(video_paths[0], final_output_path)
+            return
+
         FADE_DURATION = 0.5  # seconds of cross-fade between scenes
-        
+
         # --- Pre-process: Stretch Veo 5s videos to 8.5s natively ---
         print("     Normalizing scenes to 8.5s via cinematic slow-motion stretching...")
-        import tempfile
-        import time
-        import os
-        
+
         stretched_paths = []
         for i, vp in enumerate(video_paths):
             probe_cmd = [
@@ -496,15 +485,15 @@ Return ONLY valid JSON:
             ]
             probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
             original_dur = float(probe_result.stdout.strip()) if probe_result.stdout.strip() else 5.0
-            
+
             target_dur = 8.5
             ratio = target_dur / original_dur
-            
+
             if ratio > 1.1:
                 stretched_vp = os.path.join(tempfile.gettempdir(), f"stretch_{int(time.time()*100)}_{i}.mp4")
                 # Check for audio stream
                 audio_probe = subprocess.run(["ffprobe", "-i", vp, "-show_streams", "-select_streams", "a", "-loglevel", "error"], capture_output=True, text=True)
-                
+
                 if audio_probe.stdout.strip():
                     filter_str = f"[0:v]setpts={ratio}*PTS[v];[0:a]atempo={1.0/ratio}[a]"
                     stretch_cmd = [
@@ -524,7 +513,7 @@ Return ONLY valid JSON:
                         "-c:v", "libx264", "-preset", "ultrafast",
                         stretched_vp
                     ]
-                
+
                 subprocess.run(stretch_cmd, capture_output=True)
                 if os.path.exists(stretched_vp):
                     stretched_paths.append(stretched_vp)
@@ -532,9 +521,9 @@ Return ONLY valid JSON:
                     stretched_paths.append(vp)
             else:
                 stretched_paths.append(vp)
-                
+
         video_paths = stretched_paths
-        
+
         try:
             # Build FFmpeg xfade filter chain for smooth transitions
             # First, probe each video duration
@@ -547,24 +536,24 @@ Return ONLY valid JSON:
                 probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
                 dur = float(probe_result.stdout.strip()) if probe_result.stdout.strip() else 8.0
                 durations.append(dur)
-            
+
             # Build input arguments
             inputs = []
             for vp in video_paths:
                 inputs += ["-i", vp]
-            
+
             # Build xfade filter chain
             n = len(video_paths)
             video_filters = []
             audio_filters = []
-            
+
             # Calculate offsets for each xfade transition
             offsets = []
             cumulative = 0
             for i in range(n - 1):
                 cumulative += durations[i] - FADE_DURATION
                 offsets.append(cumulative)
-            
+
             # Chain xfade filters: [0][1] -> tmp1, [tmp1][2] -> tmp2, etc.
             if n == 2:
                 video_filters.append(f"[0:v][1:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[0]}[outv]")
@@ -573,7 +562,7 @@ Return ONLY valid JSON:
                 # First pair
                 video_filters.append(f"[0:v][1:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[0]}[v1]")
                 audio_filters.append(f"[0:a][1:a]acrossfade=d={FADE_DURATION}[a1]")
-                
+
                 # Middle pairs
                 for i in range(2, n - 1):
                     prev_v = f"v{i-1}"
@@ -582,15 +571,15 @@ Return ONLY valid JSON:
                     curr_a = f"a{i}"
                     video_filters.append(f"[{prev_v}][{i}:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[i-1]}[{curr_v}]")
                     audio_filters.append(f"[{prev_a}][{i}:a]acrossfade=d={FADE_DURATION}[{curr_a}]")
-                
+
                 # Last pair
                 last_v = f"v{n-2}"
                 last_a = f"a{n-2}"
                 video_filters.append(f"[{last_v}][{n-1}:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[n-2]}[outv]")
                 audio_filters.append(f"[{last_a}][{n-1}:a]acrossfade=d={FADE_DURATION}[outa]")
-            
+
             filter_complex = ";".join(video_filters + audio_filters)
-            
+
             cmd = ["ffmpeg", "-y"] + inputs + [
                 "-filter_complex", filter_complex,
                 "-map", "[outv]", "-map", "[outa]",
@@ -598,9 +587,9 @@ Return ONLY valid JSON:
                 "-c:a", "aac", "-b:a", "128k",
                 final_output_path
             ]
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 print(f"     Final video merged with smooth cross-fade transitions!")
                 return
@@ -608,14 +597,14 @@ Return ONLY valid JSON:
                 print(f"     Cross-fade failed, falling back to simple concat...")
         except Exception as e:
             print(f"     Cross-fade error: {e}. Falling back to concat...")
-        
+
         # Fallback: simple concat
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
             for path in video_paths:
                 safe_path = path.replace("'", "'\\''")
                 f.write(f"file '{safe_path}'\n")
             concat_file = f.name
-        
+
         try:
             cmd = [
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0",
@@ -633,9 +622,13 @@ Return ONLY valid JSON:
                 os.remove(concat_file)
     async def _generate_fallback_image_video(self, scene: Dict, idx: int, temp_dir: str) -> str:
         """Generates a static image via Imagen (saved to GridFS) and animates it."""
+        if not self._ffmpeg_available:
+            print(f"       Fallback skipped: ffmpeg not available for image-to-video conversion.")
+            return None
+
         from api.services.db_mongo_service import get_file_from_gridfs
         from api.services.ai_assist_service import ai_assist_service
-        
+
         prompt = self._build_prompt(scene)
         print(f"       Fallback: Generating static image via Imagen for scene {idx}...")
         try:
@@ -667,9 +660,12 @@ Return ONLY valid JSON:
 
     async def _apply_audio_and_overlay(self, idx: int, scene: Dict, video_path: str, temp_dir: str) -> str:
         """Applies overlays BRAND logo/product images on the video."""
+        if not self._ffmpeg_available:
+            return video_path  # Skip overlays without ffmpeg
+
         from api.services.db_mongo_service import get_file_from_gridfs
         output_path = video_path
-        
+
         try:
             # Note: SARVAM TTS is currently handled by frontend or disabled to avoid sync issues.
             # We focus on visual overlays here.
@@ -822,13 +818,19 @@ Return ONLY valid JSON:
         final_path = os.path.join(self.video_dir, f"ad_variant_{variant_label}_{video_id}.mp4")
         
         self.merge_videos(valid_scene_videos, final_path)
-        
+
+        # If merge didn't produce a file (e.g. ffmpeg error), copy the first scene
+        if not os.path.exists(final_path) and valid_scene_videos:
+            import shutil
+            shutil.copy2(valid_scene_videos[0], final_path)
+            print(f"     Merge output missing — copied first scene as final video.")
+
         return {
             "variant": variant_label,
             "label": variant.get("label"),
             "video_id": video_id,
             "status": "completed",
-            "local_path": final_path,
+            "local_path": final_path if os.path.exists(final_path) else None,
             "scenes_count": len(valid_scene_videos)
         }
 
