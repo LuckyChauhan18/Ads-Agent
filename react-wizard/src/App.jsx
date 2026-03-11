@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Pages (full-page routed views)
+import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
@@ -24,7 +25,7 @@ function App() {
     localStorage.removeItem('spectra_token');
     localStorage.removeItem('spectra_user');
     setUser(null);
-    window.location.href = '/auth';
+    window.location.href = '/';
   };
 
   const handleLogin = (username) => {
@@ -34,6 +35,9 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public Home Page */}
+        <Route path="/" element={<HomePage />} />
+
         {/* Auth Route */}
         <Route
           path="/auth"
@@ -47,7 +51,7 @@ function App() {
 
         {/* Protected Routes */}
         <Route
-          path="/"
+          path="/create"
           element={
             <ProtectedRoute>
               <Layout user={user} onLogout={handleLogout}>

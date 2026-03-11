@@ -9,7 +9,7 @@ const Layout = ({ children, user, onLogout }) => {
   const path = location.pathname;
 
   const navItems = [
-    { path: '/', icon: Sparkles, label: 'Create', description: 'Generate new campaigns' },
+    { path: '/create', icon: Sparkles, label: 'Create', description: 'Generate new campaigns' },
     { path: '/dashboard', icon: LayoutIcon, label: 'Dashboard', description: 'View all campaigns' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics', description: 'Track performance' },
     { path: '/publish', icon: Send, label: 'Publish', description: 'Share your ads' },
@@ -20,7 +20,7 @@ const Layout = ({ children, user, onLogout }) => {
       <aside className="sidebar-nav">
         {/* Logo Section */}
         <div className="sidebar-header">
-          <div className="logo-container" onClick={() => navigate('/')}>
+          <div className="logo-container" onClick={() => navigate('/create')}>
             <Zap className="logo-icon" size={28} />
             <h1 className="logo-text">SPECTRA</h1>
           </div>
@@ -89,6 +89,44 @@ const Layout = ({ children, user, onLogout }) => {
           display: flex;
           overflow: hidden;
           background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0f0f23 100%);
+          position: relative;
+        }
+
+        .layout-shell::before {
+          content: '';
+          position: absolute;
+          width: 600px;
+          height: 600px;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+          border-radius: 50%;
+          top: -200px;
+          right: -200px;
+          filter: blur(100px);
+          pointer-events: none;
+          animation: float-blob 15s ease-in-out infinite;
+        }
+
+        .layout-shell::after {
+          content: '';
+          position: absolute;
+          width: 500px;
+          height: 500px;
+          background: radial-gradient(circle, rgba(168, 85, 247, 0.12) 0%, transparent 70%);
+          border-radius: 50%;
+          bottom: -150px;
+          left: -150px;
+          filter: blur(100px);
+          pointer-events: none;
+          animation: float-blob 20s ease-in-out infinite reverse;
+        }
+
+        @keyframes float-blob {
+          0%, 100% {
+            transform: translate(0, 0) scale(1);
+          }
+          50% {
+            transform: translate(30px, -30px) scale(1.1);
+          }
         }
 
         /* Sidebar Navigation */

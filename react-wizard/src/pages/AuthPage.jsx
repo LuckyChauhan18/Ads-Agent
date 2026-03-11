@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, Sparkles, Building2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Sparkles, Building2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Zap, Home } from 'lucide-react';
 import { authService } from '../services/api';
 
 function AuthPage({ onLogin }) {
@@ -142,7 +142,7 @@ function AuthPage({ onLogin }) {
         setSuccess('✨ Login successful! Redirecting...');
         setTimeout(() => {
           onLogin(formData.username);
-          navigate('/');
+          navigate('/create');
         }, 1200);
       } else {
         await authService.signup(
@@ -195,6 +195,25 @@ function AuthPage({ onLogin }) {
 
   return (
     <div className="auth-page-container">
+      {/* Navbar */}
+      <motion.nav 
+        className="auth-navbar"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6 }}
+      >
+        <div className="auth-nav-content">
+          <div className="nav-logo-section" onClick={() => navigate('/')}>
+            <Zap className="nav-logo-icon" size={28} />
+            <h1 className="nav-logo-text">SPECTRA</h1>
+          </div>
+          <button className="nav-home-btn" onClick={() => navigate('/')}>
+            <Home size={18} />
+            <span>Home</span>
+          </button>
+        </div>
+      </motion.nav>
+
       <motion.div
         className="cursor-glow"
         style={{
@@ -210,6 +229,36 @@ function AuthPage({ onLogin }) {
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 1, ease: "easeOut" }}
       >
+        {/* Floating gradient blobs for form section */}
+        <div className="form-blobs">
+          <motion.div 
+            className="form-blob form-blob-1"
+            animate={{
+              x: [0, 30, 0],
+              y: [0, -40, 0],
+              scale: [1, 1.1, 1],
+            }}
+            transition={{
+              duration: 8,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div 
+            className="form-blob form-blob-2"
+            animate={{
+              x: [0, -30, 0],
+              y: [0, 40, 0],
+              scale: [1, 1.15, 1],
+            }}
+            transition={{
+              duration: 10,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+        </div>
+        
         <motion.div
           className="auth-card glass"
           variants={containerVariants}
@@ -482,8 +531,79 @@ function AuthPage({ onLogin }) {
           width: 100vw;
           height: 100vh;
           overflow: hidden;
-          background: #020202;
+          background: linear-gradient(135deg, #0a0a0a 0%, #1a0f2e 50%, #0f0a1a 100%);
           position: relative;
+        }
+
+        /* Navbar Styles */
+        .auth-navbar {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          z-index: 200;
+          padding: 16px 0;
+          backdrop-filter: blur(20px);
+          background: rgba(10, 10, 31, 0.8);
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .auth-nav-content {
+          max-width: 1400px;
+          margin: 0 auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 40px;
+        }
+
+        .nav-logo-section {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          cursor: pointer;
+          transition: transform 0.3s ease;
+        }
+
+        .nav-logo-section:hover {
+          transform: scale(1.05);
+        }
+
+        .nav-logo-icon {
+          color: #818cf8;
+          filter: drop-shadow(0 0 12px rgba(129, 140, 248, 0.5));
+        }
+
+        .nav-logo-text {
+          font-size: 1.5rem;
+          font-weight: 900;
+          letter-spacing: -1px;
+          background: linear-gradient(135deg, #ffffff 0%, #818cf8 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          margin: 0;
+        }
+
+        .nav-home-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: white;
+          padding: 10px 20px;
+          border-radius: 10px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          font-size: 0.95rem;
+        }
+
+        .nav-home-btn:hover {
+          background: rgba(255, 255, 255, 0.05);
+          border-color: rgba(255, 255, 255, 0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
         }
 
         .cursor-glow {
@@ -547,7 +667,7 @@ function AuthPage({ onLogin }) {
           letter-spacing: -3px;
           margin: 0 40px;
           display: flex;
-          flex-wrap: wrap;
+          flex-wrap: nowrap;
           justify-content: center;
           gap: 10px;
           color: white;
@@ -594,12 +714,45 @@ function AuthPage({ onLogin }) {
           height: 500px;
           border-radius: 50%;
           filter: blur(120px);
-          opacity: 0.15;
+          opacity: 0.25;
         }
 
         .blob-1 { background: #6366f1; top: -100px; right: -100px; }
         .blob-2 { background: #4f46e5; bottom: -150px; left: -100px; }
-        .blob-3 { background: #818cf8; top: 30%; left: 20%; width: 300px; height: 300px; opacity: 0.1; }
+        .blob-3 { background: #818cf8; top: 30%; left: 20%; width: 300px; height: 300px; opacity: 0.18; }
+
+        .form-blobs {
+          position: absolute;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 1;
+          overflow: hidden;
+        }
+
+        .form-blob {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(100px);
+        }
+
+        .form-blob-1 {
+          width: 400px;
+          height: 400px;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+          top: 10%;
+          left: -10%;
+          opacity: 0.2;
+        }
+
+        .form-blob-2 {
+          width: 350px;
+          height: 350px;
+          background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+          bottom: 10%;
+          right: -10%;
+          opacity: 0.18;
+        }
 
         .particle {
             position: absolute;
@@ -654,16 +807,15 @@ function AuthPage({ onLogin }) {
         }
 
         .input-group-glass:focus-within {
-          border-color: #6366f1;
-          background: rgba(99, 102, 241, 0.05);
-          box-shadow: 0 0 30px rgba(99, 102, 241, 0.15);
-          transform: translateY(-2px);
+          border-color: rgba(99, 102, 241, 0.5);
+          background: rgba(99, 102, 241, 0.03);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
 
         .input-group-glass.error:focus-within {
-          border-color: #ef4444;
-          background: rgba(239, 68, 68, 0.05);
-          box-shadow: 0 0 20px rgba(239, 68, 68, 0.1);
+          border-color: rgba(239, 68, 68, 0.5);
+          background: rgba(239, 68, 68, 0.03);
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.08);
         }
 
         .input-icon {
@@ -673,7 +825,7 @@ function AuthPage({ onLogin }) {
         }
 
         .input-group-glass:focus-within .input-icon {
-          color: #6366f1;
+          color: #818cf8;
         }
 
         .input-group-glass.error .input-icon {
@@ -701,6 +853,25 @@ function AuthPage({ onLogin }) {
           width: 100%;
           font-size: 1.02rem;
           transition: all 0.3s;
+          box-shadow: none;
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
+        }
+
+        .input-group-glass input:focus {
+          outline: none;
+          box-shadow: none;
+          border: none;
+        }
+
+        .input-group-glass input:-webkit-autofill,
+        .input-group-glass input:-webkit-autofill:hover,
+        .input-group-glass input:-webkit-autofill:focus {
+          -webkit-text-fill-color: white;
+          -webkit-box-shadow: 0 0 0 1000px transparent inset;
+          box-shadow: 0 0 0 1000px transparent inset;
+          transition: background-color 5000s ease-in-out 0s;
         }
 
         .input-group-glass input::placeholder {

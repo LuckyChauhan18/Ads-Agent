@@ -31,7 +31,7 @@ function Dashboard({ user }) {
   return (
     <div className="dashboard-container glass">
       <header className="dashboard-header">
-        <Link to="/" className="back-btn">
+        <Link to="/create" className="back-btn">
           <ArrowLeft size={18} /> Back to Generator
         </Link>
         <div className="user-profile">

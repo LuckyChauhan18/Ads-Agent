@@ -1,174 +1,208 @@
-:root {
-  --indigo: #4f46e5;
-  --teal: #0d9488;
-  --emerald: #059669;
-  --amber: #d97706;
-  --crimson: #e11d48;
-  --violet: #7c3aed;
-  --slate: #475569;
+@import "tailwindcss";
 
-  --glass-bg: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #000;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* Custom scrollbar - Dark mode */
+.dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+.dark ::-webkit-scrollbar-track {
+  background: #1f2937;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 2rem 1rem;
+.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
 }
 
-#root {
-  width: 100%;
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }
 
-.bg-layer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1;
-  transition: var(--transition);
-}
-
-.bg-step-1 { background: radial-gradient(circle at top left, var(--indigo), #000); }
-.bg-step-2 { background: radial-gradient(circle at top left, var(--teal), #000); }
-.bg-step-3 { background: radial-gradient(circle at top left, var(--emerald), #000); }
-.bg-step-4 { background: radial-gradient(circle at top left, var(--amber), #000); }
-.bg-step-5 { background: radial-gradient(circle at top left, var(--crimson), #000); }
-.bg-step-6 { background: radial-gradient(circle at top left, var(--violet), #000); }
-.bg-step-7 { background: radial-gradient(circle at top left, var(--slate), #000); }
-.bg-step-8 { background: radial-gradient(circle at top left, #1e293b, #000); }
-.bg-step-9 { background: radial-gradient(circle at top left, #4338ca, #000); }
-
-.glass-container {
-  width: 100%;
-  max-width: 1200px;
-  min-height: 85vh;
-  max-height: 95vh;
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  border-radius: 24px;
-  padding: 30px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-
-.premium-logo {
-  font-family: 'Outfit', sans-serif;
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: -1px;
-}
-
-.highlight { color: #818cf8; }
-
-.btn {
-  padding: 12px 32px;
-  border-radius: 50px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition);
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-primary {
-  background: white;
-  color: black;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-}
-
-.btn-premium {
-  background: linear-gradient(135deg, #f59e0b, #e11d48);
-  color: white;
-}
-
-input, textarea, select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  padding: 12px 16px;
-  color: white;
-  font-family: inherit;
-  font-size: 1rem;
-  outline: none;
-  transition: var(--transition);
-}
-
-input:focus, textarea:focus, select:focus {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 8px;
-  display: block;
-}
-
-.card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  border-radius: 20px;
-  padding: 24px;
-  transition: var(--transition);
-}
-
-/* Custom Scrollbar for a premium feel */
+/* Custom scrollbar - Light mode */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 10px;
+  background: #e5e7eb;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
+  background: #9ca3af;
+  border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: #6b7280;
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Dark theme body - default for entire app */
+body {
+  background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0f0f23 100%);
+  color: white;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Light mode body - if needed */
+html.light body {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* Dark mode body - explicit */
+html.dark body {
+  background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0f0f23 100%);
+  color: white;
+}
+
+/* Selection */
+::selection {
+  background: rgba(168, 85, 247, 0.3);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.2);
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Custom animations */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+}
+
+/* Global text and form styling for dark theme */
+* {
+  box-sizing: border-box;
+}
+
+label {
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+}
+
+input, textarea, select {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+  transition: all 0.3s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.03);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: white;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+p {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+}
+
+a {
+  color: #818cf8;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #a5b4fc;
+}
+
+/* Loading and empty states */
+.loading-state, .empty {
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 1.1rem;
+}
+
+/* Glass morphism utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+.glass-vibrant {
+  background: rgba(99, 102, 241, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 16px;
 }
