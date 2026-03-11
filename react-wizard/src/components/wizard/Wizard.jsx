@@ -262,50 +262,69 @@ function Wizard() {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 10px;
-          padding: 10px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          gap: 6px;
+          padding: 14px 20px;
+          background: rgba(255,255,255,0.02);
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.05);
         }
         .step-bubble {
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.05);
+          width: 36px;
+          height: 36px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.04);
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.3s;
-          border: 1px solid rgba(255,255,255,0.1);
-          color: rgba(255,255,255,0.4);
+          transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.3);
+          position: relative;
+        }
+        .step-bubble:hover {
+          background: rgba(255,255,255,0.07);
+          color: rgba(255,255,255,0.6);
+          border-color: rgba(255,255,255,0.15);
         }
         .step-bubble.active {
-          background: var(--primary, #6366f1);
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
           color: white;
-          transform: scale(1.1);
-          box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+          transform: scale(1.15);
+          box-shadow: 0 4px 20px rgba(99,102,241,0.45);
+          border-color: transparent;
         }
         .step-bubble.completed {
-          background: rgba(16, 185, 129, 0.2);
-          color: #10b981;
-          border-color: #10b981;
+          background: rgba(16,185,129,0.15);
+          color: #34d399;
+          border-color: rgba(16,185,129,0.3);
+        }
+        .step-bubble.completed:hover {
+          background: rgba(16,185,129,0.25);
         }
         .step-line {
-          width: 20px;
-          height: 1px;
-          background: rgba(255,255,255,0.1);
+          width: 24px;
+          height: 2px;
+          border-radius: 1px;
+          background: rgba(255,255,255,0.06);
+          transition: background 0.3s;
+        }
+        .step-bubble.completed + .step-line,
+        .step-line:has(+ .step-bubble.completed),
+        .step-line:has(+ .step-bubble.active) {
+          background: rgba(99,102,241,0.3);
         }
         .wizard-content {
           flex: 1;
           overflow-y: auto;
-          padding: 10px;
+          padding: 4px 10px;
           min-height: 0;
         }
         .wizard-actions {
           display: flex;
           justify-content: flex-end;
-          gap: 15px;
-          padding-top: 20px;
+          gap: 12px;
+          padding: 18px 0 4px;
           border-top: 1px solid rgba(255,255,255,0.05);
         }
         .step-container {

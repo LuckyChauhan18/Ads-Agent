@@ -285,50 +285,89 @@ const ProductStep = ({ data, updateData }) => {
         .step-form {
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 24px;
           height: 100%;
           overflow-y: auto;
           overflow-x: hidden;
           padding-right: 12px;
         }
         .section-header {
-          margin-bottom: 8px;
+          margin-bottom: 4px;
+        }
+        .section-header h2 {
+          font-size: 1.5rem;
+          font-weight: 800;
+          margin: 0 0 6px;
+          background: linear-gradient(135deg, #e0e7ff, #a5b4fc);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
         .subtitle {
-          font-size: 0.9rem;
-          color: rgba(255, 255, 255, 0.5);
+          font-size: 0.88rem;
+          color: rgba(255, 255, 255, 0.4);
+          margin: 0;
         }
         .mandatory {
-          color: #ff4d4d;
+          color: #f87171;
           margin-left: 2px;
         }
         .modern-select {
           width: 100%;
-          background: rgba(0, 0, 0, 0.2);
+          background: rgba(255, 255, 255, 0.03);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 12px 16px;
-          border-radius: 10px;
-          font-size: 1rem;
+          padding: 13px 16px;
+          border-radius: 12px;
+          font-size: 0.95rem;
           color: white;
           outline: none;
           cursor: pointer;
           appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          transition: all 0.3s ease;
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
           background-repeat: no-repeat;
-          background-position: right 12px center;
+          background-position: right 14px center;
           background-size: 16px;
         }
         .modern-select option {
-          background: #1a1a1a;
+          background: #1a1a2e;
           color: white;
         }
         .modern-select:focus {
-          border-color: #6366f1;
+          border-color: rgba(99, 102, 241, 0.5);
+          background-color: rgba(99, 102, 241, 0.03);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         .input-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 20px;
+        }
+        .input-group {
+          display: flex;
+          flex-direction: column;
+        }
+        .input-group label {
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: rgba(255, 255, 255, 0.65);
+          margin-bottom: 8px;
+          letter-spacing: 0.3px;
+        }
+        .input-group input,
+        .input-group textarea {
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 13px 16px;
+          border-radius: 12px;
+          font-size: 0.95rem;
+          transition: all 0.3s ease;
+        }
+        .input-group input:focus,
+        .input-group textarea:focus {
+          border-color: rgba(99, 102, 241, 0.5);
+          background: rgba(99, 102, 241, 0.03);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
         .full-width {
           grid-column: span 2;
@@ -349,17 +388,18 @@ const ProductStep = ({ data, updateData }) => {
           gap: 6px;
           background: linear-gradient(135deg, #6366f1, #a855f7);
           border: none;
-          border-radius: 6px;
-          padding: 4px 10px;
+          border-radius: 10px;
+          padding: 6px 14px;
           color: white;
-          font-size: 0.7rem;
-          font-weight: 600;
+          font-size: 0.72rem;
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
         }
         .generate-btn:hover:not(:disabled) {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
         }
         .generate-btn:disabled {
           opacity: 0.6;
@@ -374,78 +414,114 @@ const ProductStep = ({ data, updateData }) => {
         }
         
         .upload-box {
-          height: 120px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px dashed rgba(255, 255, 255, 0.2);
-          border-radius: 12px;
+          height: 130px;
+          background: rgba(255, 255, 255, 0.02);
+          border: 2px dashed rgba(255, 255, 255, 0.1);
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
+        }
+        .upload-box::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(99,102,241,0.05), rgba(168,85,247,0.05));
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .upload-box:hover::before {
+          opacity: 1;
         }
         .upload-box:hover {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(255, 255, 255, 0.4);
+          border-color: rgba(99, 102, 241, 0.4);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
         .upload-placeholder {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 4px;
-          color: rgba(255, 255, 255, 0.4);
-          font-size: 0.75rem;
+          gap: 8px;
+          color: rgba(255, 255, 255, 0.35);
+          font-size: 0.78rem;
+          font-weight: 500;
+          z-index: 1;
         }
         .preview-logo {
           height: 100px;
           width: 100px;
           object-fit: contain;
+          z-index: 1;
         }
         .images-upload-container {
           display: flex;
           gap: 12px;
           align-items: center;
-          height: 120px;
+          height: 130px;
         }
         .image-add {
-          width: 120px;
+          width: 130px;
           flex-shrink: 0;
-          color: rgba(255, 255, 255, 0.4);
+          color: rgba(255, 255, 255, 0.35);
         }
         .images-preview-list {
           display: flex;
-          gap: 8px;
+          gap: 10px;
           overflow-x: auto;
           padding-bottom: 4px;
         }
         .image-preview-item {
-          width: 110px;
-          height: 110px;
-          border-radius: 8px;
+          width: 115px;
+          height: 115px;
+          border-radius: 12px;
           position: relative;
-          background: black;
+          background: rgba(0,0,0,0.4);
           flex-shrink: 0;
+          border: 1px solid rgba(255,255,255,0.06);
+          overflow: hidden;
+          transition: all 0.3s ease;
+        }
+        .image-preview-item:hover {
+          border-color: rgba(99,102,241,0.3);
         }
         .image-preview-item img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          border-radius: 8px;
+          transition: transform 0.3s;
+        }
+        .image-preview-item:hover img {
+          transform: scale(1.05);
         }
         .remove-btn {
           position: absolute;
-          top: -4px;
-          right: -4px;
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          background: #ef4444;
+          top: 4px;
+          right: 4px;
+          width: 20px;
+          height: 20px;
+          border-radius: 6px;
+          background: rgba(239, 68, 68, 0.9);
           color: white;
           border: none;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
+          backdrop-filter: blur(4px);
+          transition: all 0.2s;
+          opacity: 0;
+        }
+        .image-preview-item:hover .remove-btn {
+          opacity: 1;
+        }
+        .remove-btn:hover {
+          background: #ef4444;
+          transform: scale(1.1);
         }
       `}</style>
     </motion.div>

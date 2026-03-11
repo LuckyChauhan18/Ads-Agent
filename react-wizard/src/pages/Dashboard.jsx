@@ -1,7 +1,11 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Layout as LayoutIcon, Image as ImageIcon, FileText, User, ArrowLeft, ExternalLink, Calendar, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Layout as LayoutIcon, Image as ImageIcon, FileText, User, ArrowLeft,
+  ExternalLink, Calendar, Sparkles, Video, Layers, Plus, TrendingUp,
+  Clock, Zap, ChevronRight, FolderOpen, ImagePlus, UserCircle
+} from 'lucide-react';
 import { workflowService } from '../services/api';
 
 function Dashboard({ user }) {
@@ -26,648 +30,918 @@ function Dashboard({ user }) {
     }
   };
 
-  if (loading) return <div className="loading-state">Loading your universe...</div>;
+  const campaignCount = data?.campaigns?.length || 0;
+  const logoCount = data?.assets?.logos?.length || 0;
+  const productCount = data?.assets?.products?.length || 0;
+  const avatarCount = data?.assets?.avatars?.length || 0;
+
+  const tabs = [
+    { key: 'campaigns', label: 'Campaigns', icon: Layers, count: campaignCount },
+    { key: 'logos', label: 'Logos', icon: ImageIcon, count: logoCount },
+    { key: 'products', label: 'Products', icon: FolderOpen, count: productCount },
+    { key: 'avatars', label: 'Avatars', icon: UserCircle, count: avatarCount },
+  ];
+
+  const stats = [
+    { label: 'Total Campaigns', value: campaignCount, icon: Layers, color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+    { label: 'Assets Uploaded', value: logoCount + productCount + avatarCount, icon: ImagePlus, color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+    { label: 'AI Avatars', value: avatarCount, icon: UserCircle, color: '#f472b6', bg: 'rgba(244,114,182,0.12)' },
+    { label: 'Videos Created', value: data?.campaigns?.filter(c => c.video_url)?.length || 0, icon: Video, color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  ];
+
+  if (loading) return (
+    <div className="db-loading">
+      <div className="db-loading-spinner" />
+      <p>Loading your creative hub...</p>
+    </div>
+  );
 
   return (
-    <div className="dashboard-container glass">
-      <header className="dashboard-header">
-        <Link to="/create" className="back-btn">
-          <ArrowLeft size={18} /> Back to Generator
-        </Link>
-        <div className="user-profile">
-          <div className="avatar-circle">
+    <div className="db-root">
+      {/* Welcome Hero */}
+      <motion.section
+        className="db-hero"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="db-hero-left">
+          <div className="db-hero-avatar">
             {user?.[0]?.toUpperCase() || 'U'}
           </div>
-          <div className="user-info">
-            <h3>{data?.user_info?.full_name || user}</h3>
-            <p>{data?.user_info?.email || 'Creator'}</p>
+          <div>
+            <h1 className="db-hero-title">Welcome back, <span className="db-hero-name">{data?.user_info?.full_name || user}</span></h1>
+            <p className="db-hero-sub">Here's an overview of your creative workspace</p>
           </div>
         </div>
-      </header>
+        <button className="db-create-btn" onClick={() => navigate('/create')}>
+          <Plus size={18} />
+          New Campaign
+        </button>
+      </motion.section>
 
-      <nav className="dashboard-nav">
-        {['campaigns', 'logos', 'products', 'avatars'].map(tab => (
-          <button
-            key={tab}
-            className={`nav-item ${activeTab === tab ? 'active' : ''}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
-        ))}
-      </nav>
-
-      <div className="dashboard-content">
-        {activeTab === 'campaigns' && (
-          <div className="campaigns-view">
-            {!selectedCampaign ? (
-              <div className="grid">
-                {data?.campaigns?.length > 0 ? data.campaigns.map(c => (
-                  <motion.div
-                    key={c._id}
-                    className="item-card glass-vibrant clickable"
-                    layout
-                    onClick={() => setSelectedCampaign(c)}
-                  >
-                    <div className="item-header">
-                      <h4>{c.brand_name}</h4>
-                      <span className="date-tag"><Calendar size={12} /> {new Date(c.updated_at).toLocaleDateString()}</span>
-                    </div>
-                    <p className="item-desc">{c.product_name}</p>
-                    <div className="item-footer">
-                      <span className="badge">{c.platform}</span>
-                      <button className="view-btn"><ExternalLink size={14} /></button>
-                    </div>
-                  </motion.div>
-                )) : <p className="empty">No campaigns yet. Let's create one!</p>}
+      {/* Stats Row */}
+      <motion.section
+        className="db-stats-row"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        {stats.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <div className="db-stat-card" key={i}>
+              <div className="db-stat-icon" style={{ background: s.bg, color: s.color }}>
+                <Icon size={20} />
               </div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="campaign-detail-view glass"
-              >
-                <div className="detail-header">
-                  <button className="back-link" onClick={() => setSelectedCampaign(null)}>
-                    <ArrowLeft size={16} /> Back to List
-                  </button>
-                  <div className="title-row">
-                    <h2>{selectedCampaign.brand_name}: {selectedCampaign.product_name}</h2>
-                    <span className="platform-tag">{selectedCampaign.platform}</span>
-                  </div>
-                </div>
+              <div className="db-stat-text">
+                <span className="db-stat-value">{s.value}</span>
+                <span className="db-stat-label">{s.label}</span>
+              </div>
+            </div>
+          );
+        })}
+      </motion.section>
 
-                <div className="detail-scroll-content">
-                  {/* Campaign Meta Badges */}
-                  <div className="campaign-meta-row">
-                    {selectedCampaign.funnel_stage && (
-                      <span className="meta-badge funnel">{selectedCampaign.funnel_stage} funnel</span>
-                    )}
-                    {selectedCampaign.ad_length && (
-                      <span className="meta-badge">{selectedCampaign.ad_length}s video</span>
-                    )}
-                    {selectedCampaign.primary_emotions?.map((e, i) => (
-                      <span key={i} className="meta-badge emotion">{e}</span>
+      {/* Tab Navigation */}
+      <motion.nav
+        className="db-tabs"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.15 }}
+      >
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              className={`db-tab ${activeTab === tab.key ? 'db-tab-active' : ''}`}
+              onClick={() => { setActiveTab(tab.key); setSelectedCampaign(null); }}
+            >
+              <Icon size={16} />
+              <span>{tab.label}</span>
+              <span className="db-tab-count">{tab.count}</span>
+            </button>
+          );
+        })}
+      </motion.nav>
+
+      {/* Content Area */}
+      <div className="db-content">
+        <AnimatePresence mode="wait">
+          {activeTab === 'campaigns' && (
+            <motion.div key="campaigns" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="campaigns-view">
+              {!selectedCampaign ? (
+                campaignCount > 0 ? (
+                  <div className="db-grid">
+                    {data.campaigns.map((c, idx) => (
+                      <motion.div
+                        key={c._id}
+                        className="db-card"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        onClick={() => setSelectedCampaign(c)}
+                        whileHover={{ y: -6, scale: 1.015 }}
+                      >
+                        <div className="db-card-top">
+                          <div className="db-card-brand-icon">
+                            {c.brand_name?.[0]?.toUpperCase() || 'C'}
+                          </div>
+                          <div className="db-card-meta">
+                            <h4 className="db-card-brand">{c.brand_name}</h4>
+                            <span className="db-card-date">
+                              <Clock size={11} />
+                              {new Date(c.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                          </div>
+                          <ChevronRight size={16} className="db-card-arrow" />
+                        </div>
+                        <p className="db-card-product">{c.product_name}</p>
+                        <div className="db-card-bottom">
+                          <span className="db-card-badge">{c.platform || 'instagram'}</span>
+                          {c.funnel_stage && <span className="db-card-badge db-card-badge-green">{c.funnel_stage}</span>}
+                          {c.video_url && <span className="db-card-badge db-card-badge-amber"><Video size={10} /> Video</span>}
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
-
-                  {/* Product Overview from campaign_psychology */}
-                  {selectedCampaign.campaign_psychology?.product_understanding && (
-                    <section className="detail-section">
-                      <h3>Product Overview</h3>
-                      <div className="product-overview glass-brutal">
-                        <p className="product-desc">{selectedCampaign.campaign_psychology.product_understanding.description}</p>
-                        <div className="product-chips">
-                          {selectedCampaign.campaign_psychology.product_understanding.features?.map((f, i) => (
-                            <span key={i} className="feature-chip">{f}</span>
+                ) : (
+                  <div className="db-empty">
+                    <div className="db-empty-icon"><Sparkles size={40} /></div>
+                    <h3>No campaigns yet</h3>
+                    <p>Create your first AI-powered ad campaign to get started</p>
+                    <button className="db-create-btn" onClick={() => navigate('/create')}>
+                      <Plus size={18} /> Create Campaign
+                    </button>
+                  </div>
+                )
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="db-detail"
+                >
+                  <div className="db-detail-header">
+                    <button className="db-detail-back" onClick={() => setSelectedCampaign(null)}>
+                      <ArrowLeft size={16} /> All Campaigns
+                    </button>
+                    <div className="db-detail-title-row">
+                      <div>
+                        <h2 className="db-detail-title">{selectedCampaign.brand_name}: {selectedCampaign.product_name}</h2>
+                        <div className="campaign-meta-row">
+                          <span className="db-detail-platform">{selectedCampaign.platform}</span>
+                          {selectedCampaign.funnel_stage && <span className="meta-badge funnel">{selectedCampaign.funnel_stage}</span>}
+                          {selectedCampaign.ad_length && <span className="meta-badge">{selectedCampaign.ad_length}s</span>}
+                          {selectedCampaign.primary_emotions?.map((e, i) => (
+                            <span key={i} className="meta-badge emotion">{e}</span>
                           ))}
                         </div>
-                        {selectedCampaign.campaign_psychology.product_understanding.target_user && (
-                          <div className="target-user">
-                            <label>Target Audience</label>
-                            <p>{selectedCampaign.campaign_psychology.product_understanding.target_user}</p>
-                          </div>
-                        )}
                       </div>
-                    </section>
-                  )}
-
-                  {/* Strategy Blueprint from pattern_blueprint */}
-                  {selectedCampaign.pattern_blueprint?.pattern_blueprint && (
-                    <section className="detail-section">
-                      <h3>Strategy Blueprint</h3>
-                      <div className="strategy-grid">
-                        {[
-                          { label: 'Hook', value: selectedCampaign.pattern_blueprint.pattern_blueprint.hook_type },
-                          { label: 'Tone', value: selectedCampaign.pattern_blueprint.pattern_blueprint.tone },
-                          { label: 'Angle', value: selectedCampaign.pattern_blueprint.pattern_blueprint.angle },
-                          { label: 'CTA', value: selectedCampaign.pattern_blueprint.pattern_blueprint.cta },
-                          { label: 'Text Density', value: selectedCampaign.pattern_blueprint.pattern_blueprint.text_density },
-                          { label: 'Opening', value: selectedCampaign.pattern_blueprint.pattern_blueprint.opening_style },
-                        ].filter(item => item.value).map((item, i) => (
-                          <div key={i} className="strategy-card glass-brutal">
-                            <label>{item.label}</label>
-                            <span>{item.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {selectedCampaign.pattern_blueprint.pattern_blueprint.scene_flow && (
-                        <div className="scene-flow-row">
-                          <label>Scene Flow:</label>
-                          {selectedCampaign.pattern_blueprint.pattern_blueprint.scene_flow.map((s, i) => (
-                            <span key={i} className="flow-step">{s}{i < selectedCampaign.pattern_blueprint.pattern_blueprint.scene_flow.length - 1 ? ' → ' : ''}</span>
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  )}
-
-                  {/* Storyboard & Script */}
-                  <section className="detail-section">
-                    <h3>Storyboard & Script</h3>
-                    <div className="storyboard-list">
-                      {selectedCampaign.final_storyboard?.scenes?.map((scene, i) => (
-                        <div key={i} className="scene-row glass-brutal">
-                          <div className="scene-meta">
-                            <span className="scene-num">Scene {i + 1}</span>
-                            <span className="scene-intent">{scene.intent}</span>
-                          </div>
-                          <p className="scene-voiceover">"{scene.voiceover}"</p>
-                        </div>
-                      ))}
-                      {!selectedCampaign.final_storyboard && <p className="info-text">Script will appear here after generation.</p>}
                     </div>
-                  </section>
-
-                  <div className="detail-grid">
-                    <section className="detail-section">
-                      <h3>Visual Assets</h3>
-                      <div className="asset-previews">
-                        {selectedCampaign.asset_id && (
-                          <div className="asset-item">
-                            <label>Product Images</label>
-                            <span className="info-text">Linked to Asset ID: {selectedCampaign.asset_id}</span>
-                          </div>
-                        )}
-                        {selectedCampaign.product_logo && (
-                          <div className="asset-item">
-                            <label>Logo</label>
-                            <img src={selectedCampaign.product_logo.startsWith('http') ? selectedCampaign.product_logo : `http://localhost:8000${selectedCampaign.product_logo}`} alt="Logo" className="mini-preview" />
-                          </div>
-                        )}
-                        {!selectedCampaign.asset_id && !selectedCampaign.product_logo && <p className="info-text">Assets will appear after rendering.</p>}
-                      </div>
-                    </section>
-
-                    <section className="detail-section">
-                      <h3>Avatar Configuration</h3>
-                      <div className="avatar-info">
-                        {selectedCampaign.avatar_config ? (
-                          <div className="avatar-preview-row">
-                            {selectedCampaign.avatar_config.selected_avatars?.map((av, i) => (
-                              <img key={i} src={av.url.startsWith('http') ? av.url : `http://localhost:8000${av.url}`} alt="Avatar" className="avatar-thumb" />
-                            )) || <p className="info-text">Single avatar used.</p>}
-                          </div>
-                        ) : <p className="info-text">Avatar will appear after selection.</p>}
-                      </div>
-                    </section>
                   </div>
 
-                  {selectedCampaign.video_url && (
-                    <section className="detail-section">
-                      <h3>Generated Video</h3>
-                      <div className="video-container">
-                        <video controls src={selectedCampaign.video_url} className="final-video" />
+                  <div className="db-detail-body">
+                    {selectedCampaign.campaign_psychology?.product_understanding && (
+                      <section className="db-section">
+                        <h3 className="db-section-title">Product Overview</h3>
+                        <div className="db-section-content">
+                          <p className="product-desc">{selectedCampaign.campaign_psychology.product_understanding.description}</p>
+                          <div className="product-chips">
+                            {selectedCampaign.campaign_psychology.product_understanding.features?.map((f, i) => (
+                              <span key={i} className="feature-chip">{f}</span>
+                            ))}
+                          </div>
+                          {selectedCampaign.campaign_psychology.product_understanding.target_user && (
+                            <div className="target-user">
+                              <label>Target Audience</label>
+                              <p>{selectedCampaign.campaign_psychology.product_understanding.target_user}</p>
+                            </div>
+                          )}
+                        </div>
+                      </section>
+                    )}
+
+                    {selectedCampaign.pattern_blueprint?.pattern_blueprint && (
+                      <section className="db-section">
+                        <h3 className="db-section-title">Strategy Blueprint</h3>
+                        <div className="strategy-grid">
+                          {[
+                            { label: 'Hook', value: selectedCampaign.pattern_blueprint.pattern_blueprint.hook_type },
+                            { label: 'Tone', value: selectedCampaign.pattern_blueprint.pattern_blueprint.tone },
+                            { label: 'Angle', value: selectedCampaign.pattern_blueprint.pattern_blueprint.angle },
+                            { label: 'CTA', value: selectedCampaign.pattern_blueprint.pattern_blueprint.cta },
+                            { label: 'Text Density', value: selectedCampaign.pattern_blueprint.pattern_blueprint.text_density },
+                            { label: 'Opening', value: selectedCampaign.pattern_blueprint.pattern_blueprint.opening_style },
+                          ].filter(item => item.value).map((item, i) => (
+                            <div key={i} className="strategy-card">
+                              <label>{item.label}</label>
+                              <span>{item.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {selectedCampaign.pattern_blueprint.pattern_blueprint.scene_flow && (
+                          <div className="scene-flow-row">
+                            <label>Scene Flow:</label>
+                            {selectedCampaign.pattern_blueprint.pattern_blueprint.scene_flow.map((s, i) => (
+                              <span key={i} className="flow-step">{s}{i < selectedCampaign.pattern_blueprint.pattern_blueprint.scene_flow.length - 1 ? ' → ' : ''}</span>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )}
+
+                    <section className="db-section">
+                      <h3 className="db-section-title">Storyboard & Script</h3>
+                      <div className="storyboard-list">
+                        {selectedCampaign.final_storyboard?.scenes?.map((scene, i) => (
+                          <div key={i} className="scene-row">
+                            <div className="scene-meta">
+                              <span className="scene-num">Scene {i + 1}</span>
+                              <span className="scene-intent">{scene.intent}</span>
+                            </div>
+                            <p className="scene-voiceover">"{scene.voiceover}"</p>
+                          </div>
+                        ))}
+                        {!selectedCampaign.final_storyboard && <p className="info-text">Script will appear here after generation.</p>}
                       </div>
                     </section>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </div>
-        )}
 
-        {activeTab === 'logos' && (
-          <div className="asset-grid">
-            {data?.assets?.logos?.length > 0 ? data.assets.logos.map(l => (
-              <div key={l.id} className="asset-card glass">
-                <img src={`http://localhost:8000${l.url}`} alt="Logo" />
-                <div className="asset-info">
-                  <p>{l.filename}</p>
-                </div>
-              </div>
-            )) : <p className="empty">No logos uploaded yet.</p>}
-          </div>
-        )}
+                    <div className="db-detail-grid-2col">
+                      <section className="db-section">
+                        <h3 className="db-section-title">Visual Assets</h3>
+                        <div className="asset-previews">
+                          {selectedCampaign.asset_id && (
+                            <div className="asset-item">
+                              <label>Product Images</label>
+                              <span className="info-text">Linked to Asset ID: {selectedCampaign.asset_id}</span>
+                            </div>
+                          )}
+                          {selectedCampaign.product_logo && (
+                            <div className="asset-item">
+                              <label>Logo</label>
+                              <img src={selectedCampaign.product_logo.startsWith('http') ? selectedCampaign.product_logo : `http://localhost:8000${selectedCampaign.product_logo}`} alt="Logo" className="mini-preview" />
+                            </div>
+                          )}
+                          {!selectedCampaign.asset_id && !selectedCampaign.product_logo && <p className="info-text">Assets will appear after rendering.</p>}
+                        </div>
+                      </section>
 
-        {activeTab === 'products' && (
-          <div className="asset-grid">
-            {data?.assets?.products?.length > 0 ? data.assets.products.map(p => (
-              <div key={p.id} className="asset-card glass">
-                <img src={`http://localhost:8000${p.url}`} alt="Product" />
-                <div className="asset-info">
-                  <p>{p.filename}</p>
-                </div>
-              </div>
-            )) : <p className="empty">No product images yet.</p>}
-          </div>
-        )}
+                      <section className="db-section">
+                        <h3 className="db-section-title">Avatar Configuration</h3>
+                        <div className="avatar-info">
+                          {selectedCampaign.avatar_config ? (
+                            <div className="avatar-preview-row">
+                              {selectedCampaign.avatar_config.selected_avatars?.map((av, i) => (
+                                <img key={i} src={av.url.startsWith('http') ? av.url : `http://localhost:8000${av.url}`} alt="Avatar" className="avatar-thumb" />
+                              )) || <p className="info-text">Single avatar used.</p>}
+                            </div>
+                          ) : <p className="info-text">Avatar will appear after selection.</p>}
+                        </div>
+                      </section>
+                    </div>
 
-        {activeTab === 'avatars' && (
-          <div className="asset-grid">
-            {data?.assets?.avatars?.length > 0 ? data.assets.avatars.map(a => (
-              <div key={a.id} className="asset-card glass-brutal">
-                <img src={`http://localhost:8000${a.url}`} alt="Avatar" />
-                <div className="asset-info">
-                  <p>{a.filename}</p>
-                  {a.created_at && (
-                    <small style={{ opacity: 0.5, fontSize: '0.7rem' }}>
-                      {new Date(a.created_at).toLocaleDateString()}
-                    </small>
-                  )}
+                    {selectedCampaign.video_url && (
+                      <section className="db-section">
+                        <h3 className="db-section-title">Generated Video</h3>
+                        <div className="video-container">
+                          <video controls src={selectedCampaign.video_url} className="final-video" />
+                        </div>
+                      </section>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'logos' && (
+            <motion.div key="logos" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {logoCount > 0 ? (
+                <div className="db-asset-grid">
+                  {data.assets.logos.map(l => (
+                    <motion.div key={l.id} className="db-asset-card" whileHover={{ y: -4, scale: 1.02 }}>
+                      <div className="db-asset-img-wrap">
+                        <img src={`http://localhost:8000${l.url}`} alt="Logo" />
+                      </div>
+                      <p className="db-asset-name">{l.filename}</p>
+                    </motion.div>
+                  ))}
                 </div>
-              </div>
-            )) : <p className="empty">No AI avatars generated yet.</p>}
-          </div>
-        )}
+              ) : (
+                <div className="db-empty">
+                  <div className="db-empty-icon"><ImageIcon size={40} /></div>
+                  <h3>No logos uploaded</h3>
+                  <p>Upload brand logos when creating a campaign</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'products' && (
+            <motion.div key="products" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {productCount > 0 ? (
+                <div className="db-asset-grid">
+                  {data.assets.products.map(p => (
+                    <motion.div key={p.id} className="db-asset-card" whileHover={{ y: -4, scale: 1.02 }}>
+                      <div className="db-asset-img-wrap">
+                        <img src={`http://localhost:8000${p.url}`} alt="Product" />
+                      </div>
+                      <p className="db-asset-name">{p.filename}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="db-empty">
+                  <div className="db-empty-icon"><FolderOpen size={40} /></div>
+                  <h3>No product images</h3>
+                  <p>Product images will appear here after upload</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {activeTab === 'avatars' && (
+            <motion.div key="avatars" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {avatarCount > 0 ? (
+                <div className="db-asset-grid">
+                  {data.assets.avatars.map(a => (
+                    <motion.div key={a.id} className="db-asset-card" whileHover={{ y: -4, scale: 1.02 }}>
+                      <div className="db-asset-img-wrap avatar-img-wrap">
+                        <img src={`http://localhost:8000${a.url}`} alt="Avatar" />
+                      </div>
+                      <p className="db-asset-name">{a.filename}</p>
+                      {a.created_at && (
+                        <span className="db-asset-date">{new Date(a.created_at).toLocaleDateString()}</span>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="db-empty">
+                  <div className="db-empty-icon"><UserCircle size={40} /></div>
+                  <h3>No AI avatars</h3>
+                  <p>Avatars will be generated during campaign creation</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <style>{`
-        .dashboard-container {
+        /* ── Dashboard Root ── */
+        .db-root {
           width: 100%;
           flex: 1;
           min-height: 0;
           display: flex;
           flex-direction: column;
-          padding: 24px 40px 40px;
+          padding: 28px 36px 36px;
           margin: 0 auto;
           max-width: 1400px;
+          gap: 24px;
         }
-        .dashboard-header {
+
+        /* ── Loading ── */
+        .db-loading {
           display: flex;
-          justify-content: space-between;
+          flex-direction: column;
           align-items: center;
-          margin-bottom: 30px;
-        }
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        .avatar-circle {
-            width: 48px;
-            height: 48px;
-            background: var(--primary);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.2rem;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-        }
-        .user-info h3 { font-size: 1.1rem; margin: 0; }
-        .user-info p { font-size: 0.8rem; opacity: 0.6; margin: 0; }
-
-        .dashboard-nav {
-          display: flex;
-          gap: 20px;
-          margin-bottom: 30px;
-          border-bottom: 1px solid rgba(255,255,255,0.1);
-          padding-bottom: 10px;
-        }
-        .nav-item {
-          background: transparent;
-          border: none;
-          color: rgba(255,255,255,0.5);
-          cursor: pointer;
-          font-weight: 500;
-          padding: 8px 4px;
-          position: relative;
-        }
-        .nav-item.active {
-          color: white;
-        }
-        .nav-item.active::after {
-          content: '';
-          position: absolute;
-          bottom: -11px;
-          left: 0;
-          width: 100%;
-          height: 2px;
-          background: var(--primary);
-        }
-
-        .dashboard-content {
+          justify-content: center;
           flex: 1;
-          overflow-y: auto;
-          padding-right: 10px;
-          min-height: 0;
+          gap: 16px;
+          color: rgba(255,255,255,0.5);
         }
-        .item-card.clickable {
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .db-loading-spinner {
+          width: 36px;
+          height: 36px;
+          border: 3px solid rgba(99,102,241,0.2);
+          border-top-color: #6366f1;
+          border-radius: 50%;
+          animation: db-spin 0.8s linear infinite;
         }
-        .item-card.clickable:hover {
-            transform: translateY(-4px) scale(1.02);
-            background: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-        }
-        
-        /* Detail View Styles */
-        .campaigns-view {
-          display: flex;
-          flex-direction: column;
-        }
-        .campaign-detail-view {
-          display: flex;
-          flex-direction: column;
-          padding: 24px;
-          background: rgba(0, 0, 0, 0.3);
-          border-radius: 16px;
-        }
-        .detail-header {
-          margin-bottom: 20px;
-          border-bottom: 1px solid rgba(255,255,255,0.1);
-          padding-bottom: 15px;
-        }
-        .back-link {
-          background: transparent;
-          border: none;
-          color: var(--primary);
+        @keyframes db-spin { to { transform: rotate(360deg); } }
+
+        /* ── Hero / Welcome ── */
+        .db-hero {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 0.85rem;
-          margin-bottom: 12px;
-          cursor: pointer;
-        }
-        .title-row {
-          display: flex;
           justify-content: space-between;
-          align-items: center;
-        }
-        .title-row h2 { margin: 0; font-size: 1.4rem; color: #fff; }
-        .platform-tag {
-          background: var(--primary);
-          padding: 4px 12px;
+          gap: 20px;
+          padding: 24px 28px;
           border-radius: 20px;
+          background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(168,85,247,0.08) 100%);
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        .db-hero-left {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+        }
+        .db-hero-avatar {
+          width: 54px;
+          height: 54px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #6366f1, #a855f7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 1.4rem;
+          color: white;
+          box-shadow: 0 8px 24px rgba(99,102,241,0.35);
+          flex-shrink: 0;
+        }
+        .db-hero-title {
+          font-size: 1.35rem;
+          margin: 0;
+          font-weight: 600;
+          color: rgba(255,255,255,0.9);
+        }
+        .db-hero-name {
+          background: linear-gradient(90deg, #a5b4fc, #c4b5fd);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          font-weight: 800;
+        }
+        .db-hero-sub {
+          margin: 4px 0 0;
+          font-size: 0.85rem;
+          color: rgba(255,255,255,0.45);
+        }
+
+        /* ── Create Button ── */
+        .db-create-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 24px;
+          border: none;
+          border-radius: 14px;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white;
+          font-weight: 700;
+          font-size: 0.9rem;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+          white-space: nowrap;
+        }
+        .db-create-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 28px rgba(99,102,241,0.45);
+        }
+
+        /* ── Stats Row ── */
+        .db-stats-row {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+        .db-stat-card {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 18px 20px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          transition: all 0.3s ease;
+        }
+        .db-stat-card:hover {
+          background: rgba(255,255,255,0.05);
+          border-color: rgba(255,255,255,0.1);
+        }
+        .db-stat-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .db-stat-text {
+          display: flex;
+          flex-direction: column;
+        }
+        .db-stat-value {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: white;
+          line-height: 1;
+        }
+        .db-stat-label {
           font-size: 0.75rem;
-          text-transform: uppercase;
+          color: rgba(255,255,255,0.4);
+          margin-top: 4px;
+        }
+
+        /* ── Tab Navigation ── */
+        .db-tabs {
+          display: flex;
+          gap: 8px;
+          padding: 6px;
+          background: rgba(255,255,255,0.03);
+          border-radius: 14px;
+          border: 1px solid rgba(255,255,255,0.06);
+          width: fit-content;
+        }
+        .db-tab {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 18px;
+          border: none;
+          border-radius: 10px;
+          background: transparent;
+          color: rgba(255,255,255,0.45);
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.25s ease;
+        }
+        .db-tab:hover {
+          color: rgba(255,255,255,0.7);
+          background: rgba(255,255,255,0.04);
+        }
+        .db-tab-active {
+          background: rgba(99,102,241,0.15) !important;
+          color: #a5b4fc !important;
+          box-shadow: 0 2px 8px rgba(99,102,241,0.15);
+        }
+        .db-tab-count {
+          font-size: 0.7rem;
+          background: rgba(255,255,255,0.08);
+          padding: 2px 8px;
+          border-radius: 8px;
           font-weight: 700;
         }
-        .detail-scroll-content {
-          padding-right: 12px;
-          padding-bottom: 20px;
+        .db-tab-active .db-tab-count {
+          background: rgba(99,102,241,0.3);
+          color: #c7d2fe;
+        }
+
+        /* ── Content ── */
+        .db-content {
+          flex: 1;
+          overflow-y: auto;
+          min-height: 0;
+          padding-right: 6px;
+        }
+
+        /* ── Campaign Cards Grid ── */
+        .db-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          gap: 16px;
+        }
+        .db-card {
+          padding: 20px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.07);
+          cursor: pointer;
           display: flex;
           flex-direction: column;
-          gap: 30px;
+          gap: 14px;
+          transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
         }
-        .detail-section h3 {
-          font-size: 0.9rem;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: 0.6;
-          margin-bottom: 15px;
+        .db-card:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(99,102,241,0.25);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 0 0 1px rgba(99,102,241,0.1);
+        }
+        .db-card-top {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
         }
-        .detail-section h3::after {
+        .db-card-brand-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 800;
+          font-size: 1rem;
+          color: #a5b4fc;
+          flex-shrink: 0;
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        .db-card-meta {
+          flex: 1;
+          min-width: 0;
+        }
+        .db-card-brand {
+          margin: 0;
+          font-size: 1rem;
+          font-weight: 700;
+          color: white;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .db-card-date {
+          font-size: 0.7rem;
+          color: rgba(255,255,255,0.35);
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          margin-top: 2px;
+        }
+        .db-card-arrow {
+          color: rgba(255,255,255,0.15);
+          transition: all 0.3s;
+          flex-shrink: 0;
+        }
+        .db-card:hover .db-card-arrow {
+          color: rgba(99,102,241,0.7);
+          transform: translateX(2px);
+        }
+        .db-card-product {
+          font-size: 0.88rem;
+          color: rgba(255,255,255,0.55);
+          margin: 0;
+          line-height: 1.4;
+        }
+        .db-card-bottom {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+          margin-top: auto;
+        }
+        .db-card-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 4px 10px;
+          border-radius: 8px;
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          background: rgba(99,102,241,0.12);
+          color: #a5b4fc;
+          border: 1px solid rgba(99,102,241,0.15);
+        }
+        .db-card-badge-green {
+          background: rgba(16,185,129,0.1);
+          color: #6ee7b7;
+          border-color: rgba(16,185,129,0.15);
+        }
+        .db-card-badge-amber {
+          background: rgba(245,158,11,0.1);
+          color: #fcd34d;
+          border-color: rgba(245,158,11,0.15);
+        }
+
+        /* ── Empty States ── */
+        .db-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 80px 20px;
+          text-align: center;
+          gap: 12px;
+        }
+        .db-empty-icon {
+          width: 80px;
+          height: 80px;
+          border-radius: 24px;
+          background: rgba(99,102,241,0.08);
+          border: 1px solid rgba(99,102,241,0.12);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(99,102,241,0.5);
+          margin-bottom: 8px;
+        }
+        .db-empty h3 {
+          font-size: 1.2rem;
+          font-weight: 700;
+          color: rgba(255,255,255,0.75);
+          margin: 0;
+        }
+        .db-empty p {
+          font-size: 0.88rem;
+          color: rgba(255,255,255,0.35);
+          margin: 0 0 8px;
+          max-width: 300px;
+        }
+
+        /* ── Asset Grid ── */
+        .db-asset-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+          gap: 16px;
+        }
+        .db-asset-card {
+          padding: 12px;
+          border-radius: 14px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.06);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          cursor: default;
+          transition: all 0.3s ease;
+        }
+        .db-asset-card:hover {
+          border-color: rgba(255,255,255,0.12);
+          background: rgba(255,255,255,0.05);
+        }
+        .db-asset-img-wrap {
+          width: 100%;
+          height: 130px;
+          border-radius: 10px;
+          overflow: hidden;
+          background: rgba(0,0,0,0.3);
+        }
+        .db-asset-img-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s ease;
+        }
+        .db-asset-card:hover .db-asset-img-wrap img {
+          transform: scale(1.05);
+        }
+        .avatar-img-wrap {
+          border-radius: 50% !important;
+          height: 120px;
+          width: 120px;
+          margin: 0 auto;
+        }
+        .db-asset-name {
+          font-size: 0.78rem;
+          margin: 0;
+          color: rgba(255,255,255,0.7);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          text-align: center;
+        }
+        .db-asset-date {
+          font-size: 0.68rem;
+          color: rgba(255,255,255,0.3);
+          text-align: center;
+        }
+
+        /* ── Campaign Detail View ── */
+        .db-detail {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+        .db-detail-header {
+          padding-bottom: 20px;
+          border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .db-detail-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.6);
+          padding: 8px 16px;
+          border-radius: 10px;
+          font-size: 0.82rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-bottom: 16px;
+          font-weight: 500;
+        }
+        .db-detail-back:hover {
+          background: rgba(255,255,255,0.07);
+          color: white;
+        }
+        .db-detail-title-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+        }
+        .db-detail-title {
+          font-size: 1.4rem;
+          margin: 0 0 10px;
+          font-weight: 700;
+          color: white;
+        }
+        .db-detail-platform {
+          display: inline-flex;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          padding: 4px 14px;
+          border-radius: 8px;
+          font-size: 0.7rem;
+          text-transform: uppercase;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+          color: white;
+        }
+        .db-detail-body {
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+        }
+        .db-detail-grid-2col {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+        }
+
+        /* ── Section Blocks ── */
+        .db-section {
+          padding: 20px;
+          border-radius: 16px;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.05);
+        }
+        .db-section-title {
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 1.2px;
+          color: rgba(255,255,255,0.4);
+          font-weight: 700;
+          margin: 0 0 16px;
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .db-section-title::after {
           content: '';
           flex: 1;
           height: 1px;
           background: rgba(255,255,255,0.05);
         }
-        .scene-row {
-          padding: 18px 24px;
-          margin-bottom: 15px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 12px;
-          transition: all 0.3s ease;
-        }
-        .scene-row:hover {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(99, 102, 241, 0.3);
-          transform: translateY(-2px);
-        }
-        .scene-meta {
-          display: flex;
-          gap: 12px;
-          margin-bottom: 8px;
-        }
-        .scene-num { font-weight: 700; font-size: 0.8rem; color: var(--primary); }
-        .scene-intent { font-size: 0.75rem; opacity: 0.5; }
-        .scene-voiceover { font-size: 0.95rem; line-height: 1.5; margin: 0; }
-        
-        .detail-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 20px;
-        }
-        .asset-previews, .avatar-preview-row {
-          display: flex;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        .mini-preview, .avatar-thumb {
-          width: 80px;
-          height: 80px;
-          object-fit: cover;
-          border-radius: 8px;
-          border: 1px solid rgba(255,255,255,0.1);
-        }
-        .avatar-thumb {
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-        }
-        .info-text { font-size: 0.8rem; opacity: 0.4; }
-
-        /* Campaign Meta Badges */
-        .campaign-meta-row {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          margin-bottom: 5px;
-        }
-        .meta-badge {
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 0.7rem;
-          font-weight: 600;
-          text-transform: capitalize;
-          background: rgba(99, 102, 241, 0.15);
-          color: #a5b4fc;
-          border: 1px solid rgba(99, 102, 241, 0.2);
-        }
-        .meta-badge.funnel {
-          background: rgba(16, 185, 129, 0.15);
-          color: #6ee7b7;
-          border-color: rgba(16, 185, 129, 0.2);
-        }
-        .meta-badge.emotion {
-          background: rgba(244, 114, 182, 0.12);
-          color: #f9a8d4;
-          border-color: rgba(244, 114, 182, 0.2);
-        }
-
-        /* Product Overview */
-        .product-overview {
-          padding: 18px;
-          border-radius: 12px;
-          background: rgba(255,255,255,0.02);
-        }
-        .product-desc {
-          font-size: 0.85rem;
-          line-height: 1.6;
-          opacity: 0.8;
-          margin: 0 0 14px;
-        }
-        .product-chips {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 6px;
-          margin-bottom: 14px;
-        }
-        .feature-chip {
-          padding: 3px 10px;
-          border-radius: 12px;
-          font-size: 0.65rem;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.08);
-          opacity: 0.7;
-        }
-        .target-user {
-          border-top: 1px solid rgba(255,255,255,0.05);
-          padding-top: 12px;
-        }
-        .target-user label {
-          font-size: 0.7rem;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: 0.4;
-          display: block;
-          margin-bottom: 4px;
-        }
-        .target-user p { font-size: 0.8rem; line-height: 1.5; margin: 0; opacity: 0.7; }
-
-        /* Strategy Grid */
-        .strategy-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
-          margin-bottom: 12px;
-        }
-        .strategy-card {
-          padding: 12px;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.03);
-          text-align: center;
-        }
-        .strategy-card label {
-          display: block;
-          font-size: 0.6rem;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: 0.4;
-          margin-bottom: 6px;
-        }
-        .strategy-card span {
-          font-size: 0.85rem;
-          font-weight: 600;
-          color: #a5b4fc;
-        }
-        .scene-flow-row {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 4px;
-          font-size: 0.8rem;
-          opacity: 0.6;
-        }
-        .scene-flow-row label {
-          font-weight: 600;
-          margin-right: 6px;
-          opacity: 0.5;
-          font-size: 0.7rem;
-          text-transform: uppercase;
-        }
-        .flow-step { white-space: nowrap; }
-
-        .final-video {
-          width: 100%;
-          max-height: 300px;
-          border-radius: 12px;
-          background: #000;
-        }
-
-        .grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-          gap: 20px;
-        }
-        .asset-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-          gap: 20px;
-        }
-        .item-card {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-        .date-tag {
-            font-size: 0.7rem;
-            opacity: 0.5;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .item-desc {
-            font-size: 0.9rem;
-            opacity: 0.8;
-            margin: 0;
-        }
-        .item-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: auto;
-        }
-        .badge {
-            background: rgba(255,255,255,0.1);
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-        }
-        .asset-card {
-          padding: 10px;
+        .db-section-content {
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 14px;
         }
-        .asset-card img {
-          width: 100%;
-          height: 120px;
-          object-fit: cover;
-          border-radius: 8px;
+
+        /* ── Reused detail styles ── */
+        .campaign-meta-row { display: flex; flex-wrap: wrap; gap: 8px; }
+        .meta-badge {
+          padding: 4px 12px; border-radius: 8px; font-size: 0.68rem;
+          font-weight: 700; text-transform: capitalize;
+          background: rgba(99,102,241,0.12); color: #a5b4fc;
+          border: 1px solid rgba(99,102,241,0.15);
         }
-        .asset-info p {
-          font-size: 0.75rem;
-          margin: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+        .meta-badge.funnel { background: rgba(16,185,129,0.12); color: #6ee7b7; border-color: rgba(16,185,129,0.15); }
+        .meta-badge.emotion { background: rgba(244,114,182,0.1); color: #f9a8d4; border-color: rgba(244,114,182,0.15); }
+        .product-desc { font-size: 0.88rem; line-height: 1.6; color: rgba(255,255,255,0.65); margin: 0; }
+        .product-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+        .feature-chip {
+          padding: 4px 12px; border-radius: 8px; font-size: 0.7rem;
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+          color: rgba(255,255,255,0.6);
         }
-        .empty {
-          text-align: center;
-          opacity: 0.5;
-          margin-top: 100px;
+        .target-user { border-top: 1px solid rgba(255,255,255,0.05); padding-top: 14px; margin-top: 8px; }
+        .target-user label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); display: block; margin-bottom: 4px; }
+        .target-user p { font-size: 0.82rem; line-height: 1.5; margin: 0; color: rgba(255,255,255,0.55); }
+        .strategy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+        .strategy-card {
+          padding: 14px; border-radius: 12px; text-align: center;
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+          transition: all 0.25s;
         }
-        .back-btn {
-            background: transparent;
-            border: 1px solid rgba(255,255,255,0.1);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.85rem;
-            cursor: pointer;
-            transition: all 0.2s;
+        .strategy-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(99,102,241,0.2); }
+        .strategy-card label { display: block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 6px; }
+        .strategy-card span { font-size: 0.88rem; font-weight: 700; color: #a5b4fc; }
+        .scene-flow-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 0.82rem; color: rgba(255,255,255,0.5); }
+        .scene-flow-row label { font-weight: 700; margin-right: 6px; color: rgba(255,255,255,0.4); font-size: 0.7rem; text-transform: uppercase; }
+        .flow-step { white-space: nowrap; }
+        .scene-row {
+          padding: 16px 20px; margin-bottom: 10px; border-radius: 12px;
+          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+          transition: all 0.25s;
         }
-        .back-btn:hover {
-            background: rgba(255,255,255,0.05);
+        .scene-row:hover { background: rgba(255,255,255,0.04); border-color: rgba(99,102,241,0.2); }
+        .scene-meta { display: flex; gap: 12px; margin-bottom: 8px; }
+        .scene-num { font-weight: 800; font-size: 0.78rem; color: #6366f1; }
+        .scene-intent { font-size: 0.72rem; color: rgba(255,255,255,0.35); }
+        .scene-voiceover { font-size: 0.92rem; line-height: 1.5; margin: 0; color: rgba(255,255,255,0.65); }
+        .asset-previews, .avatar-preview-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .mini-preview, .avatar-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+        .avatar-thumb { width: 50px; height: 50px; border-radius: 50%; }
+        .info-text { font-size: 0.8rem; color: rgba(255,255,255,0.3); }
+        .final-video { width: 100%; max-height: 340px; border-radius: 14px; background: #000; }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+          .db-root { padding: 16px; gap: 16px; }
+          .db-hero { flex-direction: column; align-items: flex-start; gap: 16px; }
+          .db-stats-row { grid-template-columns: repeat(2, 1fr); }
+          .db-tabs { flex-wrap: wrap; width: 100%; }
+          .db-grid { grid-template-columns: 1fr; }
+          .db-detail-grid-2col { grid-template-columns: 1fr; }
+          .strategy-grid { grid-template-columns: repeat(2, 1fr); }
         }
       `}</style>
     </div>

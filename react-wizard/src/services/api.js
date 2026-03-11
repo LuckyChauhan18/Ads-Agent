@@ -21,11 +21,12 @@ api.interceptors.request.use((reqConfig) => {
   return reqConfig;
 });
 
-// Auto-logout on 401
+// Auto-logout on 401 (skip for login endpoint so the form can show the error)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isLoginRequest = err.config?.url?.includes('/auth/login');
+    if (err.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem(config.storageKeys.token);
       localStorage.removeItem(config.storageKeys.user);
       window.location.href = '/auth';
