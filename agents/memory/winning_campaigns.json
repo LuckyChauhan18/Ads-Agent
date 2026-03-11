@@ -154,5 +154,31 @@
     "angle": "General",
     "tone": "Authentic & Raw",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-11T14:40:57.735018",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "contrast_principle",
+      "future_self_visualization",
+      "social_proof"
+    ],
+    "angle": "General",
+    "tone": "",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T01:18:06.620849",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "problem_solution",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "reciprocity",
+      "contrast_principle"
+    ],
+    "angle": "General",
+    "tone": "",
+    "funnel_stage": "cold"
   }
 ]

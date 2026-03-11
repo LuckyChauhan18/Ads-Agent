@@ -259,10 +259,10 @@ VISUAL ASSETS AVAILABLE:
 - Product Images: {image_count} different shots of the product.
 - Logos: {logo_count} brand logo variants.
 
-CRITICAL VISUAL RULES:
-1. You MUST vary the `visual_continuity` for each scene. 
-2. Since we have {image_count} product images, describe DIFFERENT visual scenarios across the Solution, Trust, and Proof scenes to leverage all of them (e.g., 'Close up of the heel detail', 'Wide shot of the shoe in motion', 'Top-down flat lay').
-3. Do NOT just repeat 'Show product' in every scene. Be specific about WHAT part of the product or WHAT angle should be shown.
+CRITICAL VISUAL RULES (B-ROLL OVER TALKING HEADS):
+1. The Hook and CTA scenes MUST feature the Avatar (person talking).
+2. The INTERMEDIATE scenes (Problem, Solutions, Proof, etc.) MUST BE B-ROLL (No Faces). 
+3. Describe DIFFERENT visual scenarios across the intermediate scenes (e.g., 'Close up of the heel detail', 'Wide shot of product in use', 'Top-down flat lay'). Do NOT describe 'person talking' or 'influencer looking at camera' for the middle scenes. Provide action-oriented B-roll.
 
 CRITICAL RULES (DO NOT IGNORE):
 1. The word "{product}" MUST appear literally in Solution and CTA copy.

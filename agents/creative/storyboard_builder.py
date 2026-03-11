@@ -4,6 +4,9 @@ import glob
 import subprocess
 import sys
 
+# --- Global Style Config ---
+GLOBAL_CINEMATIC_STYLE = "Premium commercial lighting, 35mm lens, high fidelity, 4K resolution, authentic."
+
 # --- Step 5: Scene-to-Asset Mapping Rules ---
 
 SCENE_ASSET_RULES = {
@@ -11,52 +14,51 @@ SCENE_ASSET_RULES = {
         "shot_type": "avatar_talking_head",
         "asset_categories": [],
         "text_overlay": None,
-        "realistic_directives": "Dynamic zoom-in, natural micro-expressions, evolving background lighting (warm to cool transition), 4K photorealism.",
-        "rationale": "Clean hook — no distractions, just avatar + copy"
+        "realistic_directives": "Dynamic push-in camera movement, natural micro-expressions, engaging eye contact.",
+        "rationale": "Clean hook — establish the human connection early."
     },
     "Problem": {
-        "shot_type": "avatar_talking_head",
+        "shot_type": "b_roll_lifestyle",
         "asset_categories": ["lifestyle"],
         "text_overlay": None,
-        "realistic_directives": "Push-in camera movement, shifting environment shadows, high-contrast cinematic lighting, authentic emotional journey.",
-        "rationale": "Avatar main, optional lifestyle B-roll for empathy"
+        "realistic_directives": "Handheld emotional tracking shot, depth of field focus pull, cinematic shadow contrast, NO FACES visible.",
+        "rationale": "Show the pain point visually. Hiding the face prevents AI character morphing."
     },
     "Relatable Moment": {
-        "shot_type": "avatar_talking_head",
+        "shot_type": "b_roll_lifestyle",
         "asset_categories": ["lifestyle"],
         "text_overlay": None,
-        "realistic_directives": "Active handheld sway, environment change (indoor to outdoor transition), soft focus transitions, vibrant and alive colors.",
-        "rationale": "Mirror user experience, lifestyle imagery supports connection"
+        "realistic_directives": "Slow creeping zoom, focus on hands and environment, moody atmospheric lighting, NO FACES visible.",
+        "rationale": "Build emotional empathy through B-Roll."
     },
     "Solution": {
-        "shot_type": "avatar_with_product",
+        "shot_type": "b_roll_product_macro",
         "asset_categories": ["product"],
         "text_overlay": None,
-        "realistic_directives": "360-degree product orbit, slow-motion splash/particle effects, dramatic lighting shift, hyper-realistic metallic/fabric textures.",
-        "rationale": "Product reveal — show the solution visually"
+        "realistic_directives": "Extreme macro close-up, slow-motion slide camera tracking, bright studio lighting highlighting texture, product clearly visible.",
+        "rationale": "Hero product reveal — B-roll product focus."
     },
     "Trust": {
-        "shot_type": "avatar_with_badges",
-        "asset_categories": ["logo"],
+        "shot_type": "b_roll_product_lifestyle",
+        "asset_categories": ["product", "lifestyle"],
         "text_overlay": None,
-        "realistic_directives": "Floating holographic UI elements, depth-of-field shift, clean minimalist environment that evolves with the narrative.",
-        "rationale": "Trust badges + review indicators on screen"
+        "realistic_directives": "Smooth tracking pan across the product in a real-world setting, soft ambient lighting, high contrast.",
+        "rationale": "Show product in use or placed elegantly."
     },
     "Proof": {
-        "shot_type": "avatar_with_badges",
-        "asset_categories": ["product", "logo"],
+        "shot_type": "b_roll_product_lifestyle",
+        "asset_categories": ["product"],
         "text_overlay": None,
-        "realistic_directives": "Dynamic parallax movement, layered textures, environmental elements react to product presence, premium aesthetic.",
-        "rationale": "Social proof with product visibility"
+        "realistic_directives": "Dynamic parallax orbit around the product, clean environmental lighting, showcasing results or usage.",
+        "rationale": "Visual proof of the product."
     },
     "CTA": {
         "shot_type": "avatar_with_cta",
         "asset_categories": ["logo"],
         "text_overlay": None,
-        "realistic_directives": "Soft zoom-out, final environment transformation (gold/sunset glow), high-energy delivery, sharp terminal focus.",
-        "rationale": "Logo + CTA button/text, clean ending"
+        "realistic_directives": "Confident posture, direct eye contact, soft zoom-out, well-lit studio environment.",
+        "rationale": "Bring the original avatar back for the final call to action."
     }
-
 }
 
 # Duration estimates per scene (adjusted to ~8.5s for 48s total after fades)
@@ -372,6 +374,7 @@ class StoryboardBuilder:
         return {
             "campaign_id": self.context.get("campaign_id", "unknown"),
             "storyboard_type": "scene_based",
+            "global_style": GLOBAL_CINEMATIC_STYLE,
             "platform": self.context.get("platform", "meta_reels"),
             "aspect_ratio": "9:16",
             "total_scenes": len(storyboard),

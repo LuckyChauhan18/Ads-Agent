@@ -342,6 +342,11 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
         if directives:
             prompt += f" {directives}"
 
+        # Combine with Global Style if available
+        global_style = self.variants.get("variants", [])[0].get("storyboard_output", {}).get("global_style", "")
+        if global_style:
+            prompt += f" Overall Style Setup: {global_style}"
+
         # Photorealism quality suffix — keeps Veo grounded in realistic output
         prompt += " Photorealistic, highly detailed natural skin texture, skin pores, shot on Arri Alexa 65, f/2.8, physical world lighting. NO CGI, NO animation, NO text overlays, NO plastic skin, NO AI smoothing, authentic imperfect reality."
 

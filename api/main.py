@@ -38,6 +38,12 @@ async def log_exceptions_middleware(request, call_next):
 
 @app.on_event("startup")
 async def startup_db_client():
+    import logging
+    class EndpointFilter(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            return record.getMessage().find("GET /socket.io/") == -1
+    logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
+
     await connect_to_mongo()
     await connect_to_ltm()
     # Initialize analytics & publish indexes
