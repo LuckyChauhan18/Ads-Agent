@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-import AuthPage from './components/AuthPage';
-import Dashboard from './components/Dashboard';
-import Wizard from './components/Wizard';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
-import PublishCenter from './components/PublishCenter';
-import ProtectedRoute from './components/ProtectedRoute';
-import Layout from './components/Layout';
+// Pages (full-page routed views)
+import AuthPage from './pages/AuthPage';
+import Dashboard from './pages/Dashboard';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import PublishCenter from './pages/PublishCenter';
+
+// Layout & routing
+import ProtectedRoute from './components/layout/ProtectedRoute';
+import Layout from './components/layout/Layout';
+
+// Wizard
+import Wizard from './components/wizard/Wizard';
 
 import './index.css';
+
 
 function App() {
   const [user, setUser] = useState(localStorage.getItem('spectra_user'));

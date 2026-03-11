@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Upload, X, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { aiAssistService } from '../services/api';
+import { aiAssistService } from '../../services/api';
 
 const ProductStep = ({ data, updateData }) => {
   const [isGenerating, setIsGenerating] = useState(false);

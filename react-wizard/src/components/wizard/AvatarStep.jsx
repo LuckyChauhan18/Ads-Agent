@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, User, Check, RefreshCw, Loader2, Wand2, Info, X, Upload } from 'lucide-react';
-import { workflowService, aiAssistService } from '../services/api';
+import { workflowService, aiAssistService } from '../../services/api';
 
 const AvatarStep = ({ data, updateData }) => {
   const [mode, setMode] = useState((data.selected_avatars && data.selected_avatars.length > 0) ? 'custom' : 'default');

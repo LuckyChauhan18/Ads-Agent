@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { History, Calendar, Package, ArrowRight, Video, X, Sparkles, Instagram, Youtube, Facebook, Smartphone } from 'lucide-react';
-import { workflowService } from '../services/api';
+import { workflowService } from '../../services/api';
 
 const HistoryStep = ({ onClose }) => {
   const [history, setHistory] = useState([]);

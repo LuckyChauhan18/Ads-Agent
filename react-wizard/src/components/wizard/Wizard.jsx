@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Database, Brain, Target, Layout, FileText, User, Video, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react'
-import { workflowService } from '../services/api'
+import { workflowService } from '../../services/api'
 
 import ProductStep from './ProductStep'
 import CurationStep from './CurationStep'
@@ -12,8 +12,8 @@ import ScriptStep from './ScriptStep'
 import AvatarStep from './AvatarStep'
 import ReviewStep from './ReviewStep'
 import VideoStep from './VideoStep'
-import LoadingOverlay from './LoadingOverlay'
-import RenderProgressOverlay from './RenderProgressOverlay'
+import LoadingOverlay from '../ui/LoadingOverlay'
+import RenderProgressOverlay from '../ui/RenderProgressOverlay'
 
 const STEPS = [
   { id: 1, name: 'Product', icon: Package, bg: 'bg-step-1' },

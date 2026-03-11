@@ -284,7 +284,7 @@ const VideoStep = ({ videoUrl, productUrl, script }) => {
               onClick={async () => {
                 setFeedbackLoading(true);
                 try {
-                  const { default: api } = await import('../services/api');
+                  const { default: api } = await import('../../services/api');
                   await api.post('/workflow/feedback', {
                     rating,
                     feedback_text: feedbackText,

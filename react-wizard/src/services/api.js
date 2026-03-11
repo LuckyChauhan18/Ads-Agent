@@ -1,24 +1,24 @@
 import axios from 'axios';
-
-const API_BASE = 'http://localhost:8000';
+import config from '../config/config';
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: config.apiBaseUrl,
+  timeout: config.apiTimeout,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 // Auth Interceptor
-api.interceptors.request.use((config) => {
-  if (config.data instanceof FormData) {
-    delete config.headers['Content-Type'];
+api.interceptors.request.use((reqConfig) => {
+  if (reqConfig.data instanceof FormData) {
+    delete reqConfig.headers['Content-Type'];
   }
-  const token = localStorage.getItem('spectra_token');
+  const token = localStorage.getItem(config.storageKeys.token);
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    reqConfig.headers.Authorization = `Bearer ${token}`;
   }
-  return config;
+  return reqConfig;
 });
 
 // Auto-logout on 401
@@ -26,8 +26,8 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('spectra_token');
-      localStorage.removeItem('spectra_user');
+      localStorage.removeItem(config.storageKeys.token);
+      localStorage.removeItem(config.storageKeys.user);
       window.location.href = '/auth';
     }
     return Promise.reject(err);
