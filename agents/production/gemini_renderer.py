@@ -253,13 +253,14 @@ SCENE CONTINUITY NOTES:
 
 === RULES FOR WRITING VEO PROMPTS ===
 1. Each prompt must be 2-3 sentences MAX. Veo works best with concise, specific descriptions.
-2. ALWAYS specify: camera angle, lens type, lighting, exact setting, and what the person is doing.
-3. Use REAL filmmaking terms: "85mm lens", "shallow depth of field", "golden hour", "tracking shot", "rack focus", "handheld", "steadicam", "close-up", "medium shot", "wide establishing shot".
-4. Describe the person's EXACT appearance, clothing, and expression.
-5. Specify the EXACT location (e.g. "modern minimalist apartment with white walls and warm pendant lights" not just "a room").
-6. NEVER use vague words like "cinematic", "premium", "dynamic". Be SPECIFIC about what makes it look that way.
-7. The person speaks directly to camera in {ctx['language']}.
-8. For product scenes: describe the product's REAL physical appearance (color, shape, size, packaging).
+2. ALWAYS specify: camera gear, lens type, lighting, exact setting, and what the person is doing.
+3. Use REAL filmmaking terms: "Shot on Arri Alexa 65", "85mm lens", "shallow depth of field", "golden hour", "tracking shot", "rack focus", "handheld", "steadicam", "close-up", "medium close-up".
+4. Describe the person's EXACT appearance, clothing, and expression. Action should be grounded and subtle.
+5. Specify the EXACT location (e.g. "modern minimalist apartment with white walls and warm practical lights").
+6. BANNED WORDS: "cinematic", "premium", "dynamic", "high quality", "4k". Instead, describe what makes it look that way.
+7. GROUNDED REALISM: Specify "natural skin texture", "subtle skin imperfection", "real-world mixed lighting".
+8. The person speaks directly to camera in {ctx['language']}.
+9. For product scenes: describe the product's REAL physical appearance (color, shape, size).
 
 Write prompts for these scenes:
 
@@ -304,13 +305,13 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
         # Fallback: highly specific photorealistic prompts
         ctx = self._get_scene_context()
         self._cached_scene_prompts = {
-            "Hook": f"Medium close-up of a {ctx['gender']} standing in a naturally lit {ctx['category']}-related environment, looking directly into camera with a concerned expression. Shot on 50mm lens, shallow depth of field, warm natural window light. The person speaks in {ctx['language']} about {ctx['user_problem']}.",
-            "Problem": f"Tight close-up on the same {ctx['gender']}'s face, 85mm lens with creamy bokeh. Soft directional light from the left. Frustrated expression, slightly furrowed brow. They speak emotionally in {ctx['language']} about the struggle with {ctx['user_problem']}. Handheld camera with subtle movement.",
-            "Solution": f"Medium shot of the same {ctx['gender']} holding {ctx['product_name']} up to camera with both hands, face lit up with genuine excitement. Clean bright background with soft diffused lighting. 35mm lens. They speak enthusiastically in {ctx['language']} about {ctx['product_name']}.",
-            "Trust": f"The same {ctx['gender']} in a modern, clean white environment with soft overhead lighting. Medium shot, 50mm lens. Confident posture, direct eye contact with camera. Speaking in {ctx['language']} about {ctx['brand']}'s quality and reputation.",
-            "Proof": f"The same {ctx['gender']} naturally using {ctx['product_name']} in a real-life setting. Tracking shot following the action, 35mm lens, natural daylight. Satisfied, happy expression. Speaking in {ctx['language']} about the results.",
-            "CTA": f"Close-up of the same {ctx['gender']} energetically presenting {ctx['product_name']} to camera. Bright, punchy lighting. 50mm lens. Excited expression, urgent tone, speaking in {ctx['language']}. {'Mentions ' + ctx['discount'] + '.' if ctx['discount'] else ''}",
-            "Relatable Moment": f"Wide shot of a {ctx['gender']} in an everyday {ctx['category']}-related situation. Natural lighting, 35mm lens. Candid, documentary style. No product visible. Slight handheld camera movement."
+            "Hook": f"Medium close-up of a {ctx['gender']} standing in a naturally lit {ctx['category']}-related environment, looking directly into camera with a concerned expression. Shot on Arri Alexa 65, 50mm lens, f/2.8, shallow depth of field, warm natural window light. Natural skin texture. The person speaks in {ctx['language']} about {ctx['user_problem']}.",
+            "Problem": f"Tight close-up on the same {ctx['gender']}'s face, 85mm lens with creamy bokeh. Soft directional practical light from the left. Frustrated expression, subtle micro-expressions. They speak emotionally in {ctx['language']} about the struggle with {ctx['user_problem']}. Subtle handheld camera drift.",
+            "Solution": f"Medium shot of the same {ctx['gender']} holding {ctx['product_name']} up to camera with both hands, face lit up with genuine excitement. Clean bright background with soft diffused overhead lighting. 35mm lens. True-to-life color grading. They speak enthusiastically in {ctx['language']} about {ctx['product_name']}.",
+            "Trust": f"The same {ctx['gender']} in a modern, clean white environment with soft practical lighting. Medium close-up, 50mm lens. Confident posture, direct eye contact with camera. Speaking in {ctx['language']} about {ctx['brand']}'s quality and reputation.",
+            "Proof": f"Extreme close-up macro tracking shot of {ctx['product_name']} being used naturally in a real-life setting. Shot on 35mm lens, natural daylight. Authentic interaction. The person speaks in {ctx['language']} about the results.",
+            "CTA": f"Close-up of the same {ctx['gender']} energetically presenting {ctx['product_name']} to camera. Bright, punchy lighting but with natural shadow roll-off. 50mm lens. Excited expression, urgent tone, speaking in {ctx['language']}. {'Mentions ' + ctx['discount'] + '.' if ctx['discount'] else ''}",
+            "Relatable Moment": f"Medium close-up of a {ctx['gender']} in an everyday {ctx['category']}-related situation. Natural ambient lighting, 35mm lens. Candid, documentary style, slight grain. No product visible. Slight handheld camera movement."
         }
         return self._cached_scene_prompts
 
@@ -342,7 +343,7 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             prompt += f" {directives}"
 
         # Photorealism quality suffix — keeps Veo grounded in realistic output
-        prompt += " Photorealistic, natural skin texture, real-world lighting. No CGI, no animation, no text overlays."
+        prompt += " Photorealistic, highly detailed natural skin texture, skin pores, shot on Arri Alexa 65, f/2.8, physical world lighting. NO CGI, NO animation, NO text overlays, NO plastic skin, NO AI smoothing, authentic imperfect reality."
 
         return prompt
 
@@ -384,26 +385,19 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
         try:
             # Parse duration from scene dict (e.g. "8s" -> 8)
             duration_str = scene.get("duration", "8s")
-            duration_sec = 8
+            target_duration_sec = 8
             try:
-                duration_sec = int(duration_str.replace("s", "").replace("sec", "").strip())
+                target_duration_sec = int(duration_str.replace("s", "").replace("sec", "").strip())
             except:
                 pass
+                
+            veo_duration_sec = max(5, min(target_duration_sec, 8))
 
             # Build config with quality-optimized parameters
             config_args = {
                 "number_of_videos": 1,
-                "duration_seconds": duration_sec,
-                "aspect_ratio": "9:16",
-                "person_generation": "allow_all",
-                "enhance_prompt": True,
-                "generate_audio": True,
-                "negative_prompt": (
-                    "blurry, low quality, distorted face, extra fingers, "
-                    "deformed hands, cartoon, anime, CGI, 3D render, "
-                    "text overlay, watermark, logo, artificial lighting, "
-                    "plastic skin, uncanny valley, bad anatomy"
-                ),
+                "duration_seconds": veo_duration_sec,
+                "aspect_ratio": "9:16"
             }
             if reference_images:
                 config_args["reference_images"] = reference_images
@@ -446,7 +440,13 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
                 print(f"       Video URI: {video_uri}")
                 
                 # Download using requests + API key
-                return self._download_video(video_uri, output_path)
+                success = self._download_video(video_uri, output_path)
+                
+                if success and target_duration_sec != veo_duration_sec and self._ffmpeg_available:
+                    print(f"       Adjusting video duration from {veo_duration_sec}s to {target_duration_sec}s...")
+                    self._adjust_video_duration(output_path, veo_duration_sec, target_duration_sec)
+                    
+                return success
             else:
                 print(f"       No video generated in response for scene '{scene_name}'.")
                 return False
@@ -454,6 +454,42 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
         except Exception as e:
             print(f"     Gemini API Error for scene '{scene_name}': {e}")
             return False
+
+    def _adjust_video_duration(self, video_path: str, current_sec: int, target_sec: int):
+        """Stretches or trims the generated video to match the target duration using FFmpeg."""
+        temp_path = video_path + ".tmp.mp4"
+        try:
+            if target_sec < current_sec:
+                # Trim
+                cmd = [
+                    "ffmpeg", "-y", "-i", video_path,
+                    "-t", str(target_sec),
+                    "-c:v", "libx264", "-preset", "fast",
+                    "-c:a", "aac",
+                    temp_path
+                ]
+            else:
+                # Stretch
+                ratio = target_sec / float(current_sec)
+                cmd = [
+                    "ffmpeg", "-y", "-i", video_path,
+                    "-filter:v", f"setpts={ratio}*PTS",
+                    "-c:v", "libx264", "-preset", "fast",
+                    temp_path
+                ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode == 0 and os.path.exists(temp_path):
+                import shutil
+                shutil.move(temp_path, video_path)
+            else:
+                print(f"       FFmpeg duration adjustment failed: {result.stderr}")
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+        except Exception as e:
+            print(f"       Exception during duration adjustment: {e}")
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
 
     def merge_videos(self, video_paths: List[str], final_output_path: str):
         """Merges multiple video files using FFmpeg with smooth cross-fade transitions.
@@ -473,56 +509,6 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             return
 
         FADE_DURATION = 0.5  # seconds of cross-fade between scenes
-
-        # --- Pre-process: Stretch Veo 5s videos to 8.5s natively ---
-        print("     Normalizing scenes to 8.5s via cinematic slow-motion stretching...")
-
-        stretched_paths = []
-        for i, vp in enumerate(video_paths):
-            probe_cmd = [
-                "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1", vp
-            ]
-            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-            original_dur = float(probe_result.stdout.strip()) if probe_result.stdout.strip() else 5.0
-
-            target_dur = 8.5
-            ratio = target_dur / original_dur
-
-            if ratio > 1.1:
-                stretched_vp = os.path.join(tempfile.gettempdir(), f"stretch_{int(time.time()*100)}_{i}.mp4")
-                # Check for audio stream
-                audio_probe = subprocess.run(["ffprobe", "-i", vp, "-show_streams", "-select_streams", "a", "-loglevel", "error"], capture_output=True, text=True)
-
-                if audio_probe.stdout.strip():
-                    filter_str = f"[0:v]setpts={ratio}*PTS[v];[0:a]atempo={1.0/ratio}[a]"
-                    stretch_cmd = [
-                        "ffmpeg", "-y", "-i", vp,
-                        "-filter_complex", filter_str,
-                        "-map", "[v]", "-map", "[a]",
-                        "-c:v", "libx264", "-preset", "ultrafast",
-                        "-c:a", "aac",
-                        stretched_vp
-                    ]
-                else:
-                    filter_str = f"[0:v]setpts={ratio}*PTS[v]"
-                    stretch_cmd = [
-                        "ffmpeg", "-y", "-i", vp,
-                        "-filter_complex", filter_str,
-                        "-map", "[v]",
-                        "-c:v", "libx264", "-preset", "ultrafast",
-                        stretched_vp
-                    ]
-
-                subprocess.run(stretch_cmd, capture_output=True)
-                if os.path.exists(stretched_vp):
-                    stretched_paths.append(stretched_vp)
-                else:
-                    stretched_paths.append(vp)
-            else:
-                stretched_paths.append(vp)
-
-        video_paths = stretched_paths
 
         try:
             # Build FFmpeg xfade filter chain for smooth transitions
@@ -578,11 +564,14 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
                 video_filters.append(f"[{last_v}][{n-1}:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[n-2]}[outv]")
                 audio_filters.append(f"[{last_a}][{n-1}:a]acrossfade=d={FADE_DURATION}[outa]")
 
-            filter_complex = ";".join(video_filters + audio_filters)
+            # Add a film grain + contrast curve filter for extra photorealism to the post-xfade result
+            # We first transition, then apply subtle noise (luma grain) and a mild contrast eq
+            post_filter = "[outv]eq=contrast=1.05:saturation=1.05,noise=alls=2:allf=t+u[finalv]"
+            filter_complex = ";".join(video_filters + audio_filters) + ";" + post_filter
 
             cmd = ["ffmpeg", "-y"] + inputs + [
                 "-filter_complex", filter_complex,
-                "-map", "[outv]", "-map", "[outa]",
+                "-map", "[finalv]", "-map", "[outa]",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium",
                 "-c:a", "aac", "-b:a", "128k",
                 final_output_path
@@ -591,10 +580,11 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             result = subprocess.run(cmd, capture_output=True, text=True)
 
             if result.returncode == 0:
-                print(f"     Final video merged with smooth cross-fade transitions!")
+                print(f"     Final video merged with smooth cross-fade, film grain, and contrast grading!")
                 return
             else:
-                print(f"     Cross-fade failed, falling back to simple concat...")
+                print(f"     Cross-fade/Post-processing failed, falling back to simple concat...")
+                print(f"       FFmpeg Error: {result.stderr}")
         except Exception as e:
             print(f"     Cross-fade error: {e}. Falling back to concat...")
 

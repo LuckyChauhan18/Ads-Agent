@@ -1,93 +1,77 @@
 import os
-import requests
-import base64
 import uuid
 import tempfile
 from dotenv import load_dotenv
 
+# ElevenLabs for ultra-realistic, emotively-capable TTS
+from elevenlabs.client import ElevenLabs
+from elevenlabs import save
+
 load_dotenv()
 
-class SarvamAudioService:
-    """Service to generate authentic Indian text-to-speech using Sarvam AI."""
+class ElevenLabsAudioService:
+    """Service to generate ultra-realistic text-to-speech using ElevenLabs API."""
     
     def __init__(self):
-        self.api_key = os.getenv("SARVAM_API_KEY")
-        self.base_url = "https://api.sarvam.ai/text-to-speech"
+        self.api_key = os.getenv("ELEVENLABS_API_KEY")
+        if self.api_key:
+            self.client = ElevenLabs(api_key=self.api_key)
+        else:
+            self.client = None
+            print("ElevenLabsAudioService: Warning - ELEVENLABS_API_KEY not found in environment.")
         
     def generate_voiceover(self, text: str, language: str = "Hindi", output_path: str = None) -> str:
         """
-        Generates TTS audio and saves it to a file.
+        Generates TTS audio using ElevenLabs and saves it to a file.
         Returns the path to the saved audio file, or None if failed.
         """
         if not text or not text.strip():
             return None
             
-        if not self.api_key:
-            print("SarvamAudioService: Missing SARVAM_API_KEY. Skipping TTS generation.")
+        if not self.client:
+            print("ElevenLabsAudioService: Missing API Key. Cannot generate audio.")
             return None
             
-        print(f"SarvamAudioService: Generating {language} voiceover for text: '{text[:30]}...'")
+        print(f"ElevenLabsAudioService: Generating {language} voiceover for text: '{text[:30]}...'")
         
-        # Map languages to Sarvam codes
+        # Map languages to ElevenLabs Voice IDs
+        # We use high-quality multicultural voices. You can swap these IDs with your custom cloned voices.
+        # Format: Voice Name (ID) for reference
         lang_map = {
-            "hindi": "hi-IN",
-            "english": "en-IN", # Indian English
-            "bengali": "bn-IN",
-            "tamil": "ta-IN",
-            "telugu": "te-IN",
-            "marathi": "mr-IN",
-            "gujarati": "gu-IN",
-            "kannada": "kn-IN",
-            "malayalam": "ml-IN"
+            "hindi": "EXAVITQu4vr4xnSDxMaL",       # 'Sarah' - smooth, conversational (good for multiple languages)
+            "english": "EXAVITQu4vr4xnSDxMaL",    # 'Sarah'
+            "urdu": "EXAVITQu4vr4xnSDxMaL",       # 'Sarah'
+            # Fallback to a solid narrative voice for other Indian regional languages if needed
+            "default": "JBFqnCBsd6RMkjVDRZzb"      # 'George' - warm English/Multilingual
         }
         
-        target_lang = lang_map.get(language.lower(), "hi-IN")
+        voice_id = lang_map.get(language.lower(), lang_map["default"])
         
-        headers = {
-            "api-subscription-key": self.api_key,
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "inputs": [text[:500]], # Sarvam typically constraints input length
-            "target_language_code": target_lang,
-            "speaker": "meera", # Default female voice, could be dynamic
-            "pitch": 0,
-            "pace": 1.0,
-            "loudness": 1.5,
-            "speech_sample_rate": 24000,
-            "enable_preprocessing": True,
-            "model": "bulbul:v1"
-        }
-        
-        try:
-            response = requests.post(self.base_url, headers=headers, json=payload, timeout=30)
+        if not output_path:
+            temp_dir = tempfile.gettempdir()
+            output_path = os.path.join(temp_dir, f"elevenlabs_{uuid.uuid4().hex}.mp3")
             
-            if response.status_code == 200:
-                resp_data = response.json()
-                audios = resp_data.get("audios", [])
-                
-                if audios and len(audios) > 0:
-                    base64_audio = audios[0]
-                    audio_bytes = base64.b64decode(base64_audio)
-                    
-                    if not output_path:
-                        temp_dir = tempfile.gettempdir()
-                        output_path = os.path.join(temp_dir, f"sarvam_tts_{uuid.uuid4().hex}.wav")
-                        
-                    with open(output_path, "wb") as f:
-                        f.write(audio_bytes)
-                        
-                    print(f"SarvamAudioService: Successfully generated audio at {output_path}")
-                    return output_path
-                else:
-                    print("SarvamAudioService: API returned success but no audio array.")
-            else:
-                print(f"SarvamAudioService Error {response.status_code}: {response.text}")
+        try:
+            # Use eleven_multilingual_v2 for best cross-language emotive support including Hindi
+            audio_generator = self.client.text_to_speech.convert(
+                text=text,
+                voice_id=voice_id,
+                model_id="eleven_multilingual_v2",
+                output_format="mp3_44100_128",
+            )
+            
+            # The SDK returns a generator, save it to file
+            save(audio_generator, output_path)
+            
+            if os.path.exists(output_path):
+                print(f"ElevenLabsAudioService: Successfully generated audio at {output_path}")
+                return output_path
                 
         except Exception as e:
-            print(f"SarvamAudioService Exception: {e}")
+            print(f"ElevenLabsAudioService Exception: {e}")
             
         return None
 
-audio_service = SarvamAudioService()
+# Export instance seamlessly matching the old import name from other files
+audio_service = ElevenLabsAudioService()
+

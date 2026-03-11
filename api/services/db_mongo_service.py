@@ -36,10 +36,21 @@ async def connect_to_mongo():
         
         mongo.fs = AsyncIOMotorGridFSBucket(mongo.db)
         
-        # Initialize indexes
-        await mongo.db.users.create_index("username", unique=True)
-        await mongo.db.users.create_index("email", unique=True)
-        await mongo.db.user_assets.create_index([("user_id", 1), ("_id", -1)])
+        # Initialize indexes safely
+        try:
+            await mongo.db.users.create_index("username", unique=True)
+        except Exception as e:
+            print(f"⚠️ Index 'username' creation warning: {e}")
+            
+        try:
+            await mongo.db.users.create_index("email", unique=True, sparse=True)
+        except Exception as e:
+            print(f"⚠️ Index 'email' creation warning: {e}")
+            
+        try:
+            await mongo.db.user_assets.create_index([("user_id", 1), ("_id", -1)])
+        except Exception as e:
+            print(f"⚠️ Index 'user_assets' creation warning: {e}")
         
         print(f"✅ Connected to MongoDB: {MONGODB_URL[:40]}...")
     except Exception as e:

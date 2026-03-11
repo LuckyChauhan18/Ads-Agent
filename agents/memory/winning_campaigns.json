@@ -141,5 +141,18 @@
     "angle": "General",
     "tone": "Empathetic & Soft",
     "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-11T11:27:46.708290",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "before_after",
+    "psychological_triggers": [
+      "fear_of_missing_out",
+      "pain_amplification",
+      "reciprocity"
+    ],
+    "angle": "General",
+    "tone": "Authentic & Raw",
+    "funnel_stage": "cold"
   }
 ]
