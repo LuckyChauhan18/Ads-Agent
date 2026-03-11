@@ -219,5 +219,18 @@
     "angle": "General",
     "tone": "Bold & Aggressive",
     "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-11T23:06:45.856804",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "problem_solution",
+    "psychological_triggers": [
+      "fear_of_missing_out",
+      "social_proof",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
   }
 ]

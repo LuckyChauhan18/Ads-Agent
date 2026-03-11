@@ -205,9 +205,22 @@ class GeminiRenderer:
 
         gender = self.avatar.get("gender") or self.avatar.get("avatar_preferences", {}).get("gender", "")
         if not gender or str(gender).lower() in ("unknown", "auto"):
-            gender = "young Indian woman"
+            gender = "female"
 
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
+
+        # Build a FIXED, detailed person description so Veo generates
+        # the SAME person across every scene (consistent identity)
+        if gender.lower() in ("female", "woman", "girl"):
+            person_desc = (
+                "a 25-year-old Indian woman with straight shoulder-length black hair, "
+                "light brown skin, oval face, wearing a white cotton kurta top"
+            )
+        else:
+            person_desc = (
+                "a 28-year-old Indian man with short black hair, clean-shaven, "
+                "light brown skin, wearing a plain white collared shirt"
+            )
 
         return {
             "product_name": product_info.get("product_name") or self.context.get("product_name", "the product"),
@@ -219,69 +232,95 @@ class GeminiRenderer:
             "brand_voice": self.context.get("brand_voice", "premium"),
             "language": language,
             "gender": gender,
+            "person_desc": person_desc,
             "discount": discount,
             "guarantee": guarantee,
         }
 
-    def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
-        """Uses Gemini Flash to generate hyper-specific photorealistic Veo prompts.
+    def _transliterate_hindi(self, text: str) -> str:
+        """Converts Hindi/Devanagari text to phonetic Roman script for Veo audio.
 
-        Focus: short, visually precise descriptions with real camera/lighting
-        language that Veo understands. Avoids abstract instructions.
+        Veo 3.1 generates better Hindi pronunciation when given romanized text
+        (e.g. "aapki skin dull lag rahi hai?" instead of Devanagari).
+        Uses Gemini Flash for accurate transliteration.
+        """
+        if not text or not any('\u0900' <= ch <= '\u097F' for ch in text):
+            return text  # Already Roman or no Hindi chars
+
+        try:
+            if self.client:
+                resp = self.client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=(
+                        f"Transliterate this Hindi/Hinglish text to phonetic Roman script "
+                        f"(how it sounds when spoken). Keep English words as-is. "
+                        f"Output ONLY the transliterated text, nothing else.\n\n{text}"
+                    ),
+                )
+                result = resp.text.strip().strip('"').strip("'")
+                if result:
+                    return result
+        except Exception as e:
+            print(f"       Transliteration failed: {e}")
+
+        return text  # Return original if transliteration fails
+
+    def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
+        """Uses Gemini Flash to generate Veo prompts with CONSISTENT person identity.
+
+        Key principles:
+        - SAME detailed person description in EVERY scene (identity lock)
+        - SAME setting/environment across scenes (visual continuity)
+        - Physical movement in every scene
+        - Specific cinematic camera language
         """
         if hasattr(self, '_cached_scene_prompts'):
             return self._cached_scene_prompts
 
         ctx = self._get_scene_context()
-        continuity_hints = "\n".join([
-            f"- {s.get('scene')}: {s.get('visual_continuity', 'Maintain consistency')}"
-            for s in scene_list
-        ])
+        person = ctx["person_desc"]
 
-        prompt = f"""You are a cinematographer writing SHORT video prompts for Google Veo 3.1 AI video generator.
+        prompt = f"""You are a cinematographer writing video prompts for Google Veo 3.1.
 
 PRODUCT: {ctx['product_name']} by {ctx['brand']} ({ctx['category']})
-FEATURES: {', '.join(ctx['features'][:4]) if ctx['features'] else 'premium quality'}
 PROBLEM IT SOLVES: {ctx['user_problem']}
-PRESENTER: {ctx['gender']}, speaking in {ctx['language']}
+PRESENTER (SAME person in ALL scenes): {person}
+SETTING: bright modern Indian bathroom with white tiles and natural sunlight from a window
 
-SCENE CONTINUITY:
-{continuity_hints}
+=== ABSOLUTE RULES ===
+1. EVERY prompt MUST start with the EXACT same person description: "{person}"
+2. SAME bathroom/vanity setting in ALL scenes (consistency!)
+3. Each prompt: 2-3 sentences MAX
+4. EVERY scene has physical movement (gesturing, picking up, turning, stepping)
+5. ONE camera move per scene (dolly, tracking, push-in, handheld)
+6. The person speaks directly to camera
+7. NEVER mention "same person" or "same woman/man" — just describe them identically each time
 
-=== CRITICAL RULES ===
-1. Each prompt: 2-3 sentences ONLY. Keep it simple.
-2. EVERY scene MUST have PHYSICAL MOVEMENT: walking, turning, picking up, gesturing with hands, leaning forward, stepping toward camera, pointing, demonstrating.
-3. Include ONE camera movement per scene: slow dolly in, tracking shot, pan, crane up, steadicam follow, push-in.
-4. Describe SPECIFIC setting: "sunlit kitchen with marble countertop" not "a room".
-5. Describe what the person DOES with their body, not just facial expressions.
-6. The person speaks directly to camera in {ctx['language']}.
-7. NEVER write a static scene. The person must be DOING something physical in every frame.
+Write prompts for ONLY these scenes. Use the EXACT person description at the start of each:
 
-Write prompts for these scenes:
+HOOK: {person} stands at a bathroom vanity, looks into mirror then turns to camera with concern, gestures while speaking. Slow dolly in.
 
-HOOK: Presenter walks into frame in a {ctx['category']}-related location, makes eye contact with camera, and starts speaking about {ctx['user_problem']} with hand gestures. Slow dolly in.
+PROBLEM: {person} at the same vanity, picks up a generic product and shakes head, puts it down, turns to camera speaking with frustration. Handheld close-up.
 
-PROBLEM: Same presenter picks up / examines a bad alternative, shakes head in frustration, turns to camera and speaks emotionally. Handheld close-up.
+SOLUTION: {person} at the same vanity, reaches for {ctx['product_name']}, holds it up toward camera with a smile, turns it to show the label. Tracking shot.
 
-SOLUTION: Presenter reaches for {ctx['product_name']}, holds it up excitedly, turns it to show different angles. Steps closer to camera while speaking. Tracking shot.
+TRUST: {person} at the same vanity, gestures confidently while speaking about results, nods with conviction. Steadicam medium shot.
 
-TRUST: Presenter walks through a clean modern space, gestures confidently while speaking about {ctx['brand']}. Steadicam follow shot.
+PROOF: {person} at the same vanity, squeezes {ctx['product_name']} onto palm, applies it on face, smiles at camera while demonstrating. Close-up tracking shot.
 
-PROOF: Presenter actively uses/demonstrates {ctx['product_name']}. Show hands interacting with the product. Smooth tracking shot.
+CTA: {person} at the same vanity, holds {ctx['product_name']} forward toward camera, speaks with energy and urgency. {"Mentions: " + ctx['discount'] + ". " if ctx['discount'] else ""}Push-in shot.
 
-CTA: Presenter steps forward to camera holding {ctx['product_name']}, speaks with urgency and energy. {"Says: " + ctx['discount'] + ". " if ctx['discount'] else ""}Dramatic push-in shot.
-
-RELATABLE MOMENT: Presenter in a candid everyday moment related to {ctx['category']}, doing a real activity. Natural handheld documentary style.
+RELATABLE MOMENT: {person} at the same vanity, casually looking at mirror, touches face, then turns to camera to speak naturally. Handheld documentary style.
 
 Return ONLY valid JSON:
 {{
-  "Hook": "prompt...",
-  "Problem": "prompt...",
-  "Solution": "prompt...",
-  "Trust": "prompt...",
-  "Proof": "prompt...",
-  "CTA": "prompt...",
-  "Relatable Moment": "prompt..."
+  "Hook": "prompt starting with person description...",
+  "Problem": "prompt starting with person description...",
+  "Solution": "prompt starting with person description...",
+  "Trust": "prompt starting with person description...",
+  "Proof": "prompt starting with person description...",
+  "CTA": "prompt starting with person description...",
+  "Relatable Moment": "prompt starting with person description..."
 }}"""
 
         try:
@@ -292,53 +331,63 @@ Return ONLY valid JSON:
                     config={'response_mime_type': 'application/json'}
                 )
                 self._cached_scene_prompts = json.loads(response.text)
-                print(f"     Generated {len(self._cached_scene_prompts)} photorealistic scene prompts via Gemini")
+                # Verify identity lock: ensure person_desc appears in each prompt
+                for key, val in self._cached_scene_prompts.items():
+                    if person[:30] not in val:
+                        # Prepend if Gemini omitted it
+                        self._cached_scene_prompts[key] = f"{person} " + val
+                print(f"     Generated {len(self._cached_scene_prompts)} identity-locked scene prompts via Gemini")
                 return self._cached_scene_prompts
         except Exception as e:
             print(f"     LLM scene prompt generation failed: {e}. Using fallback.")
 
-        # Fallback: motion-rich photorealistic prompts
-        ctx = self._get_scene_context()
+        # Fallback: hardcoded identity-locked prompts
+        setting = "bright modern Indian bathroom with white tiles, natural sunlight from window"
         self._cached_scene_prompts = {
-            "Hook": f"A {ctx['gender']} walks into a sunlit {ctx['category']}-related space, stops and turns to camera with a concerned look, gestures with hands while speaking in {ctx['language']} about {ctx['user_problem']}. Slow dolly-in, 50mm lens, warm natural light.",
-            "Problem": f"Close-up of the same {ctx['gender']} picking up and examining a bad alternative, shaking head in frustration. They turn to camera and speak emotionally in {ctx['language']} about {ctx['user_problem']}. Handheld camera with subtle push-in.",
-            "Solution": f"The same {ctx['gender']} reaches for {ctx['product_name']}, picks it up with both hands and holds it toward camera with genuine excitement. They turn the product to show different angles while speaking in {ctx['language']}. Smooth tracking shot, bright soft lighting.",
-            "Trust": f"The same {ctx['gender']} walks through a clean modern space with white walls, gesturing confidently while speaking in {ctx['language']} about {ctx['brand']}. Steadicam follow shot, soft overhead lighting, 35mm lens.",
-            "Proof": f"The same {ctx['gender']} actively demonstrates {ctx['product_name']} — hands interacting with the product in a real setting. Smooth tracking shot following the action, natural daylight. Speaking in {ctx['language']} about the results with a genuine smile.",
-            "CTA": f"The same {ctx['gender']} steps forward toward the camera holding {ctx['product_name']}, speaks with urgency and energy in {ctx['language']}. {'Says: ' + ctx['discount'] + '.' if ctx['discount'] else ''} Dramatic push-in shot, bright punchy lighting.",
-            "Relatable Moment": f"A {ctx['gender']} in an everyday {ctx['category']}-related moment — doing a real physical activity. Natural handheld documentary style, 35mm lens, available light. No product visible."
+            "Hook": f"{person} stands at a vanity in a {setting}, looks into the mirror then turns to camera with a concerned expression, gestures with hands while speaking. Slow dolly-in, 50mm lens, warm natural light.",
+            "Problem": f"{person} at the same vanity in a {setting}, picks up a generic product and shakes head in frustration, puts it down and turns to camera speaking emotionally. Handheld camera with subtle push-in.",
+            "Solution": f"{person} at the same vanity in a {setting}, reaches for {ctx['product_name']}, picks it up with both hands and holds it toward camera with genuine excitement, turns the product to show different angles while speaking. Smooth tracking shot, bright soft lighting.",
+            "Trust": f"{person} at the same vanity in a {setting}, gestures confidently while speaking about {ctx['brand']}, nods with conviction. Steadicam medium shot, soft overhead lighting.",
+            "Proof": f"{person} at the same vanity in a {setting}, squeezes {ctx['product_name']} onto palm, applies it on face while looking at camera with a genuine smile. Close-up tracking shot, natural daylight.",
+            "CTA": f"{person} at the same vanity in a {setting}, holds {ctx['product_name']} forward toward camera, speaks with urgency and energy. {'Mentions: ' + ctx['discount'] + '.' if ctx['discount'] else ''} Dramatic push-in shot, bright punchy lighting.",
+            "Relatable Moment": f"{person} at the same vanity in a {setting}, casually looking at mirror, touches face gently, then turns to camera to speak naturally. Handheld documentary style, 35mm lens, available light."
         }
         return self._cached_scene_prompts
 
     def _build_prompt(self, scene: Dict) -> str:
-        """Builds a photorealistic Veo prompt with dialogue and cinematic quality cues."""
+        """Builds a Veo prompt with identity lock, transliterated dialogue, and realism cues."""
         scene_name = scene.get("scene", "")
         directives = scene.get("realistic_directives", "")
         copy_text = scene.get("voiceover", "")
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
 
-        # Get dynamically generated scene prompts
+        # Get dynamically generated scene prompts (identity-locked)
         storyboard = []
         variants = self.variants.get("variants", [])
         if variants:
             storyboard = variants[0].get("storyboard", [])
         scene_prompts = self._generate_scene_prompts(storyboard)
 
+        ctx = self._get_scene_context()
+        person = ctx["person_desc"]
+
         prompt = scene_prompts.get(scene_name,
-            f"A person presenting a product to camera. 50mm lens, soft natural lighting, "
-            f"shallow depth of field. Clean modern background. Photorealistic."
+            f"{person} presenting a product to camera in a bright modern bathroom. "
+            f"50mm lens, soft natural lighting, shallow depth of field."
         )
 
-        # Add spoken dialogue for Veo's native audio generation
+        # Ensure identity lock — prepend person description if missing
+        if person[:30] not in prompt:
+            prompt = f"{person}. " + prompt
+
+        # Transliterate Hindi dialogue to Roman script for better Veo pronunciation
         if copy_text:
-            prompt += f' The person speaks in {language} and says: "{copy_text}"'
+            roman_text = self._transliterate_hindi(copy_text)
+            pronoun = "She" if ctx["gender"].lower() in ("female", "woman", "girl") else "He"
+            prompt += f' {pronoun} speaks naturally in {language} and says: "{roman_text}"'
 
-        # Add scene-specific directives from the storyboard
-        if directives:
-            prompt += f" {directives}"
-
-        # Quality suffix — photorealism + motion emphasis + NO text
-        prompt += " Photorealistic, cinematic, natural skin texture, real-world lighting, smooth continuous motion. No CGI, no animation, no text, no captions, no subtitles, no watermark, no static frames."
+        # Quality suffix — realism + NO text overlays
+        prompt += " Shot on Sony A7IV, 50mm f/1.8 lens, natural window light, skin pores visible, real bathroom environment. No CGI, no text, no captions, no watermark."
 
         return prompt
 
