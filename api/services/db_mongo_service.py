@@ -38,7 +38,13 @@ async def connect_to_mongo():
         
         # Initialize indexes
         await mongo.db.users.create_index("username", unique=True)
-        await mongo.db.users.create_index("email", unique=True)
+        # Drop old strict email index if it exists, then create sparse version
+        try:
+            await mongo.db.users.drop_index("email_1")
+        except Exception:
+            pass  # Index might not exist yet
+        # Sparse index: only enforce unique email when email is actually set (not null)
+        await mongo.db.users.create_index("email", unique=True, sparse=True)
         await mongo.db.user_assets.create_index([("user_id", 1), ("_id", -1)])
         
         print(f"✅ Connected to MongoDB: {MONGODB_URL[:40]}...")

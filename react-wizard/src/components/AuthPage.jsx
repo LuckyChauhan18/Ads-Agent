@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Sparkles, Building2 } from 'lucide-react';
 import { authService } from '../services/api';
+import { toast } from './Toast';
 
 function AuthPage({ onLogin }) {
   const navigate = useNavigate();
@@ -48,15 +49,41 @@ function AuthPage({ onLogin }) {
         const { access_token } = res.data;
         localStorage.setItem('spectra_token', access_token);
         localStorage.setItem('spectra_user', formData.username);
+        toast('Login successful!', 'success');
         onLogin(formData.username);
         navigate('/');
       } else {
         await authService.signup(formData.username, formData.password, formData.email, formData.fullName, formData.companyId);
-        alert('Account created! Please login.');
+        toast('Account created! Please login.', 'success');
         setIsLogin(true);
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'Authentication failed');
+      const detail = err.response?.data?.detail || '';
+      const status = err.response?.status;
+
+      if (!isLogin && status === 401) {
+        // Login failure
+        const msg = detail || 'Incorrect username or password';
+        setError(msg);
+        toast(msg, 'error');
+      } else if (isLogin && status === 401) {
+        setError('Incorrect username or password. Please try again.');
+        toast('Incorrect username or password', 'error');
+      } else if (detail.includes('already registered')) {
+        setError(detail);
+        toast(detail, 'warning');
+        // If username exists, suggest logging in
+        if (detail.includes('Username')) {
+          setTimeout(() => {
+            toast('Try logging in with your existing account', 'info');
+            setIsLogin(true);
+          }, 1500);
+        }
+      } else {
+        const msg = detail || `${isLogin ? 'Login' : 'Signup'} failed. Please try again.`;
+        setError(msg);
+        toast(msg, 'error');
+      }
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Database, Brain, Target, Layout, FileText, User, Video, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react'
 import { workflowService } from '../services/api'
+import { toast } from './Toast'
 
 import ProductStep from './ProductStep'
 import CurationStep from './CurationStep'
@@ -72,7 +73,7 @@ function Wizard() {
         const res = await workflowService.runDiscovery(state.product)
         setState(prev => ({ ...prev, curatedBrands: res.data.results.brands, research: { understanding: res.data.results.understanding, competitors: [] } }))
         setCurrentStep(2)
-      } catch (e) { alert('Discovery failed.') }
+      } catch (e) { toast('Discovery failed: ' + (e.response?.data?.detail || e.message), 'error') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 2) {
       setLoading({ active: true, message: 'Scraping Meta Ads DNA...' })
@@ -80,7 +81,7 @@ function Wizard() {
         const res = await workflowService.runResearch(state.product, state.curatedBrands)
         setState(prev => ({ ...prev, research: { ...prev.research, competitors: res.data.results } }))
         setCurrentStep(3)
-      } catch (e) { alert('Research failed.') }
+      } catch (e) { toast('Research failed: ' + (e.response?.data?.detail || e.message), 'error') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 3) {
       const features = state.product.features || [];
@@ -115,7 +116,7 @@ function Wizard() {
           strategy: { ...prev.strategy, campaign_id: campaignId }
         }))
         setCurrentStep(5)
-      } catch (e) { alert('Psychology analysis failed.') }
+      } catch (e) { toast('Strategy analysis failed: ' + (e.response?.data?.detail || e.message), 'error') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 5) {
       setLoading({ active: true, message: 'Generating Scene-by-Scene Script...' })
@@ -130,7 +131,7 @@ function Wizard() {
         })
         setState(prev => ({ ...prev, script: res.data.results }))
         setCurrentStep(6)
-      } catch (e) { alert('Script generation failed.') }
+      } catch (e) { toast('Script generation failed: ' + (e.response?.data?.detail || e.message), 'error') }
       setLoading({ active: false, message: '' })
     } else if (currentStep === 8) {
       setLoading({ active: true, message: 'Initiating final video render...' })
@@ -138,7 +139,10 @@ function Wizard() {
         const res = await workflowService.runRender({
           script_output: state.script,
           avatar_config: state.avatar,
-          campaign_psychology: state.blueprint.campaign_psychology,
+          campaign_psychology: {
+            ...state.blueprint.campaign_psychology,
+            campaign_id: state.strategy.campaign_id
+          },
           campaign_id: state.strategy.campaign_id
         })
         const variants = res.data.results.render_results;
@@ -146,14 +150,15 @@ function Wizard() {
           const filename = variants[0].local_path.split(/[\\/]/).pop();
           const videoUrl = `http://localhost:8000/videos/${filename}`;
           setState(prev => ({ ...prev, renderResult: videoUrl }));
+          toast('Video rendered successfully!', 'success');
           setCurrentStep(9);
         } else {
-          alert('Render completed but video was not found.');
+          toast('Render completed but video file was not found. Check server logs.', 'warning');
         }
       } catch (e) {
         console.error(e);
         setState(prev => ({ ...prev, renderFailed: true }));
-        alert('Render failed.');
+        toast('Render failed: ' + (e.response?.data?.detail || e.message), 'error');
       }
       setLoading({ active: false, message: '' })
     } else {

@@ -153,7 +153,7 @@ class AIAssistService:
         try:
             import json
             response = self.client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config={'response_mime_type': 'application/json'}
             )
@@ -179,7 +179,7 @@ class AIAssistService:
         try:
             response = self.client.models.generate_images(
                 model="imagen-4.0-generate-001",
-                prompt=f"{prompt}, 9:16 vertical orientation, masterpiece, photorealistic.",
+                prompt=f"{prompt}, 9:16 vertical orientation, photorealistic, no text, no captions, no watermarks, no logos, no words, no subtitles, no UI elements.",
                 config={
                     "number_of_images": 1,
                     "output_mime_type": "image/jpeg",

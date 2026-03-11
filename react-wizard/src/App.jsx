@@ -8,6 +8,7 @@ import AnalyticsDashboard from './components/AnalyticsDashboard';
 import PublishCenter from './components/PublishCenter';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
+import ToastContainer from './components/Toast';
 
 import './index.css';
 
@@ -87,6 +88,7 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ToastContainer />
 
       <style>{`
         .app-container {

@@ -40,14 +40,25 @@ async def signup(req: SignupRequest):
     hashed_password = get_password_hash(req.password)
     user_dict = {
         "username": req.username,
-        "email": req.email,
         "full_name": req.full_name,
         "company_id": req.company_id,
         "disabled": False,
         "hashed_password": hashed_password,
     }
+    # Only store email if provided (avoids null duplicate key issues)
+    if req.email:
+        user_dict["email"] = req.email
 
-    uid = await create_user(user_dict)
+    try:
+        uid = await create_user(user_dict)
+    except Exception as e:
+        error_msg = str(e)
+        if "duplicate key" in error_msg and "email" in error_msg:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+        elif "duplicate key" in error_msg:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Signup failed: {error_msg}")
+
     return {
         "username": req.username,
         "email": req.email,
@@ -59,8 +70,15 @@ async def signup(req: SignupRequest):
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    print(f"[LOGIN] Attempt for username: {form_data.username}")
     user = await authenticate_user(form_data.username, form_data.password)
     if not user:
+        # Check if user exists at all (to give better feedback)
+        existing = await find_user_by_username(form_data.username)
+        if existing:
+            print(f"[LOGIN] User '{form_data.username}' exists but password mismatch")
+        else:
+            print(f"[LOGIN] User '{form_data.username}' not found in DB")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
