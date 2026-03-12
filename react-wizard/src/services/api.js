@@ -29,7 +29,7 @@ api.interceptors.response.use(
     if (err.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem(config.storageKeys.token);
       localStorage.removeItem(config.storageKeys.user);
-      window.location.href = '/auth';
+      window.dispatchEvent(new Event('auth:logout'));
     }
     return Promise.reject(err);
   }
@@ -58,16 +58,17 @@ export const authService = {
 export const workflowService = {
   runDiscovery: (data) => api.post('/workflow/step/discover', { data }),
   runResearch: (product, curated_brands) =>
-    api.post('/workflow/step/research', { data: { product, curated_brands } }),
-  runPsychology: (data) => api.post('/workflow/step/psychology', { data }),
-  runScript: (data) => api.post('/workflow/step/script', { data }),
+    api.post('/workflow/step/research', { data: { product, curated_brands } }, { timeout: config.longOperationTimeout }),
+  runPsychology: (data) => api.post('/workflow/step/psychology', { data }, { timeout: config.longOperationTimeout }),
+  runScript: (data) => api.post('/workflow/step/script', { data }, { timeout: config.longOperationTimeout }),
   runGenerateAvatars: (gender, style, custom_prompt) =>
-    api.post('/workflow/step/avatar/generate', { data: { gender, style, custom_prompt } }),
-  runRender: (data) => api.post('/workflow/step/render', { data }),
+    api.post('/workflow/step/avatar/generate', { data: { gender, style, custom_prompt } }, { timeout: config.longOperationTimeout }),
+  runRender: (data) => api.post('/workflow/step/render', { data }, { timeout: config.longOperationTimeout }),
   runUploadAssets: (campaignId, assetType, formData) =>
     api.post(`/workflow/upload-assets/${campaignId}/${assetType}`, formData),
   runGetHistory: () => api.get('/workflow/history'),
   runGetDashboard: () => api.get('/workflow/dashboard'),
+  runGetAvatarHistory: () => api.get('/workflow/step/avatar/history'),
   submitFeedback: (data) => api.post('/workflow/feedback', data),
   getFeedback: () => api.get('/workflow/feedback'),
 };
@@ -77,6 +78,7 @@ export const analyticsService = {
   getDashboardAnalytics: () => api.get('/analytics/dashboard'),
   trackEvent: (campaignId, eventType, metadata = {}) =>
     api.post('/analytics/track', { campaign_id: campaignId, event_type: eventType, metadata }),
+  seedDemoData: (campaignId) => api.post(`/analytics/seed/${campaignId}`),
 };
 
 export const publishService = {
@@ -85,8 +87,8 @@ export const publishService = {
     api.post('/publish/platforms/connect', { platform, credentials }),
   disconnectPlatform: (platform) =>
     api.post('/publish/platforms/disconnect', { platform }),
-  publishAd: (campaignId, platforms, config = {}) =>
-    api.post('/publish/push', { campaign_id: campaignId, platforms, config }),
+  publishAd: (campaignId, platforms, publishConfig = {}) =>
+    api.post('/publish/push', { campaign_id: campaignId, platforms, config: publishConfig }),
   getPublishHistory: (campaignId) => api.get(`/publish/history/${campaignId}`),
 };
 

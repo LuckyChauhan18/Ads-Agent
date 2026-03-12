@@ -18,6 +18,9 @@ const config = {
   // API Timeout (milliseconds)
   apiTimeout: 30000,
   
+  // Extended timeout for long-running operations (5 minutes)
+  longOperationTimeout: 300000,
+  
   // Local Storage Keys
   storageKeys: {
     token: 'spectra_token',

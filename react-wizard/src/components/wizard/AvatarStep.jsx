@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, User, Check, RefreshCw, Loader2, Wand2, Info, X, Upload } from 'lucide-react';
 import { workflowService, aiAssistService } from '../../services/api';
+import { toast } from '../Toast';
+import config from '../../config/config';
 
 const AvatarStep = ({ data, updateData }) => {
   const [mode, setMode] = useState((data.selected_avatars && data.selected_avatars.length > 0) ? 'custom' : 'default');
@@ -50,10 +52,10 @@ const AvatarStep = ({ data, updateData }) => {
         // Auto-select the newly generated one exclusively
         selectExclusively(newAvatar);
       } else {
-        alert('Generation failed. This often happens if the prompt contains names of famous people, celebrities, or restricted content due to AI safety policies.');
+        toast('Generation failed. This often happens if the prompt contains names of famous people, celebrities, or restricted content due to AI safety policies.', 'warning');
       }
     } catch (e) {
-      alert('Generation failed. Please check your API key.');
+      toast('Generation failed. Please check your API key.');
     } finally {
       setGenerating(false);
     }
@@ -79,7 +81,7 @@ const AvatarStep = ({ data, updateData }) => {
         selectExclusively(newAvatar);
       }
     } catch (err) {
-      alert('Upload failed.');
+      toast('Upload failed.');
     } finally {
       setUploading(false);
       e.target.value = ''; // Reset input
@@ -314,7 +316,7 @@ const AvatarStep = ({ data, updateData }) => {
                           className={`avatar-card-premium ${selIndex ? 'selected' : ''}`}
                           onClick={() => toggleAvatar(opt)}
                         >
-                          <img src={`http://localhost:8000${opt.url}`} alt="Avatar" />
+                          <img src={`${config.apiBaseUrl}${opt.url}`} alt="Avatar" />
 
                           <AnimatePresence>
                             {selIndex && (
@@ -378,7 +380,7 @@ const AvatarStep = ({ data, updateData }) => {
                             className={`avatar-card-premium history-card ${selIndex ? 'selected' : ''}`}
                             onClick={() => toggleAvatar(opt)}
                           >
-                            <img src={opt.url.startsWith('http') ? opt.url : `http://localhost:8000${opt.url}`} alt="Avatar" />
+                            <img src={opt.url.startsWith('http') ? opt.url : `${config.apiBaseUrl}${opt.url}`} alt="Avatar" />
                             {selIndex && (
                               <div className="selection-pill">{selIndex}</div>
                             )}

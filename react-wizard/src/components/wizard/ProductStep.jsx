@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Upload, X, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { aiAssistService } from '../../services/api';
+import { toast } from '../Toast';
 
 const ProductStep = ({ data, updateData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -34,7 +35,7 @@ const ProductStep = ({ data, updateData }) => {
     const hasExistingFiles = existingIds.length > 0;
 
     if (!hasNewFiles && !hasExistingFiles) {
-      alert("Please upload at least one product image or logo to generate a description.");
+      toast('Please upload at least one product image or logo to generate a description.', 'warning');
       return;
     }
 
@@ -64,7 +65,7 @@ const ProductStep = ({ data, updateData }) => {
       updateData({ description: res.data.description });
     } catch (e) {
       console.error(e);
-      alert("Failed to generate description. Make sure the backend is running and Gemini API key is configured.");
+      toast('Failed to generate description. Make sure the backend is running and Gemini API key is configured.');
     } finally {
       setIsGenerating(false);
     }

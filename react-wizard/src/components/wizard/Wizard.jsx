@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'
 import { Package, Database, Brain, Target, Layout, FileText, User, Video, Sparkles, ChevronRight, ChevronLeft } from 'lucide-react'
 import { workflowService } from '../../services/api'
+import { toast } from '../Toast'
+import config from '../../config/config'
 
 import ProductStep from './ProductStep'
 import CurationStep from './CurationStep'
@@ -72,16 +74,41 @@ function Wizard() {
         const res = await workflowService.runDiscovery(state.product)
         setState(prev => ({ ...prev, curatedBrands: res.data.results.brands, research: { understanding: res.data.results.understanding, competitors: [] } }))
         setCurrentStep(2)
-      } catch (e) { alert('Discovery failed.') }
-      setLoading({ active: false, message: '' })
+      } catch (e) { 
+        console.error('Discovery failed:', e)
+        toast(`Discovery failed: ${e.response?.data?.detail || e.message}`)
+      } finally {
+        setLoading({ active: false, message: '' })
+      }
     } else if (currentStep === 2) {
       setLoading({ active: true, message: 'Scraping Meta Ads DNA...' })
       try {
         const res = await workflowService.runResearch(state.product, state.curatedBrands)
-        setState(prev => ({ ...prev, research: { ...prev.research, competitors: res.data.results } }))
+        
+        if (!res.data.results || !Array.isArray(res.data.results)) {
+          throw new Error('Invalid response format: results is not an array')
+        }
+        
+        setState(prev => ({ 
+          ...prev, 
+          research: { 
+            ...prev.research, 
+            competitors: res.data.results 
+          } 
+        }))
+        
         setCurrentStep(3)
-      } catch (e) { alert('Research failed.') }
-      setLoading({ active: false, message: '' })
+      } catch (e) { 
+        console.error('Research failed:', e)
+        
+        if (e.code === 'ECONNABORTED') {
+          toast('Research is taking longer than expected. Please try again with fewer brands or refresh the page.', 'warning')
+        } else {
+          toast(`Research failed: ${e.response?.data?.detail || e.message}`)
+        }
+      } finally {
+        setLoading({ active: false, message: '' })
+      }
     } else if (currentStep === 3) {
       const features = state.product.features || [];
       setState(prev => ({
@@ -115,8 +142,16 @@ function Wizard() {
           strategy: { ...prev.strategy, campaign_id: campaignId }
         }))
         setCurrentStep(5)
-      } catch (e) { alert('Psychology analysis failed.') }
-      setLoading({ active: false, message: '' })
+      } catch (e) { 
+        console.error('Psychology analysis failed:', e)
+        if (e.code === 'ECONNABORTED') {
+          toast('Psychology analysis is taking longer than expected. Please try again.', 'warning')
+        } else {
+          toast(`Psychology analysis failed: ${e.response?.data?.detail || e.message}`)
+        }
+      } finally {
+        setLoading({ active: false, message: '' })
+      }
     } else if (currentStep === 5) {
       setLoading({ active: true, message: 'Generating Scene-by-Scene Script...' })
       try {
@@ -130,8 +165,16 @@ function Wizard() {
         })
         setState(prev => ({ ...prev, script: res.data.results }))
         setCurrentStep(6)
-      } catch (e) { alert('Script generation failed.') }
-      setLoading({ active: false, message: '' })
+      } catch (e) { 
+        console.error('Script generation failed:', e)
+        if (e.code === 'ECONNABORTED') {
+          toast('Script generation is taking longer than expected. The script may still be processing. Please check back or refresh.', 'warning')
+        } else {
+          toast(`Script generation failed: ${e.response?.data?.detail || e.message}`)
+        }
+      } finally {
+        setLoading({ active: false, message: '' })
+      }
     } else if (currentStep === 8) {
       setLoading({ active: true, message: 'Initiating final video render...' })
       try {
@@ -144,18 +187,23 @@ function Wizard() {
         const variants = res.data.results.render_results;
         if (variants && variants.length > 0 && variants[0].local_path) {
           const filename = variants[0].local_path.split(/[\\/]/).pop();
-          const videoUrl = `http://localhost:8000/videos/${filename}`;
+          const videoUrl = `${config.apiBaseUrl}/videos/${filename}`;
           setState(prev => ({ ...prev, renderResult: videoUrl }));
           setCurrentStep(9);
         } else {
-          alert('Render completed but video was not found.');
+          toast('Render completed but video was not found.', 'warning');
         }
       } catch (e) {
-        console.error(e);
+        console.error('Render failed:', e);
         setState(prev => ({ ...prev, renderFailed: true }));
-        alert('Render failed.');
+        if (e.code === 'ECONNABORTED') {
+          toast('Video render is taking longer than expected. This is normal for complex videos. Please be patient or check back later.', 'warning');
+        } else {
+          toast(`Render failed: ${e.response?.data?.detail || e.message}`);
+        }
+      } finally {
+        setLoading({ active: false, message: '' })
       }
-      setLoading({ active: false, message: '' })
     } else {
       setCurrentStep(prev => prev + 1)
     }

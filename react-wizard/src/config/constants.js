@@ -1,8 +1,3 @@
-// ─── API Configuration ─────────────────────────────────────────────────────
-// Read from environment variable; falls back to localhost for local development.
-// Set VITE_API_BASE_URL in react-wizard/.env for other environments.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-
 // ─── Wizard Step Definitions ───────────────────────────────────────────────
 // Single source of truth for step metadata — used by Wizard.jsx for the step
 // indicator nav. Update here to add/remove/rename steps app-wide.

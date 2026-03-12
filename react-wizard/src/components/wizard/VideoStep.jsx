@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Download, ExternalLink, Video, ShoppingBag, Volume2, VolumeX } from 'lucide-react';
+import { toast } from '../Toast';
 
 const VideoStep = ({ videoUrl, productUrl, script }) => {
   const videoRef = useRef(null);
@@ -293,7 +294,7 @@ const VideoStep = ({ videoUrl, productUrl, script }) => {
                   setFeedbackSubmitted(true);
                 } catch (e) {
                   console.error('Feedback submission failed:', e);
-                  alert('Could not submit feedback. Please try again.');
+                  toast('Could not submit feedback. Please try again.');
                 }
                 setFeedbackLoading(false);
               }}

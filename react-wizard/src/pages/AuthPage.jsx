@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Sparkles, Building2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Zap, Home } from 'lucide-react';
@@ -531,7 +531,7 @@ function AuthPage({ onLogin }) {
           width: 100vw;
           height: 100vh;
           overflow: hidden;
-          background: linear-gradient(135deg, #0a0a0a 0%, #1a0f2e 50%, #0f0a1a 100%);
+          background: linear-gradient(135deg, #0a0a0a 0%, #1a0f2e 20%, #0f0a1a 50%, #1a0a1e 80%, #0a0a0a 100%);
           position: relative;
         }
 
@@ -543,9 +543,10 @@ function AuthPage({ onLogin }) {
           right: 0;
           z-index: 200;
           padding: 16px 0;
-          backdrop-filter: blur(20px);
-          background: rgba(10, 10, 31, 0.8);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(24px);
+          background: linear-gradient(180deg, rgba(10, 10, 31, 0.95) 0%, rgba(10, 10, 31, 0.85) 100%);
+          border-bottom: 1px solid rgba(99,102,241,0.2);
+          box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4), 0 0 40px rgba(99,102,241,0.05);
         }
 
         .auth-nav-content {
@@ -578,39 +579,41 @@ function AuthPage({ onLogin }) {
           font-size: 1.5rem;
           font-weight: 900;
           letter-spacing: -1px;
-          background: linear-gradient(135deg, #ffffff 0%, #818cf8 100%);
+          background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 50%, #8b5cf6 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           margin: 0;
+          filter: drop-shadow(0 0 8px rgba(129, 140, 248, 0.3));
         }
 
         .nav-home-btn {
           display: flex;
           align-items: center;
           gap: 8px;
-          background: transparent;
+          background: rgba(255, 255, 255, 0.03);
+          backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.15);
           color: white;
           padding: 10px 20px;
           border-radius: 10px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
           font-size: 0.95rem;
         }
 
         .nav-home-btn:hover {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: rgba(255, 255, 255, 0.08);
+          border-color: rgba(99, 102, 241, 0.5);
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
         }
 
         .cursor-glow {
           position: fixed;
-          width: 800px;
-          height: 800px;
-          background: radial-gradient(circle, rgba(99, 102, 241, 0.07) 0%, transparent 70%);
+          width: 900px;
+          height: 900px;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.09) 0%, rgba(139, 92, 246, 0.05) 40%, transparent 70%);
           pointer-events: none;
           z-index: 0;
         }
@@ -628,12 +631,30 @@ function AuthPage({ onLogin }) {
           width: 440px;
           padding: 40px 36px;
           border-radius: 32px;
-          backdrop-filter: blur(30px);
-          background: rgba(255, 255, 255, 0.015);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(40px);
+          background: linear-gradient(145deg, rgba(30,27,75,0.8) 0%, rgba(15,15,35,0.9) 100%);
+          border: 1px solid rgba(99,102,241,0.3);
+          box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7), 0 0 80px rgba(99, 102, 241, 0.15), 0 0 120px rgba(139, 92, 246, 0.08);
           max-height: 90vh;
           overflow-y: auto;
+          position: relative;
+        }
+        .auth-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: 32px;
+          padding: 1.5px;
+          background: linear-gradient(135deg, #6366f1, rgba(139,92,246,0.5), #ec4899, rgba(99,102,241,0.3));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+          opacity: 0.6;
+          transition: opacity 0.3s;
+        }
+        .auth-card:hover::before {
+          opacity: 1;
         }
 
         .auth-card::-webkit-scrollbar {
@@ -650,7 +671,7 @@ function AuthPage({ onLogin }) {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #000;
+          background: linear-gradient(135deg, #0a0a1f 0%, #1e1b4b 30%, #312e81 60%, #1a0a2e 100%);
           overflow: hidden;
           perspective: 1200px;
         }
@@ -686,17 +707,18 @@ function AuthPage({ onLogin }) {
         .brand-pill {
           display: inline-block;
           margin-top: 24px;
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 10px 32px;
+          background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0.1) 100%);
+          border: 1px solid rgba(99,102,241,0.3);
+          padding: 12px 36px;
           border-radius: 40px;
-          color: #818cf8;
+          color: #a5b4fc;
           font-weight: 600;
           letter-spacing: 3px;
           text-transform: uppercase;
           font-size: 0.85rem;
           backdrop-filter: blur(10px);
           transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+          box-shadow: 0 4px 20px rgba(99,102,241,0.15);
         }
 
         .animated-blobs {
@@ -717,9 +739,9 @@ function AuthPage({ onLogin }) {
           opacity: 0.25;
         }
 
-        .blob-1 { background: #6366f1; top: -100px; right: -100px; }
-        .blob-2 { background: #4f46e5; bottom: -150px; left: -100px; }
-        .blob-3 { background: #818cf8; top: 30%; left: 20%; width: 300px; height: 300px; opacity: 0.18; }
+        .blob-1 { background: linear-gradient(135deg, #6366f1, #8b5cf6); top: -100px; right: -100px; }
+        .blob-2 { background: linear-gradient(135deg, #4f46e5, #ec4899); bottom: -150px; left: -100px; }
+        .blob-3 { background: linear-gradient(135deg, #818cf8, #c084fc); top: 30%; left: 20%; width: 300px; height: 300px; opacity: 0.2; }
 
         .form-blobs {
           position: absolute;
@@ -767,8 +789,11 @@ function AuthPage({ onLogin }) {
           font-size: 2.8rem;
           margin: 24px 0 8px;
           font-weight: 800;
-          color: white;
           letter-spacing: -1.5px;
+          background: linear-gradient(135deg, #ffffff 0%, #e0e7ff 40%, #c4b5fd 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
         .subtitle {
@@ -784,8 +809,9 @@ function AuthPage({ onLogin }) {
         }
 
         .input-group-glass {
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
+          background: rgba(255, 255, 255, 0.04);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 16px;
           display: flex;
           align-items: center;
@@ -807,9 +833,10 @@ function AuthPage({ onLogin }) {
         }
 
         .input-group-glass:focus-within {
-          border-color: rgba(99, 102, 241, 0.5);
-          background: rgba(99, 102, 241, 0.03);
-          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+          border-color: rgba(99, 102, 241, 0.7);
+          background: rgba(99, 102, 241, 0.08);
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2), 0 8px 32px rgba(99, 102, 241, 0.15);
+          transform: translateY(-2px);
         }
 
         .input-group-glass.error:focus-within {
@@ -940,7 +967,7 @@ function AuthPage({ onLogin }) {
         }
 
         .btn-primary {
-          background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
           color: white;
           padding: 16px;
           border-radius: 16px;
@@ -954,7 +981,7 @@ function AuthPage({ onLogin }) {
           gap: 10px;
           transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           margin-top: 10px;
-          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35), 0 0 40px rgba(139, 92, 246, 0.2);
           position: relative;
           overflow: hidden;
         }
@@ -1040,13 +1067,20 @@ function AuthPage({ onLogin }) {
         .logo-icon-container {
           width: 80px;
           height: 80px;
-          background: linear-gradient(135deg, #6366f1, #312e81);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
           border-radius: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
           margin: 0 auto;
-          box-shadow: 0 15px 40px rgba(99, 102, 241, 0.3);
+          box-shadow: 0 15px 50px rgba(99, 102, 241, 0.5), 0 0 80px rgba(139, 92, 246, 0.3);
+          border: 2px solid rgba(255, 255, 255, 0.15);
+          animation: logo-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes logo-pulse {
+          0%, 100% { box-shadow: 0 15px 50px rgba(99, 102, 241, 0.5), 0 0 80px rgba(139, 92, 246, 0.3); }
+          50% { box-shadow: 0 15px 60px rgba(99, 102, 241, 0.7), 0 0 100px rgba(139, 92, 246, 0.5); }
         }
 
         @media (max-width: 1024px) {

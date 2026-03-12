@@ -116,7 +116,10 @@ function PublishCenter({ user }) {
     <div className="publish-container">
       <header className="publish-header">
         <Link to="/dashboard" className="back-btn"><ArrowLeft size={18} /> Back</Link>
-        <h1>Publish to Social Media</h1>
+        <div className="publish-title-group">
+          <h1>Publish to Social Media</h1>
+          <span className="publish-subtitle">Connect platforms & distribute your ads</span>
+        </div>
       </header>
 
       {/* Platform Connections */}
@@ -289,15 +292,42 @@ function PublishCenter({ user }) {
           display: flex;
           align-items: center;
           gap: 20px;
+          padding: 20px 24px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+          border: 1px solid rgba(99,102,241,0.3);
+          box-shadow: 0 8px 32px rgba(99,102,241,0.15);
         }
-        .publish-header h1 { flex: 1; font-size: 1.4rem; margin: 0; }
+        .publish-header h1 {
+          flex: 1;
+          font-size: 1.4rem;
+          margin: 0;
+          background: linear-gradient(to right, #e0e7ff, #c4b5fd);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .publish-title-group {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .publish-subtitle {
+          font-size: 0.75rem;
+          color: rgba(165,180,252,0.6);
+          letter-spacing: 0.5px;
+        }
 
         .platforms-section h3 {
           font-size: 0.8rem;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: 0.5;
-          margin: 0 0 12px;
+          letter-spacing: 1.2px;
+          margin: 0 0 14px;
+          background: linear-gradient(135deg, #818cf8, #c084fc);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
         .platforms-grid {
           display: grid;
@@ -305,17 +335,43 @@ function PublishCenter({ user }) {
           gap: 12px;
         }
         .platform-card {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: 14px;
-          padding: 16px;
+          padding: 18px;
           display: flex;
           flex-direction: column;
           gap: 12px;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
         }
-        .platform-card.connected { border-color: rgba(16, 185, 129, 0.3); }
+        .platform-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #6366f1, #8b5cf6, transparent);
+          opacity: 0.5;
+        }
+        .platform-card:hover {
+          transform: translateY(-4px);
+          border-color: rgba(99,102,241,0.3);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+        }
+        .platform-card.connected {
+          border-color: rgba(16, 185, 129, 0.5);
+          background: linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.04) 100%);
+          box-shadow: 0 6px 24px rgba(16, 185, 129, 0.15);
+        }
+        .platform-card.connected::before {
+          background: linear-gradient(90deg, #10b981, #34d399, transparent);
+          opacity: 1;
+        }
         .platform-top { display: flex; align-items: center; gap: 10px; }
-        .platform-icon { font-size: 1.5rem; }
+        .platform-icon { font-size: 1.8rem; }
         .platform-info { display: flex; flex-direction: column; }
         .platform-info strong { font-size: 0.85rem; }
         .connected-badge {
@@ -337,10 +393,16 @@ function PublishCenter({ user }) {
           justify-content: center;
         }
         .connect-btn {
-          background: rgba(99, 102, 241, 0.15);
-          color: #818cf8;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          color: #c7d2fe;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
-        .connect-btn:hover { background: rgba(99, 102, 241, 0.25); }
+        .connect-btn:hover {
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(168, 85, 247, 0.25));
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
         .disconnect-btn {
           background: rgba(239, 68, 68, 0.1);
           color: #fca5a5;
@@ -395,18 +457,33 @@ function PublishCenter({ user }) {
         }
 
         .campaign-select-panel {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(99,102,241,0.2);
           border-radius: 16px;
           padding: 16px;
           overflow-y: auto;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          position: relative;
+        }
+        .campaign-select-panel::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+          border-radius: 16px 16px 0 0;
         }
         .campaign-select-panel h3 {
           font-size: 0.8rem;
           text-transform: uppercase;
           letter-spacing: 1px;
-          opacity: 0.5;
-          margin: 0 0 12px;
+          background: linear-gradient(135deg, #818cf8, #c084fc);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          margin: 8px 0 14px;
         }
         .campaign-select-row {
           padding: 10px 12px;
@@ -417,63 +494,127 @@ function PublishCenter({ user }) {
           flex-direction: column;
           gap: 2px;
           border: 1px solid transparent;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
         }
-        .campaign-select-row:hover { background: rgba(255,255,255,0.04); }
+        .campaign-select-row::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 3px;
+          background: linear-gradient(180deg, #6366f1, #8b5cf6, #ec4899);
+          opacity: 0;
+          transition: opacity 0.3s;
+          border-radius: 8px 0 0 8px;
+        }
+        .campaign-select-row:hover {
+          background: rgba(255,255,255,0.06);
+          transform: translateX(4px);
+        }
+        .campaign-select-row:hover::before {
+          opacity: 1;
+        }
         .campaign-select-row.selected {
-          background: rgba(99, 102, 241, 0.1);
-          border-color: rgba(99, 102, 241, 0.3);
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1));
+          border-color: rgba(99, 102, 241, 0.4);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        .campaign-select-row.selected::before {
+          opacity: 1;
         }
         .campaign-select-row strong { font-size: 0.85rem; }
         .campaign-select-row span { font-size: 0.7rem; opacity: 0.5; }
 
         .publish-action-panel {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(99,102,241,0.15);
           border-radius: 16px;
           padding: 24px;
           overflow-y: auto;
           display: flex;
           flex-direction: column;
           gap: 16px;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          position: relative;
         }
-        .publish-action-panel h3 { margin: 0; font-size: 1rem; }
+        .publish-action-panel::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #ec4899, #8b5cf6, #6366f1);
+          border-radius: 16px 16px 0 0;
+        }
+        .publish-action-panel h3 {
+          margin: 8px 0 0;
+          font-size: 1rem;
+        }
 
         .target-platforms { display: flex; flex-wrap: wrap; gap: 8px; }
         .target-btn {
           padding: 10px 16px;
           border-radius: 10px;
           border: 1px solid rgba(255,255,255,0.1);
-          background: rgba(255,255,255,0.03);
+          background: rgba(255,255,255,0.04);
+          backdrop-filter: blur(8px);
           color: white;
           cursor: pointer;
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 0.85rem;
-          transition: all 0.2s;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+        }
+        .target-btn:hover {
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(99, 102, 241, 0.3);
+          transform: translateY(-1px);
         }
         .target-btn.active {
-          background: rgba(99, 102, 241, 0.15);
-          border-color: #6366f1;
-          color: #a5b4fc;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
+          border-color: rgba(99, 102, 241, 0.5);
+          color: #c7d2fe;
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
         }
 
         .publish-btn {
-          background: linear-gradient(135deg, #6366f1, #4338ca);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #ec4899 70%, #f43f5e 100%);
           color: white;
           border: none;
-          padding: 14px 24px;
+          padding: 16px 28px;
           border-radius: 14px;
           font-size: 1rem;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 10px;
-          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+          box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4), 0 0 60px rgba(236,72,153,0.15);
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
+          letter-spacing: 0.3px;
         }
-        .publish-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .publish-btn::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, transparent, rgba(255,255,255,0.2));
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .publish-btn:hover::before {
+          opacity: 1;
+        }
+        .publish-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
 
         .publish-results {
           display: flex;
@@ -486,8 +627,15 @@ function PublishCenter({ user }) {
           gap: 12px;
           padding: 12px;
           border-radius: 10px;
-          background: rgba(255,255,255,0.03);
+          background: rgba(255,255,255,0.04);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.08);
           flex-wrap: wrap;
+          transition: all 0.2s ease;
+        }
+        .result-item:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.12);
         }
         .status-badge {
           padding: 2px 8px;
@@ -522,9 +670,16 @@ function PublishCenter({ user }) {
           gap: 12px;
           padding: 8px 12px;
           border-radius: 8px;
-          background: rgba(255,255,255,0.02);
+          background: rgba(255,255,255,0.03);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.05);
           margin-bottom: 4px;
           font-size: 0.8rem;
+          transition: all 0.2s ease;
+        }
+        .history-row:hover {
+          background: rgba(255,255,255,0.05);
+          border-color: rgba(255,255,255,0.1);
         }
         .history-date { font-size: 0.7rem; opacity: 0.4; margin-left: auto; }
 
@@ -546,19 +701,24 @@ function PublishCenter({ user }) {
         }
 
         .back-btn {
-          background: transparent;
-          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
           color: white;
-          padding: 8px 15px;
-          border-radius: 20px;
+          padding: 8px 16px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 0.85rem;
           cursor: pointer;
           text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
-        .back-btn:hover { background: rgba(255,255,255,0.05); }
+        .back-btn:hover {
+          background: rgba(255,255,255,0.15);
+          transform: translateX(-2px);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
 
         @media (max-width: 1024px) {
           .platforms-grid { grid-template-columns: repeat(2, 1fr); }

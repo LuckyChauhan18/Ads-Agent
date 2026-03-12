@@ -7,6 +7,7 @@ import {
   Clock, Zap, ChevronRight, FolderOpen, ImagePlus, UserCircle
 } from 'lucide-react';
 import { workflowService } from '../services/api';
+import config from '../config/config';
 
 function Dashboard({ user }) {
   const [data, setData] = React.useState(null);
@@ -71,7 +72,7 @@ function Dashboard({ user }) {
           </div>
           <div>
             <h1 className="db-hero-title">Welcome back, <span className="db-hero-name">{data?.user_info?.full_name || user}</span></h1>
-            <p className="db-hero-sub">Here's an overview of your creative workspace</p>
+            <p className="db-hero-sub">Manage your campaigns, assets, and creative workflow</p>
           </div>
         </div>
         <button className="db-create-btn" onClick={() => navigate('/create')}>
@@ -90,7 +91,7 @@ function Dashboard({ user }) {
         {stats.map((s, i) => {
           const Icon = s.icon;
           return (
-            <div className="db-stat-card" key={i}>
+            <div className="db-stat-card" key={i} style={{ borderLeft: `4px solid ${s.color}`, background: `linear-gradient(135deg, ${s.color}15, ${s.color}08)` }}>
               <div className="db-stat-icon" style={{ background: s.bg, color: s.color }}>
                 <Icon size={20} />
               </div>
@@ -280,7 +281,7 @@ function Dashboard({ user }) {
                           {selectedCampaign.product_logo && (
                             <div className="asset-item">
                               <label>Logo</label>
-                              <img src={selectedCampaign.product_logo.startsWith('http') ? selectedCampaign.product_logo : `http://localhost:8000${selectedCampaign.product_logo}`} alt="Logo" className="mini-preview" />
+                              <img src={selectedCampaign.product_logo.startsWith('http') ? selectedCampaign.product_logo : `${config.apiBaseUrl}${selectedCampaign.product_logo}`} alt="Logo" className="mini-preview" />
                             </div>
                           )}
                           {!selectedCampaign.asset_id && !selectedCampaign.product_logo && <p className="info-text">Assets will appear after rendering.</p>}
@@ -293,7 +294,7 @@ function Dashboard({ user }) {
                           {selectedCampaign.avatar_config ? (
                             <div className="avatar-preview-row">
                               {selectedCampaign.avatar_config.selected_avatars?.map((av, i) => (
-                                <img key={i} src={av.url.startsWith('http') ? av.url : `http://localhost:8000${av.url}`} alt="Avatar" className="avatar-thumb" />
+                                <img key={i} src={av.url.startsWith('http') ? av.url : `${config.apiBaseUrl}${av.url}`} alt="Avatar" className="avatar-thumb" />
                               )) || <p className="info-text">Single avatar used.</p>}
                             </div>
                           ) : <p className="info-text">Avatar will appear after selection.</p>}
@@ -322,7 +323,7 @@ function Dashboard({ user }) {
                   {data.assets.logos.map(l => (
                     <motion.div key={l.id} className="db-asset-card" whileHover={{ y: -4, scale: 1.02 }}>
                       <div className="db-asset-img-wrap">
-                        <img src={`http://localhost:8000${l.url}`} alt="Logo" />
+                        <img src={`${config.apiBaseUrl}${l.url}`} alt="Logo" />
                       </div>
                       <p className="db-asset-name">{l.filename}</p>
                     </motion.div>
@@ -345,7 +346,7 @@ function Dashboard({ user }) {
                   {data.assets.products.map(p => (
                     <motion.div key={p.id} className="db-asset-card" whileHover={{ y: -4, scale: 1.02 }}>
                       <div className="db-asset-img-wrap">
-                        <img src={`http://localhost:8000${p.url}`} alt="Product" />
+                        <img src={`${config.apiBaseUrl}${p.url}`} alt="Product" />
                       </div>
                       <p className="db-asset-name">{p.filename}</p>
                     </motion.div>
@@ -368,7 +369,7 @@ function Dashboard({ user }) {
                   {data.assets.avatars.map(a => (
                     <motion.div key={a.id} className="db-asset-card" whileHover={{ y: -4, scale: 1.02 }}>
                       <div className="db-asset-img-wrap avatar-img-wrap">
-                        <img src={`http://localhost:8000${a.url}`} alt="Avatar" />
+                        <img src={`${config.apiBaseUrl}${a.url}`} alt="Avatar" />
                       </div>
                       <p className="db-asset-name">{a.filename}</p>
                       {a.created_at && (
@@ -414,12 +415,14 @@ function Dashboard({ user }) {
           color: rgba(255,255,255,0.5);
         }
         .db-loading-spinner {
-          width: 36px;
-          height: 36px;
-          border: 3px solid rgba(99,102,241,0.2);
-          border-top-color: #6366f1;
+          width: 48px;
+          height: 48px;
+          border: 3px solid rgba(99,102,241,0.15);
+          border-top-color: #818cf8;
+          border-right-color: #a78bfa;
           border-radius: 50%;
           animation: db-spin 0.8s linear infinite;
+          filter: drop-shadow(0 0 12px rgba(99,102,241,0.4));
         }
         @keyframes db-spin { to { transform: rotate(360deg); } }
 
@@ -429,10 +432,33 @@ function Dashboard({ user }) {
           align-items: center;
           justify-content: space-between;
           gap: 20px;
-          padding: 24px 28px;
+          padding: 28px 32px;
           border-radius: 20px;
-          background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, rgba(168,85,247,0.08) 100%);
-          border: 1px solid rgba(99,102,241,0.15);
+          background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #4c1d95 70%, #581c87 100%);
+          border: 1px solid rgba(99,102,241,0.4);
+          position: relative;
+          overflow: hidden;
+          box-shadow: 0 12px 40px rgba(99,102,241,0.25), 0 0 80px rgba(139,92,246,0.1);
+        }
+        .db-hero::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -20%;
+          width: 400px;
+          height: 400px;
+          background: radial-gradient(circle, rgba(236,72,153,0.2) 0%, transparent 60%);
+          pointer-events: none;
+        }
+        .db-hero::after {
+          content: '';
+          position: absolute;
+          bottom: -50%;
+          left: -10%;
+          width: 300px;
+          height: 300px;
+          background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 60%);
+          pointer-events: none;
         }
         .db-hero-left {
           display: flex;
@@ -443,28 +469,35 @@ function Dashboard({ user }) {
           width: 54px;
           height: 54px;
           border-radius: 16px;
-          background: linear-gradient(135deg, #6366f1, #a855f7);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 800;
           font-size: 1.4rem;
           color: white;
-          box-shadow: 0 8px 24px rgba(99,102,241,0.35);
+          box-shadow: 0 8px 24px rgba(99,102,241,0.5), 0 0 40px rgba(168,85,247,0.3);
           flex-shrink: 0;
+          border: 2px solid rgba(255,255,255,0.2);
+          transition: all 0.3s ease;
+        }
+        .db-hero-avatar:hover {
+          transform: scale(1.05) rotate(5deg);
+          box-shadow: 0 12px 36px rgba(99,102,241,0.6), 0 0 50px rgba(168,85,247,0.4);
         }
         .db-hero-title {
-          font-size: 1.35rem;
+          font-size: 1.4rem;
           margin: 0;
-          font-weight: 600;
-          color: rgba(255,255,255,0.9);
+          font-weight: 700;
+          color: #e0e7ff;
         }
         .db-hero-name {
-          background: linear-gradient(90deg, #a5b4fc, #c4b5fd);
+          background: linear-gradient(135deg, #fbbf24 0%, #f472b6 50%, #c084fc 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
           background-clip: text;
           font-weight: 800;
+          filter: drop-shadow(0 0 12px rgba(251,191,36,0.4));
         }
         .db-hero-sub {
           margin: 4px 0 0;
@@ -477,21 +510,38 @@ function Dashboard({ user }) {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 12px 24px;
+          padding: 12px 28px;
           border: none;
           border-radius: 14px;
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          background: linear-gradient(135deg, #f59e0b 0%, #f97316 50%, #ef4444 100%);
           color: white;
           font-weight: 700;
           font-size: 0.9rem;
           cursor: pointer;
           transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
-          box-shadow: 0 4px 16px rgba(99,102,241,0.35);
+          box-shadow: 0 6px 24px rgba(245,158,11,0.4), 0 0 40px rgba(249,115,22,0.15);
           white-space: nowrap;
+          position: relative;
+          overflow: hidden;
+          letter-spacing: 0.3px;
+        }
+        .db-create-btn::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, transparent, rgba(255,255,255,0.2));
+          opacity: 0;
+          transition: opacity 0.3s;
         }
         .db-create-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 28px rgba(99,102,241,0.45);
+          transform: translateY(-3px) scale(1.04);
+          box-shadow: 0 12px 36px rgba(245,158,11,0.5), 0 0 60px rgba(249,115,22,0.25);
+        }
+        .db-create-btn:hover::before {
+          opacity: 1;
+        }
+        .db-create-btn:active {
+          transform: translateY(0) scale(0.98);
         }
 
         /* ── Stats Row ── */
@@ -506,31 +556,41 @@ function Dashboard({ user }) {
           gap: 14px;
           padding: 18px 20px;
           border-radius: 16px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
-          transition: all 0.3s ease;
+          border: 1px solid rgba(255,255,255,0.1);
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
         }
         .db-stat-card:hover {
-          background: rgba(255,255,255,0.05);
-          border-color: rgba(255,255,255,0.1);
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+          border-color: rgba(255,255,255,0.2);
         }
         .db-stat-icon {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .db-stat-card:hover .db-stat-icon {
+          transform: scale(1.1) rotate(5deg);
         }
         .db-stat-text {
           display: flex;
           flex-direction: column;
         }
         .db-stat-value {
-          font-size: 1.5rem;
+          font-size: 1.6rem;
           font-weight: 800;
-          color: white;
+          background: linear-gradient(135deg, #ffffff, #e0e7ff);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
           line-height: 1;
         }
         .db-stat-label {
@@ -542,12 +602,13 @@ function Dashboard({ user }) {
         /* ── Tab Navigation ── */
         .db-tabs {
           display: flex;
-          gap: 8px;
-          padding: 6px;
-          background: rgba(255,255,255,0.03);
+          gap: 6px;
+          padding: 5px;
+          background: rgba(15,15,35,0.8);
           border-radius: 14px;
-          border: 1px solid rgba(255,255,255,0.06);
+          border: 1px solid rgba(99,102,241,0.2);
           width: fit-content;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.05);
         }
         .db-tab {
           display: flex;
@@ -561,16 +622,19 @@ function Dashboard({ user }) {
           font-size: 0.85rem;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.25s ease;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
         }
         .db-tab:hover {
-          color: rgba(255,255,255,0.7);
-          background: rgba(255,255,255,0.04);
+          color: rgba(255,255,255,0.8);
+          background: rgba(255,255,255,0.06);
+          transform: translateY(-1px);
         }
         .db-tab-active {
-          background: rgba(99,102,241,0.15) !important;
-          color: #a5b4fc !important;
-          box-shadow: 0 2px 8px rgba(99,102,241,0.15);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+          color: white !important;
+          box-shadow: 0 4px 16px rgba(99,102,241,0.5), 0 0 24px rgba(139,92,246,0.2);
+          border: none;
         }
         .db-tab-count {
           font-size: 0.7rem;
@@ -601,18 +665,23 @@ function Dashboard({ user }) {
         .db-card {
           padding: 20px;
           border-radius: 16px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-left: 4px solid #6366f1;
           cursor: pointer;
           display: flex;
           flex-direction: column;
           gap: 14px;
           transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
         }
         .db-card:hover {
-          background: rgba(255,255,255,0.06);
-          border-color: rgba(99,102,241,0.25);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.25), 0 0 0 1px rgba(99,102,241,0.1);
+          background: linear-gradient(145deg, rgba(99,102,241,0.12) 0%, rgba(168,85,247,0.06) 100%);
+          border-color: rgba(99,102,241,0.5);
+          border-left-color: #ec4899;
+          box-shadow: 0 16px 48px rgba(99,102,241,0.2), 0 0 40px rgba(139,92,246,0.1);
+          transform: translateY(-6px) scale(1.01);
         }
         .db-card-top {
           display: flex;
@@ -620,18 +689,23 @@ function Dashboard({ user }) {
           gap: 12px;
         }
         .db-card-brand-icon {
-          width: 40px;
-          height: 40px;
+          width: 42px;
+          height: 42px;
           border-radius: 12px;
-          background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(168,85,247,0.2));
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: 800;
           font-size: 1rem;
-          color: #a5b4fc;
+          color: white;
           flex-shrink: 0;
-          border: 1px solid rgba(99,102,241,0.15);
+          box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+          transition: all 0.3s ease;
+        }
+        .db-card:hover .db-card-brand-icon {
+          transform: scale(1.1) rotate(5deg);
+          box-shadow: 0 6px 20px rgba(99,102,241,0.4);
         }
         .db-card-meta {
           flex: 1;
@@ -656,12 +730,12 @@ function Dashboard({ user }) {
         }
         .db-card-arrow {
           color: rgba(255,255,255,0.15);
-          transition: all 0.3s;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
           flex-shrink: 0;
         }
         .db-card:hover .db-card-arrow {
-          color: rgba(99,102,241,0.7);
-          transform: translateX(2px);
+          color: rgba(139,92,246,0.9);
+          transform: translateX(4px);
         }
         .db-card-product {
           font-size: 0.88rem;
@@ -685,9 +759,15 @@ function Dashboard({ user }) {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          background: rgba(99,102,241,0.12);
-          color: #a5b4fc;
-          border: 1px solid rgba(99,102,241,0.15);
+          background: rgba(99,102,241,0.15);
+          color: #c7d2fe;
+          border: 1px solid rgba(99,102,241,0.25);
+          backdrop-filter: blur(8px);
+          transition: all 0.2s;
+        }
+        .db-card:hover .db-card-badge {
+          background: rgba(99,102,241,0.25);
+          border-color: rgba(99,102,241,0.4);
         }
         .db-card-badge-green {
           background: rgba(16,185,129,0.1);
@@ -714,13 +794,14 @@ function Dashboard({ user }) {
           width: 80px;
           height: 80px;
           border-radius: 24px;
-          background: rgba(99,102,241,0.08);
-          border: 1px solid rgba(99,102,241,0.12);
+          background: linear-gradient(135deg, #312e81 0%, #4c1d95 100%);
+          border: 1px solid rgba(99,102,241,0.3);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: rgba(99,102,241,0.5);
+          color: #a78bfa;
           margin-bottom: 8px;
+          box-shadow: 0 8px 32px rgba(99,102,241,0.25);
         }
         .db-empty h3 {
           font-size: 1.2rem;
@@ -744,24 +825,53 @@ function Dashboard({ user }) {
         .db-asset-card {
           padding: 12px;
           border-radius: 14px;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: rgba(255,255,255,0.04);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255,255,255,0.08);
           display: flex;
           flex-direction: column;
           gap: 10px;
           cursor: default;
-          transition: all 0.3s ease;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
+        }
+        .db-asset-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, transparent, rgba(99,102,241,0.05));
+          opacity: 0;
+          transition: opacity 0.3s;
         }
         .db-asset-card:hover {
-          border-color: rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.05);
+          border-color: rgba(99,102,241,0.3);
+          background: rgba(255,255,255,0.06);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        .db-asset-card:hover::before {
+          opacity: 1;
         }
         .db-asset-img-wrap {
           width: 100%;
           height: 130px;
           border-radius: 10px;
           overflow: hidden;
-          background: rgba(0,0,0,0.3);
+          background: rgba(0,0,0,0.4);
+          border: 1px solid rgba(255,255,255,0.1);
+          position: relative;
+        }
+        .db-asset-img-wrap::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, transparent, rgba(99,102,241,0.1));
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .db-asset-card:hover .db-asset-img-wrap::after {
+          opacity: 1;
         }
         .db-asset-img-wrap img {
           width: 100%;
@@ -770,7 +880,7 @@ function Dashboard({ user }) {
           transition: transform 0.3s ease;
         }
         .db-asset-card:hover .db-asset-img-wrap img {
-          transform: scale(1.05);
+          transform: scale(1.08);
         }
         .avatar-img-wrap {
           border-radius: 50% !important;
@@ -807,20 +917,23 @@ function Dashboard({ user }) {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.05);
+          backdrop-filter: blur(12px);
+          border: 1px solid rgba(255,255,255,0.1);
           color: rgba(255,255,255,0.6);
           padding: 8px 16px;
           border-radius: 10px;
           font-size: 0.82rem;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
           margin-bottom: 16px;
           font-weight: 500;
         }
         .db-detail-back:hover {
-          background: rgba(255,255,255,0.07);
+          background: rgba(255,255,255,0.08);
           color: white;
+          border-color: rgba(99,102,241,0.3);
+          transform: translateX(-2px);
         }
         .db-detail-title-row {
           display: flex;
@@ -835,7 +948,7 @@ function Dashboard({ user }) {
         }
         .db-detail-platform {
           display: inline-flex;
-          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
           padding: 4px 14px;
           border-radius: 8px;
           font-size: 0.7rem;
@@ -843,6 +956,8 @@ function Dashboard({ user }) {
           font-weight: 800;
           letter-spacing: 0.5px;
           color: white;
+          box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+          border: 1px solid rgba(255,255,255,0.2);
         }
         .db-detail-body {
           display: flex;
@@ -857,21 +972,36 @@ function Dashboard({ user }) {
 
         /* ── Section Blocks ── */
         .db-section {
-          padding: 20px;
+          padding: 22px;
           border-radius: 16px;
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.05);
+          background: linear-gradient(145deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(99,102,241,0.15);
+          position: relative;
+          overflow: hidden;
+        }
+        .db-section::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899, transparent);
+          pointer-events: none;
         }
         .db-section-title {
           font-size: 0.8rem;
           text-transform: uppercase;
-          letter-spacing: 1.2px;
-          color: rgba(255,255,255,0.4);
+          letter-spacing: 1.5px;
           font-weight: 700;
           margin: 0 0 16px;
           display: flex;
           align-items: center;
           gap: 12px;
+          background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
         .db-section-title::after {
           content: '';
@@ -907,22 +1037,61 @@ function Dashboard({ user }) {
         .target-user p { font-size: 0.82rem; line-height: 1.5; margin: 0; color: rgba(255,255,255,0.55); }
         .strategy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
         .strategy-card {
-          padding: 14px; border-radius: 12px; text-align: center;
-          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
-          transition: all 0.25s;
+          padding: 14px;
+          border-radius: 12px;
+          text-align: center;
+          background: rgba(255,255,255,0.04);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.08);
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+        }\n        .strategy-card:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(99,102,241,0.3);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 16px rgba(99,102,241,0.15);
         }
-        .strategy-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(99,102,241,0.2); }
         .strategy-card label { display: block; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.35); margin-bottom: 6px; }
-        .strategy-card span { font-size: 0.88rem; font-weight: 700; color: #a5b4fc; }
+        .strategy-card span {
+          font-size: 0.88rem;
+          font-weight: 700;
+          background: linear-gradient(135deg, #a5b4fc, #c4b5fd, #f9a8d4);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
         .scene-flow-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 0.82rem; color: rgba(255,255,255,0.5); }
         .scene-flow-row label { font-weight: 700; margin-right: 6px; color: rgba(255,255,255,0.4); font-size: 0.7rem; text-transform: uppercase; }
         .flow-step { white-space: nowrap; }
         .scene-row {
-          padding: 16px 20px; margin-bottom: 10px; border-radius: 12px;
-          background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
-          transition: all 0.25s;
+          padding: 16px 20px;
+          margin-bottom: 10px;
+          border-radius: 12px;
+          background: rgba(255,255,255,0.03);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.08);
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
         }
-        .scene-row:hover { background: rgba(255,255,255,0.04); border-color: rgba(99,102,241,0.2); }
+        .scene-row::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 3px;
+          background: linear-gradient(180deg, #6366f1, #8b5cf6, #ec4899);
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .scene-row:hover {
+          background: rgba(255,255,255,0.05);
+          border-color: rgba(99,102,241,0.3);
+          transform: translateX(4px);
+        }
+        .scene-row:hover::before {
+          opacity: 1;
+        }
         .scene-meta { display: flex; gap: 12px; margin-bottom: 8px; }
         .scene-num { font-weight: 800; font-size: 0.78rem; color: #6366f1; }
         .scene-intent { font-size: 0.72rem; color: rgba(255,255,255,0.35); }

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TOKEN_KEY, USER_KEY } from '../config/constants';
 
 // ─── Context ───────────────────────────────────────────────────────────────
@@ -12,6 +13,7 @@ const AuthContext = createContext(null);
 // Usage:
 //   const { user, login, logout } = useAuth();
 export function AuthProvider({ children }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState(localStorage.getItem(USER_KEY));
 
   const login = useCallback((username, token) => {
@@ -24,8 +26,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     setUser(null);
-    window.location.href = '/auth';
-  }, []);
+    navigate('/auth');
+  }, [navigate]);
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>

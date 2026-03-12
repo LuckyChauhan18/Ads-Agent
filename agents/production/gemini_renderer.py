@@ -83,23 +83,30 @@ class GeminiRenderer:
         self.assets = await self._load_assets()
 
     async def _load_assets(self) -> Dict:
-        """Loads product images and logo from GridFS based on campaign_id."""
+        """Loads ONLY this campaign's product images and logo from GridFS.
+
+        Strict filtering: assets MUST match campaign_id. Never loads
+        assets from other campaigns to prevent random product images.
+        """
         from api.services.db_mongo_service import get_user_assets
-        
-        # Robust campaign_id and user_id extraction
+
         context = self.context if isinstance(self.context, dict) else {}
         campaign_id = context.get("campaign_id") or context.get("_id")
         user_id = context.get("user_id") or context.get("owner_id")
-        
+
         if campaign_id: campaign_id = str(campaign_id)
         if user_id: user_id = str(user_id)
-            
+
         print(f"   [GeminiRenderer] Loading assets for campaign: {campaign_id}, user: {user_id}")
-        
+
         loaded = {"product": [], "logo": [], "lifestyle": []}
-        
+
         if not user_id:
             print("   [GeminiRenderer] No user_id found in context. Cannot load assets.")
+            return loaded
+
+        if not campaign_id:
+            print("   [GeminiRenderer] WARNING: No campaign_id — skipping asset load to avoid random images.")
             return loaded
 
         try:
@@ -107,19 +114,20 @@ class GeminiRenderer:
             for item in items:
                 metadata = item.get("metadata", {})
                 item_campaign_id = metadata.get("campaign_id")
-                
-                # Check for campaign_id match (if provided)
-                if campaign_id and item_campaign_id and str(item_campaign_id) != str(campaign_id):
+
+                # STRICT: only load assets that belong to THIS campaign
+                if not item_campaign_id or str(item_campaign_id) != campaign_id:
                     continue
-                
+
                 asset_type = metadata.get("asset_type")
                 file_id = str(item["_id"])
                 if asset_type in loaded:
                     loaded[asset_type].append(file_id)
+                    print(f"       Loaded {asset_type} asset: {file_id} (campaign: {item_campaign_id})")
         except Exception as e:
             print(f"       Failed to load assets from GridFS: {e}")
-            
-        print(f"   Assets loaded: {len(loaded['product'])} product, {len(loaded['logo'])} logo")
+
+        print(f"   Assets loaded: {len(loaded['product'])} product, {len(loaded['logo'])} logo (campaign: {campaign_id})")
         return loaded
 
     async def _load_image_for_veo(self, asset_id: str):
@@ -134,69 +142,58 @@ class GeminiRenderer:
             return None
 
     async def _get_reference_images_for_scene(self, scene: Dict) -> List:
-        """Returns Veo reference images based on D2C story arc."""
+        """Returns Veo reference images — ONLY from user-uploaded campaign assets.
+
+        Uses uploaded product images and logo only. No avatar URLs, no external
+        sources. Strictly limited to what the user uploaded for this campaign.
+        """
         scene_name = scene.get("scene", "")
         references = []
 
-        # --- Custom Avatar Reference (Priority) ---
-        avatar_obj = scene.get("avatar") or {}
-        # Prioritize scene-specific avatar first, then top-level self.avatar
-        custom_avatar_url = avatar_obj.get("custom_image_url") or avatar_obj.get("url")
-        if not custom_avatar_url:
-            custom_avatar_url = self.avatar.get("custom_image_url") or self.avatar.get("url")
-        
-        if custom_avatar_url:
-            file_id = None
-            if "/files/" in str(custom_avatar_url):
-                file_id = str(custom_avatar_url).split("/files/")[-1]
-            elif len(str(custom_avatar_url)) >= 24: # Likely a MongoDB ObjectId string
-                file_id = str(custom_avatar_url)
-            
-            if file_id:
-                img = await self._load_image_for_veo(file_id)
-                if img:
-                    ref = types.VideoGenerationReferenceImage(
-                        image=img,
-                        reference_type="ASSET"
-                    )
-                    references.append(ref)
-                    print(f"       ✅ Using custom avatar reference for scene: {file_id}")
-        
-        # --- D2C STORY ARC: NO product in Hook/Problem ---
+        product_ids = self.assets.get("product", [])
+        logo_ids = self.assets.get("logo", [])
+
+        # Hook/Problem scenes: NO product references (build curiosity first)
         if scene_name in ("Hook", "Problem", "Relatable Moment", "Stop scroll", "Agitate pain"):
-            return references[:3]
-        
-        # --- Solution/Proof: Product images (the reveal) ---
+            return []
+
+        # Solution/Proof: Show the product (the reveal)
         elif scene_name in ("Solution", "Proof", "Introduce product", "Show results"):
-            for img_path in self.assets["product"][:2]:
-                img = await self._load_image_for_veo(img_path)
+            for pid in product_ids[:2]:
+                img = await self._load_image_for_veo(pid)
                 if img:
-                    ref = types.VideoGenerationReferenceImage(
-                        image=img,
-                        reference_type="ASSET"
-                    )
-                    references.append(ref)
-        
-        # --- Trust/CTA: Logo + product (brand identity) ---
+                    references.append(types.VideoGenerationReferenceImage(
+                        image=img, reference_type="ASSET"
+                    ))
+                    print(f"       Using product image {pid} for scene '{scene_name}'")
+
+        # Trust/CTA: Logo + product
         elif scene_name in ("CTA", "Trust", "Drive action", "Build credibility"):
-            for img_path in self.assets["logo"][:1]:
-                img = await self._load_image_for_veo(img_path)
+            for lid in logo_ids[:1]:
+                img = await self._load_image_for_veo(lid)
                 if img:
-                    ref = types.VideoGenerationReferenceImage(
-                        image=img,
-                        reference_type="ASSET"
-                    )
-                    references.append(ref)
-            if self.assets["product"]:
-                img = await self._load_image_for_veo(self.assets["product"][0])
+                    references.append(types.VideoGenerationReferenceImage(
+                        image=img, reference_type="ASSET"
+                    ))
+                    print(f"       Using logo {lid} for scene '{scene_name}'")
+            for pid in product_ids[:1]:
+                img = await self._load_image_for_veo(pid)
                 if img:
-                    ref = types.VideoGenerationReferenceImage(
-                        image=img,
-                        reference_type="ASSET"
-                    )
-                    references.append(ref)
-        
-        return references[:3]
+                    references.append(types.VideoGenerationReferenceImage(
+                        image=img, reference_type="ASSET"
+                    ))
+                    print(f"       Using product image {pid} for scene '{scene_name}'")
+
+        else:
+            # Default: use first product image if available
+            if product_ids:
+                img = await self._load_image_for_veo(product_ids[0])
+                if img:
+                    references.append(types.VideoGenerationReferenceImage(
+                        image=img, reference_type="ASSET"
+                    ))
+
+        return references[:2]
 
     def _get_scene_context(self) -> Dict:
         """Extracts all product/brand/avatar context for prompt generation."""
@@ -208,9 +205,22 @@ class GeminiRenderer:
 
         gender = self.avatar.get("gender") or self.avatar.get("avatar_preferences", {}).get("gender", "")
         if not gender or str(gender).lower() in ("unknown", "auto"):
-            gender = "young Indian woman"
+            gender = "female"
 
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
+
+        # Build a FIXED, detailed person description so Veo generates
+        # the SAME person across every scene (consistent identity)
+        if gender.lower() in ("female", "woman", "girl"):
+            person_desc = (
+                "a 25-year-old Indian woman with straight shoulder-length black hair, "
+                "light brown skin, oval face, wearing a white cotton kurta top"
+            )
+        else:
+            person_desc = (
+                "a 28-year-old Indian man with short black hair, clean-shaven, "
+                "light brown skin, wearing a plain white collared shirt"
+            )
 
         return {
             "product_name": product_info.get("product_name") or self.context.get("product_name", "the product"),
@@ -222,127 +232,162 @@ class GeminiRenderer:
             "brand_voice": self.context.get("brand_voice", "premium"),
             "language": language,
             "gender": gender,
+            "person_desc": person_desc,
             "discount": discount,
             "guarantee": guarantee,
         }
 
-    def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
-        """Uses Gemini Flash to generate hyper-specific photorealistic Veo prompts.
+    def _transliterate_hindi(self, text: str) -> str:
+        """Converts Hindi/Devanagari text to phonetic Roman script for Veo audio.
 
-        Focus: short, visually precise descriptions with real camera/lighting
-        language that Veo understands. Avoids abstract instructions.
+        Veo 3.1 generates better Hindi pronunciation when given romanized text
+        (e.g. "aapki skin dull lag rahi hai?" instead of Devanagari).
+        Uses Gemini Flash for accurate transliteration.
+        """
+        if not text or not any('\u0900' <= ch <= '\u097F' for ch in text):
+            return text  # Already Roman or no Hindi chars
+
+        try:
+            if self.client:
+                resp = self.client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=(
+                        f"Transliterate this Hindi/Hinglish text to phonetic Roman script "
+                        f"(how it sounds when spoken). Keep English words as-is. "
+                        f"Output ONLY the transliterated text, nothing else.\n\n{text}"
+                    ),
+                )
+                result = resp.text.strip().strip('"').strip("'")
+                if result:
+                    return result
+        except Exception as e:
+            print(f"       Transliteration failed: {e}")
+
+        return text  # Return original if transliteration fails
+
+    def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
+        """Uses Gemini Flash to generate Veo prompts with CONSISTENT person identity.
+
+        Key principles:
+        - SAME detailed person description in EVERY scene (identity lock)
+        - SAME setting/environment across scenes (visual continuity)
+        - Physical movement in every scene
+        - Specific cinematic camera language
         """
         if hasattr(self, '_cached_scene_prompts'):
             return self._cached_scene_prompts
 
         ctx = self._get_scene_context()
-        continuity_hints = "\n".join([
-            f"- {s.get('scene')}: {s.get('visual_continuity', 'Maintain consistency')}"
-            for s in scene_list
-        ])
+        person = ctx["person_desc"]
 
-        prompt = f"""You are a cinematographer writing SHORT, PRECISE video prompts for Google Veo 3.1 AI video generator.
+        prompt = f"""You are a cinematographer writing video prompts for Google Veo 3.1.
 
 PRODUCT: {ctx['product_name']} by {ctx['brand']} ({ctx['category']})
-FEATURES: {', '.join(ctx['features'][:4]) if ctx['features'] else 'premium quality'}
 PROBLEM IT SOLVES: {ctx['user_problem']}
-PRESENTER: {ctx['gender']}, speaking in {ctx['language']}
+PRESENTER (SAME person in ALL scenes): {person}
+SETTING: bright modern Indian bathroom with white tiles and natural sunlight from a window
 
-SCENE CONTINUITY NOTES:
-{continuity_hints}
+=== ABSOLUTE RULES ===
+1. EVERY prompt MUST start with the EXACT same person description: "{person}"
+2. SAME bathroom/vanity setting in ALL scenes (consistency!)
+3. Each prompt: 2-3 sentences MAX
+4. EVERY scene has physical movement (gesturing, picking up, turning, stepping)
+5. ONE camera move per scene (dolly, tracking, push-in, handheld)
+6. The person speaks directly to camera
+7. NEVER mention "same person" or "same woman/man" — just describe them identically each time
 
-=== RULES FOR WRITING VEO PROMPTS ===
-1. Each prompt must be 2-3 sentences MAX. Veo works best with concise, specific descriptions.
-2. ALWAYS specify: camera angle, lens type, lighting, exact setting, and what the person is doing.
-3. Use REAL filmmaking terms: "85mm lens", "shallow depth of field", "golden hour", "tracking shot", "rack focus", "handheld", "steadicam", "close-up", "medium shot", "wide establishing shot".
-4. Describe the person's EXACT appearance, clothing, and expression.
-5. Specify the EXACT location (e.g. "modern minimalist apartment with white walls and warm pendant lights" not just "a room").
-6. NEVER use vague words like "cinematic", "premium", "dynamic". Be SPECIFIC about what makes it look that way.
-7. The person speaks directly to camera in {ctx['language']}.
-8. For product scenes: describe the product's REAL physical appearance (color, shape, size, packaging).
+Write prompts for ONLY these scenes. Use the EXACT person description at the start of each:
 
-Write prompts for these scenes:
+HOOK: {person} stands at a bathroom vanity, looks into mirror then turns to camera with concern, gestures while speaking. Slow dolly in.
 
-HOOK: The presenter in a real {ctx['category']}-related setting, speaking to camera about {ctx['user_problem']}. No product visible. Show genuine emotion.
+PROBLEM: {person} at the same vanity, picks up a generic product and shakes head, puts it down, turns to camera speaking with frustration. Handheld close-up.
 
-PROBLEM: Same presenter, same setting. Frustrated expression, speaking emotionally about the pain of {ctx['user_problem']}. Tight framing on face.
+SOLUTION: {person} at the same vanity, reaches for {ctx['product_name']}, holds it up toward camera with a smile, turns it to show the label. Tracking shot.
 
-SOLUTION: Presenter's face lights up with excitement. They present {ctx['product_name']} to camera. First time product appears. Describe the product physically.
+TRUST: {person} at the same vanity, gestures confidently while speaking about results, nods with conviction. Steadicam medium shot.
 
-TRUST: Presenter in a clean, well-lit setting. Speaking confidently about {ctx['brand']}. Professional and trustworthy energy.
+PROOF: {person} at the same vanity, squeezes {ctx['product_name']} onto palm, applies it on face, smiles at camera while demonstrating. Close-up tracking shot.
 
-PROOF: Presenter demonstrating {ctx['product_name']} in use. Show the product being used naturally. Happy, satisfied expression.
+CTA: {person} at the same vanity, holds {ctx['product_name']} forward toward camera, speaks with energy and urgency. {"Mentions: " + ctx['discount'] + ". " if ctx['discount'] else ""}Push-in shot.
 
-CTA: Presenter holds/shows {ctx['product_name']} close to camera with energy. {"Mentions " + ctx['discount'] + ". " if ctx['discount'] else ""}Urgent, excited call to action.
+RELATABLE MOMENT: {person} at the same vanity, casually looking at mirror, touches face, then turns to camera to speak naturally. Handheld documentary style.
 
-RELATABLE MOMENT: Candid slice-of-life moment. The presenter in an everyday {ctx['category']}-related situation before discovering the product.
-
-Return ONLY valid JSON with scene names as keys and prompt strings as values.
+Return ONLY valid JSON:
 {{
-  "Hook": "prompt...",
-  "Problem": "prompt...",
-  "Solution": "prompt...",
-  "Trust": "prompt...",
-  "Proof": "prompt...",
-  "CTA": "prompt...",
-  "Relatable Moment": "prompt..."
+  "Hook": "prompt starting with person description...",
+  "Problem": "prompt starting with person description...",
+  "Solution": "prompt starting with person description...",
+  "Trust": "prompt starting with person description...",
+  "Proof": "prompt starting with person description...",
+  "CTA": "prompt starting with person description...",
+  "Relatable Moment": "prompt starting with person description..."
 }}"""
 
         try:
             if self.client:
                 response = self.client.models.generate_content(
-                    model="gemini-2.5-flash-preview-05-20",
+                    model="gemini-2.5-flash",
                     contents=prompt,
                     config={'response_mime_type': 'application/json'}
                 )
                 self._cached_scene_prompts = json.loads(response.text)
-                print(f"     Generated {len(self._cached_scene_prompts)} photorealistic scene prompts via Gemini")
+                # Verify identity lock: ensure person_desc appears in each prompt
+                for key, val in self._cached_scene_prompts.items():
+                    if person[:30] not in val:
+                        # Prepend if Gemini omitted it
+                        self._cached_scene_prompts[key] = f"{person} " + val
+                print(f"     Generated {len(self._cached_scene_prompts)} identity-locked scene prompts via Gemini")
                 return self._cached_scene_prompts
         except Exception as e:
             print(f"     LLM scene prompt generation failed: {e}. Using fallback.")
 
-        # Fallback: highly specific photorealistic prompts
-        ctx = self._get_scene_context()
+        # Fallback: hardcoded identity-locked prompts
+        setting = "bright modern Indian bathroom with white tiles, natural sunlight from window"
         self._cached_scene_prompts = {
-            "Hook": f"Medium close-up of a {ctx['gender']} standing in a naturally lit {ctx['category']}-related environment, looking directly into camera with a concerned expression. Shot on 50mm lens, shallow depth of field, warm natural window light. The person speaks in {ctx['language']} about {ctx['user_problem']}.",
-            "Problem": f"Tight close-up on the same {ctx['gender']}'s face, 85mm lens with creamy bokeh. Soft directional light from the left. Frustrated expression, slightly furrowed brow. They speak emotionally in {ctx['language']} about the struggle with {ctx['user_problem']}. Handheld camera with subtle movement.",
-            "Solution": f"Medium shot of the same {ctx['gender']} holding {ctx['product_name']} up to camera with both hands, face lit up with genuine excitement. Clean bright background with soft diffused lighting. 35mm lens. They speak enthusiastically in {ctx['language']} about {ctx['product_name']}.",
-            "Trust": f"The same {ctx['gender']} in a modern, clean white environment with soft overhead lighting. Medium shot, 50mm lens. Confident posture, direct eye contact with camera. Speaking in {ctx['language']} about {ctx['brand']}'s quality and reputation.",
-            "Proof": f"The same {ctx['gender']} naturally using {ctx['product_name']} in a real-life setting. Tracking shot following the action, 35mm lens, natural daylight. Satisfied, happy expression. Speaking in {ctx['language']} about the results.",
-            "CTA": f"Close-up of the same {ctx['gender']} energetically presenting {ctx['product_name']} to camera. Bright, punchy lighting. 50mm lens. Excited expression, urgent tone, speaking in {ctx['language']}. {'Mentions ' + ctx['discount'] + '.' if ctx['discount'] else ''}",
-            "Relatable Moment": f"Wide shot of a {ctx['gender']} in an everyday {ctx['category']}-related situation. Natural lighting, 35mm lens. Candid, documentary style. No product visible. Slight handheld camera movement."
+            "Hook": f"{person} stands at a vanity in a {setting}, looks into the mirror then turns to camera with a concerned expression, gestures with hands while speaking. Slow dolly-in, 50mm lens, warm natural light.",
+            "Problem": f"{person} at the same vanity in a {setting}, picks up a generic product and shakes head in frustration, puts it down and turns to camera speaking emotionally. Handheld camera with subtle push-in.",
+            "Solution": f"{person} at the same vanity in a {setting}, reaches for {ctx['product_name']}, picks it up with both hands and holds it toward camera with genuine excitement, turns the product to show different angles while speaking. Smooth tracking shot, bright soft lighting.",
+            "Trust": f"{person} at the same vanity in a {setting}, gestures confidently while speaking about {ctx['brand']}, nods with conviction. Steadicam medium shot, soft overhead lighting.",
+            "Proof": f"{person} at the same vanity in a {setting}, squeezes {ctx['product_name']} onto palm, applies it on face while looking at camera with a genuine smile. Close-up tracking shot, natural daylight.",
+            "CTA": f"{person} at the same vanity in a {setting}, holds {ctx['product_name']} forward toward camera, speaks with urgency and energy. {'Mentions: ' + ctx['discount'] + '.' if ctx['discount'] else ''} Dramatic push-in shot, bright punchy lighting.",
+            "Relatable Moment": f"{person} at the same vanity in a {setting}, casually looking at mirror, touches face gently, then turns to camera to speak naturally. Handheld documentary style, 35mm lens, available light."
         }
         return self._cached_scene_prompts
 
     def _build_prompt(self, scene: Dict) -> str:
-        """Builds a photorealistic Veo prompt with dialogue and cinematic quality cues."""
+        """Builds a Veo prompt with identity lock, transliterated dialogue, and realism cues."""
         scene_name = scene.get("scene", "")
         directives = scene.get("realistic_directives", "")
         copy_text = scene.get("voiceover", "")
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
 
-        # Get dynamically generated scene prompts
+        # Get dynamically generated scene prompts (identity-locked)
         storyboard = []
         variants = self.variants.get("variants", [])
         if variants:
             storyboard = variants[0].get("storyboard", [])
         scene_prompts = self._generate_scene_prompts(storyboard)
 
+        ctx = self._get_scene_context()
+        person = ctx["person_desc"]
+
         prompt = scene_prompts.get(scene_name,
-            f"A person presenting a product to camera. 50mm lens, soft natural lighting, "
-            f"shallow depth of field. Clean modern background. Photorealistic."
+            f"{person} presenting a product to camera in a bright modern bathroom. "
+            f"50mm lens, soft natural lighting, shallow depth of field."
         )
 
-        # Add spoken dialogue for Veo's native audio generation
+        # Ensure identity lock — prepend person description if missing
+        if person[:30] not in prompt:
+            prompt = f"{person}. " + prompt
+
+        # Transliterate Hindi dialogue to Roman script for better Veo pronunciation
         if copy_text:
-            prompt += f' The person speaks in {language} and says: "{copy_text}"'
+            roman_text = self._transliterate_hindi(copy_text)
+            pronoun = "She" if ctx["gender"].lower() in ("female", "woman", "girl") else "He"
+            prompt += f' {pronoun} speaks naturally in {language} and says: "{roman_text}"'
 
-        # Add scene-specific directives from the storyboard
-        if directives:
-            prompt += f" {directives}"
-
-        # Photorealism quality suffix — keeps Veo grounded in realistic output
-        prompt += " Photorealistic, natural skin texture, real-world lighting. No CGI, no animation, no text overlays."
+        # Quality suffix — realism + NO text overlays
+        prompt += " Shot on Sony A7IV, 50mm f/1.8 lens, natural window light, skin pores visible, real bathroom environment. No CGI, no text, no captions, no watermark."
 
         return prompt
 
@@ -390,23 +435,32 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             except:
                 pass
 
-            # Build config with quality-optimized parameters
-            config_args = {
-                "number_of_videos": 1,
-                "duration_seconds": duration_sec,
-                "aspect_ratio": "9:16",
-                "person_generation": "allow_all",
-                "enhance_prompt": True,
-                "generate_audio": True,
-                "negative_prompt": (
-                    "blurry, low quality, distorted face, extra fingers, "
-                    "deformed hands, cartoon, anime, CGI, 3D render, "
-                    "text overlay, watermark, logo, artificial lighting, "
-                    "plastic skin, uncanny valley, bad anatomy"
-                ),
-            }
+            # Veo 3.1 with reference images is VERY restrictive:
+            #   - No enhancePrompt, no generateAudio, no negativePrompt, no allow_all
+            # Without reference images: negativePrompt and allow_all work fine
+            # With reference images: Veo 3.1 only allows minimal config
+            #   (aspectRatio, durationSeconds, referenceImages, numberOfVideos)
+            # Without reference images: full config works
             if reference_images:
-                config_args["reference_images"] = reference_images
+                config_args = {
+                    "number_of_videos": 1,
+                    "duration_seconds": duration_sec,
+                    "aspect_ratio": "9:16",
+                    "reference_images": reference_images,
+                }
+            else:
+                config_args = {
+                    "number_of_videos": 1,
+                    "duration_seconds": duration_sec,
+                    "aspect_ratio": "9:16",
+                    "person_generation": "allow_all",
+                    "negative_prompt": (
+                        "blurry, low quality, distorted face, extra fingers, "
+                        "deformed hands, cartoon, anime, CGI, 3D render, "
+                        "text overlay, watermark, logo, caption, subtitle, "
+                        "plastic skin, uncanny valley, bad anatomy, static image"
+                    ),
+                }
 
             config = types.GenerateVideosConfig(**config_args)
             
@@ -455,9 +509,58 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             print(f"     Gemini API Error for scene '{scene_name}': {e}")
             return False
 
+    def _probe_video(self, path: str) -> Dict:
+        """Probes a video file for duration and audio presence."""
+        info = {"duration": 8.0, "has_audio": False}
+        try:
+            dur_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                       "-of", "default=noprint_wrappers=1:nokey=1", path]
+            dur_result = subprocess.run(dur_cmd, capture_output=True, text=True, timeout=10)
+            if dur_result.stdout.strip():
+                info["duration"] = float(dur_result.stdout.strip())
+
+            audio_cmd = ["ffprobe", "-v", "error", "-select_streams", "a",
+                         "-show_entries", "stream=codec_type",
+                         "-of", "default=noprint_wrappers=1:nokey=1", path]
+            audio_result = subprocess.run(audio_cmd, capture_output=True, text=True, timeout=10)
+            info["has_audio"] = bool(audio_result.stdout.strip())
+        except Exception as e:
+            print(f"     Probe error for {path}: {e}")
+        return info
+
+    def _normalize_scene(self, path: str, idx: int, target_w: int, target_h: int, temp_dir: str) -> str:
+        """Normalizes a scene to consistent resolution/fps and adds silent audio if missing."""
+        info = self._probe_video(path)
+        norm_path = os.path.join(temp_dir, f"norm_{idx}_{int(time.time())}.mp4")
+
+        # Build filter: scale + pad to target resolution, set fps to 30
+        vf = f"scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,fps=30"
+
+        cmd = ["ffmpeg", "-y", "-i", path]
+
+        if not info["has_audio"]:
+            # Add silent audio track so all scenes have audio for merging
+            cmd += ["-f", "lavfi", "-i", f"anullsrc=r=44100:cl=stereo",
+                    "-shortest"]
+
+        cmd += ["-vf", vf, "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+                "-ac", "2", "-ar", "44100", norm_path]
+
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode == 0 and os.path.exists(norm_path):
+            print(f"       Normalized scene {idx}: {info['duration']:.1f}s, audio={'yes' if info['has_audio'] else 'added silent'}")
+            return norm_path
+
+        print(f"       Normalize failed for scene {idx}: {result.stderr[:200] if result.stderr else 'unknown'}")
+        return path
+
     def merge_videos(self, video_paths: List[str], final_output_path: str):
-        """Merges multiple video files using FFmpeg with smooth cross-fade transitions.
-        Falls back to copying the first scene if ffmpeg is not available."""
+        """Merges scene videos with cross-fade transitions.
+
+        No stretching — preserves original Veo frame rate and motion.
+        Normalizes resolution/fps/audio before merging for compatibility.
+        """
         import shutil
         print(f"   Merging {len(video_paths)} scenes into {final_output_path}...")
 
@@ -466,160 +569,99 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             print(f"     Single scene copied directly.")
             return
 
-        # If ffmpeg is not installed, just copy the first scene as the final video
         if not self._ffmpeg_available:
             print("     ffmpeg not available — copying first scene as final output.")
             shutil.copy2(video_paths[0], final_output_path)
             return
 
-        FADE_DURATION = 0.5  # seconds of cross-fade between scenes
+        norm_dir = tempfile.mkdtemp(prefix="merge_")
+        FADE = 0.4
 
-        # --- Pre-process: Stretch Veo 5s videos to 8.5s natively ---
-        print("     Normalizing scenes to 8.5s via cinematic slow-motion stretching...")
-
-        stretched_paths = []
+        # Step 1: Normalize all scenes (consistent resolution, fps, audio)
+        print("     Normalizing scenes for merge compatibility...")
+        normalized = []
         for i, vp in enumerate(video_paths):
-            probe_cmd = [
-                "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1", vp
-            ]
-            probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-            original_dur = float(probe_result.stdout.strip()) if probe_result.stdout.strip() else 5.0
+            norm = self._normalize_scene(vp, i, 720, 1280, norm_dir)
+            normalized.append(norm)
 
-            target_dur = 8.5
-            ratio = target_dur / original_dur
+        # Step 2: Probe normalized durations
+        durations = []
+        for vp in normalized:
+            info = self._probe_video(vp)
+            durations.append(info["duration"])
+        print(f"     Scene durations: {[f'{d:.1f}s' for d in durations]}")
 
-            if ratio > 1.1:
-                stretched_vp = os.path.join(tempfile.gettempdir(), f"stretch_{int(time.time()*100)}_{i}.mp4")
-                # Check for audio stream
-                audio_probe = subprocess.run(["ffprobe", "-i", vp, "-show_streams", "-select_streams", "a", "-loglevel", "error"], capture_output=True, text=True)
-
-                if audio_probe.stdout.strip():
-                    filter_str = f"[0:v]setpts={ratio}*PTS[v];[0:a]atempo={1.0/ratio}[a]"
-                    stretch_cmd = [
-                        "ffmpeg", "-y", "-i", vp,
-                        "-filter_complex", filter_str,
-                        "-map", "[v]", "-map", "[a]",
-                        "-c:v", "libx264", "-preset", "ultrafast",
-                        "-c:a", "aac",
-                        stretched_vp
-                    ]
-                else:
-                    filter_str = f"[0:v]setpts={ratio}*PTS[v]"
-                    stretch_cmd = [
-                        "ffmpeg", "-y", "-i", vp,
-                        "-filter_complex", filter_str,
-                        "-map", "[v]",
-                        "-c:v", "libx264", "-preset", "ultrafast",
-                        stretched_vp
-                    ]
-
-                subprocess.run(stretch_cmd, capture_output=True)
-                if os.path.exists(stretched_vp):
-                    stretched_paths.append(stretched_vp)
-                else:
-                    stretched_paths.append(vp)
-            else:
-                stretched_paths.append(vp)
-
-        video_paths = stretched_paths
-
+        # Step 3: Try xfade merge (video + audio cross-fade)
         try:
-            # Build FFmpeg xfade filter chain for smooth transitions
-            # First, probe each video duration
-            durations = []
-            for vp in video_paths:
-                probe_cmd = [
-                    "ffprobe", "-v", "error", "-show_entries", "format=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1", vp
-                ]
-                probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-                dur = float(probe_result.stdout.strip()) if probe_result.stdout.strip() else 8.0
-                durations.append(dur)
-
-            # Build input arguments
+            n = len(normalized)
             inputs = []
-            for vp in video_paths:
+            for vp in normalized:
                 inputs += ["-i", vp]
 
-            # Build xfade filter chain
-            n = len(video_paths)
-            video_filters = []
-            audio_filters = []
-
-            # Calculate offsets for each xfade transition
+            # Calculate xfade offsets
             offsets = []
             cumulative = 0
             for i in range(n - 1):
-                cumulative += durations[i] - FADE_DURATION
-                offsets.append(cumulative)
+                cumulative += durations[i] - FADE
+                offsets.append(round(cumulative, 2))
 
-            # Chain xfade filters: [0][1] -> tmp1, [tmp1][2] -> tmp2, etc.
+            # Build video xfade chain
+            vf = []
+            af = []
             if n == 2:
-                video_filters.append(f"[0:v][1:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[0]}[outv]")
-                audio_filters.append(f"[0:a][1:a]acrossfade=d={FADE_DURATION}[outa]")
+                vf.append(f"[0:v][1:v]xfade=transition=fade:duration={FADE}:offset={offsets[0]}[outv]")
+                af.append(f"[0:a][1:a]acrossfade=d={FADE}[outa]")
             else:
-                # First pair
-                video_filters.append(f"[0:v][1:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[0]}[v1]")
-                audio_filters.append(f"[0:a][1:a]acrossfade=d={FADE_DURATION}[a1]")
-
-                # Middle pairs
+                vf.append(f"[0:v][1:v]xfade=transition=fade:duration={FADE}:offset={offsets[0]}[v1]")
+                af.append(f"[0:a][1:a]acrossfade=d={FADE}[a1]")
                 for i in range(2, n - 1):
-                    prev_v = f"v{i-1}"
-                    prev_a = f"a{i-1}"
-                    curr_v = f"v{i}"
-                    curr_a = f"a{i}"
-                    video_filters.append(f"[{prev_v}][{i}:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[i-1]}[{curr_v}]")
-                    audio_filters.append(f"[{prev_a}][{i}:a]acrossfade=d={FADE_DURATION}[{curr_a}]")
+                    vf.append(f"[v{i-1}][{i}:v]xfade=transition=fade:duration={FADE}:offset={offsets[i-1]}[v{i}]")
+                    af.append(f"[a{i-1}][{i}:a]acrossfade=d={FADE}[a{i}]")
+                vf.append(f"[v{n-2}][{n-1}:v]xfade=transition=fade:duration={FADE}:offset={offsets[n-2]}[outv]")
+                af.append(f"[a{n-2}][{n-1}:a]acrossfade=d={FADE}[outa]")
 
-                # Last pair
-                last_v = f"v{n-2}"
-                last_a = f"a{n-2}"
-                video_filters.append(f"[{last_v}][{n-1}:v]xfade=transition=fade:duration={FADE_DURATION}:offset={offsets[n-2]}[outv]")
-                audio_filters.append(f"[{last_a}][{n-1}:a]acrossfade=d={FADE_DURATION}[outa]")
-
-            filter_complex = ";".join(video_filters + audio_filters)
-
+            fc = ";".join(vf + af)
             cmd = ["ffmpeg", "-y"] + inputs + [
-                "-filter_complex", filter_complex,
+                "-filter_complex", fc,
                 "-map", "[outv]", "-map", "[outa]",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "18",
                 "-c:a", "aac", "-b:a", "128k",
                 final_output_path
             ]
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                print(f"     Final video merged with smooth cross-fade transitions!")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode == 0 and os.path.exists(final_output_path):
+                size_mb = os.path.getsize(final_output_path) / (1024 * 1024)
+                print(f"     Merged with cross-fade transitions! ({size_mb:.1f} MB)")
                 return
             else:
-                print(f"     Cross-fade failed, falling back to simple concat...")
+                print(f"     Cross-fade failed: {result.stderr[:300] if result.stderr else 'unknown'}")
+                print(f"     Falling back to simple concat...")
         except Exception as e:
             print(f"     Cross-fade error: {e}. Falling back to concat...")
 
-        # Fallback: simple concat
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            for path in video_paths:
+        # Step 4: Fallback — simple concat (still uses normalized files)
+        concat_file = os.path.join(norm_dir, "concat.txt")
+        with open(concat_file, "w") as f:
+            for path in normalized:
                 safe_path = path.replace("'", "'\\''")
                 f.write(f"file '{safe_path}'\n")
-            concat_file = f.name
 
         try:
             cmd = [
                 "ffmpeg", "-y", "-f", "concat", "-safe", "0",
                 "-i", concat_file,
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "medium", "-crf", "18",
                 "-c:a", "aac", "-b:a", "128k",
                 final_output_path
             ]
-            subprocess.run(cmd, check=True, capture_output=True, text=True)
-            print(f"     Final video merged (simple concat fallback).")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode == 0:
+                print(f"     Merged via concat fallback.")
+            else:
+                print(f"     Concat also failed: {result.stderr[:200] if result.stderr else 'unknown'}")
         except Exception as e:
             print(f"     FFmpeg merge error: {e}")
-        finally:
-            if os.path.exists(concat_file):
-                os.remove(concat_file)
     async def _generate_fallback_image_video(self, scene: Dict, idx: int, temp_dir: str) -> str:
         """Generates a static image via Imagen (saved to GridFS) and animates it."""
         if not self._ffmpeg_available:
@@ -659,93 +701,13 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             return None
 
     async def _apply_audio_and_overlay(self, idx: int, scene: Dict, video_path: str, temp_dir: str) -> str:
-        """Applies overlays BRAND logo/product images on the video."""
-        if not self._ffmpeg_available:
-            return video_path  # Skip overlays without ffmpeg
+        """No-op: Veo 3.1 generates complete scenes with audio. No overlays needed.
 
-        from api.services.db_mongo_service import get_file_from_gridfs
-        output_path = video_path
-
-        try:
-            # Note: SARVAM TTS is currently handled by frontend or disabled to avoid sync issues.
-            # We focus on visual overlays here.
-
-            # ── BRAND LOGO OVERLAY (Dynamic position) ──
-            logo_ids = self.assets.get("logo", [])
-            product_ids = self.assets.get("product", [])
-            brand_name = self.context.get("product_understanding", {}).get("brand_name", "")
-            product_name = self.context.get("product_understanding", {}).get("product_name", "")
-            product_info = self.context.get("product_understanding", {})
-            scene_name = scene.get("scene", "")
-
-            overlay_inputs = []
-            filter_complex = "[0:v]"
-            input_idx = 1
-            
-            # A. Logo Overlay
-            if logo_ids:
-                img_bytes, metadata = await get_file_from_gridfs(logo_ids[0])
-                if img_bytes:
-                    logo_path = os.path.join(temp_dir, f"overlay_logo_{idx}.png")
-                    with open(logo_path, "wb") as f:
-                        f.write(img_bytes)
-                    overlay_inputs += ["-i", logo_path]
-                    curr_logo_idx = input_idx
-                    # Scale logo, overlay top right
-                    filter_complex += f"[{curr_logo_idx}:v]scale=150:-1[logo];{filter_complex}[logo]overlay=W-w-20:20[v_with_logo]"
-                    filter_complex = "[v_with_logo]"
-                    input_idx += 1
-
-            # B. Product Image Overlay (Solution/Proof/CTA scenes)
-            relevant_scenes = ["Solution", "Proof", "CTA", "Introduce product", "Show results", "Drive action"]
-            if scene_name in relevant_scenes and product_ids:
-                img_data, _ = await get_file_from_gridfs(product_ids[0])
-                if img_data:
-                    img_path = os.path.join(temp_dir, f"overlay_product_{idx}.png")
-                    with open(img_path, "wb") as f:
-                        f.write(img_data)
-                    overlay_inputs += ["-i", img_path]
-                    curr_img_idx = input_idx
-                    # Scale product image, overlay bottom right
-                    filter_complex += f"[{curr_img_idx}:v]scale=200:-1[prod];{filter_complex}[prod]overlay=W-w-20:H-h-20[v_with_prod]"
-                    filter_complex = "[v_with_prod]"
-                    input_idx += 1
-            
-            # C. Product Name Text
-            if scene_name in ["Solution", "CTA", "Introduce product", "Drive action"]:
-                text_to_show = f"{brand_name} {product_name}".strip().upper()
-                if text_to_show:
-                    font_path = "C\\\\:/Windows/Fonts/arial.ttf"
-                    filter_complex += f",drawtext=text='{text_to_show}':fontfile='{font_path}':fontsize=36:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2:x=(w-text_w)/2:y=H-th-80"
-            
-            # D. BUY NOW CTA Banner
-            if scene_name in ["CTA", "Drive action"]:
-                product_url = product_info.get("product_url", "") or self.context.get("product_input", {}).get("product_url", "")
-                if product_url:
-                    from urllib.parse import urlparse
-                    domain = urlparse(product_url).netloc or product_url
-                    buy_text = f"BUY NOW  {domain}".replace("'", "").replace(":", "\\\\:")
-                    font_path = "C\\\\:/Windows/Fonts/arialbd.ttf"
-                    filter_complex += (
-                        f",drawbox=x=0:y=H-60:w=W:h=60:color=black@0.7:t=fill"
-                        f",drawtext=text='{buy_text}':fontfile='{font_path}':fontsize=28:fontcolor=white:x=(w-text_w)/2:y=H-45"
-                    )
-
-            if input_idx > 1 or "drawtext" in filter_complex:
-                if filter_complex != "[0:v]":
-                    overlay_out = os.path.join(temp_dir, f"scene_{idx}_branded.mp4")
-                    cmd = ["ffmpeg", "-y", "-i", output_path] + overlay_inputs + [
-                        "-filter_complex", filter_complex,
-                        "-c:a", "copy", overlay_out
-                    ]
-                    subprocess.run(cmd, capture_output=True)
-                    if os.path.exists(overlay_out):
-                        output_path = overlay_out
-                        
-            return output_path
-        except Exception as e:
-            print(f"       Failed to apply branding overlay: {e}")
-            return video_path
+        Text overlays (drawtext) were causing the "images with caption" look.
+        Product image overlays were covering the AI-generated video.
+        Veo already incorporates product context via reference images and prompts.
+        """
+        return video_path
 
 
     async def render_variant(self, variant: Dict) -> Dict:

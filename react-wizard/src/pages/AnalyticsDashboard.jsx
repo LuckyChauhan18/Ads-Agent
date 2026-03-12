@@ -48,18 +48,10 @@ function AnalyticsDashboard({ user }) {
     setSeeding(true);
     try {
       await analyticsService.trackEvent(campaignId, 'view', {});
-      // Seed with random data via the seed endpoint
-      const res = await fetch(`http://localhost:8000/analytics/seed/${campaignId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('spectra_token')}`,
-        },
-      });
-      if (res.ok) {
-        await loadDashboard();
-        if (selectedCampaign?._id === campaignId) {
-          await loadCampaignMetrics(campaignId);
-        }
+      await analyticsService.seedDemoData(campaignId);
+      await loadDashboard();
+      if (selectedCampaign?._id === campaignId) {
+        await loadCampaignMetrics(campaignId);
       }
     } catch (e) {
       console.error('Seed failed:', e);
@@ -81,7 +73,10 @@ function AnalyticsDashboard({ user }) {
     <div className="analytics-container">
       <header className="analytics-header">
         <Link to="/dashboard" className="back-btn"><ArrowLeft size={18} /> Back</Link>
-        <h1>Ad Performance Analytics</h1>
+        <div className="analytics-title-group">
+          <h1>Ad Performance Analytics</h1>
+          <span className="analytics-subtitle">Real-time campaign insights & metrics</span>
+        </div>
         <button className="refresh-btn" onClick={loadDashboard}><RefreshCw size={16} /> Refresh</button>
       </header>
 
@@ -197,25 +192,51 @@ function AnalyticsDashboard({ user }) {
           display: flex;
           align-items: center;
           gap: 20px;
+          padding: 20px 24px;
+          border-radius: 16px;
+          background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #3b0764 100%);
+          border: 1px solid rgba(99,102,241,0.3);
+          box-shadow: 0 8px 32px rgba(99,102,241,0.15);
         }
         .analytics-header h1 {
           flex: 1;
           font-size: 1.4rem;
           margin: 0;
+          background: linear-gradient(to right, #e0e7ff, #c4b5fd);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+        .analytics-title-group {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .analytics-subtitle {
+          font-size: 0.75rem;
+          color: rgba(165,180,252,0.6);
+          letter-spacing: 0.5px;
         }
         .refresh-btn {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
           color: white;
-          padding: 8px 16px;
+          padding: 8px 18px;
           border-radius: 12px;
           display: flex;
           align-items: center;
           gap: 6px;
           cursor: pointer;
           font-size: 0.8rem;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
-        .refresh-btn:hover { background: rgba(255,255,255,0.1); }
+        .refresh-btn:hover {
+          background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(168,85,247,0.2));
+          border-color: rgba(99,102,241,0.5);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(99,102,241,0.3);
+        }
 
         .metrics-overview {
           display: grid;
@@ -224,21 +245,34 @@ function AnalyticsDashboard({ user }) {
         }
 
         .metric-card {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: 16px;
-          padding: 16px;
+          padding: 18px;
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 14px;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+          position: relative;
+          overflow: hidden;
+        }
+        .metric-card:hover {
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+          border-color: rgba(255,255,255,0.2);
         }
         .metric-icon {
-          width: 40px;
-          height: 40px;
+          width: 44px;
+          height: 44px;
           border-radius: 12px;
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .metric-card:hover .metric-icon {
+          transform: scale(1.1) rotate(5deg);
         }
         .metric-info h4 {
           margin: 0;
@@ -262,18 +296,33 @@ function AnalyticsDashboard({ user }) {
         }
 
         .campaigns-list-panel {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(99,102,241,0.2);
           border-radius: 16px;
           padding: 16px;
           overflow-y: auto;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          position: relative;
+        }
+        .campaigns-list-panel::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+          border-radius: 16px 16px 0 0;
         }
         .campaigns-list-panel h3 {
           font-size: 0.85rem;
           text-transform: uppercase;
           letter-spacing: 1px;
-          opacity: 0.5;
-          margin: 0 0 12px;
+          background: linear-gradient(135deg, #818cf8, #c084fc);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          margin: 8px 0 14px;
         }
 
         .campaign-row {
@@ -284,13 +333,36 @@ function AnalyticsDashboard({ user }) {
           border-radius: 10px;
           cursor: pointer;
           margin-bottom: 6px;
-          transition: all 0.2s;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
           border: 1px solid transparent;
+          position: relative;
         }
-        .campaign-row:hover { background: rgba(255,255,255,0.04); }
+        .campaign-row::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 3px;
+          background: linear-gradient(180deg, #6366f1, #8b5cf6, #ec4899);
+          opacity: 0;
+          transition: opacity 0.3s;
+          border-radius: 10px 0 0 10px;
+        }
+        .campaign-row:hover {
+          background: rgba(255,255,255,0.06);
+          transform: translateX(4px);
+        }
+        .campaign-row:hover::before {
+          opacity: 1;
+        }
         .campaign-row.selected {
-          background: rgba(99, 102, 241, 0.1);
-          border-color: rgba(99, 102, 241, 0.3);
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1));
+          border-color: rgba(99, 102, 241, 0.4);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+        .campaign-row.selected::before {
+          opacity: 1;
         }
         .campaign-row-info { display: flex; flex-direction: column; gap: 2px; }
         .campaign-row-info strong { font-size: 0.85rem; }
@@ -307,26 +379,47 @@ function AnalyticsDashboard({ user }) {
           width: 24px;
           height: 24px;
           border-radius: 6px;
-          background: rgba(99, 102, 241, 0.15);
-          border: none;
-          color: #818cf8;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.15));
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          color: #c7d2fe;
           cursor: pointer;
           display: flex;
           align-items: center;
           justify-content: center;
+          transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
         }
-        .seed-btn:hover { background: rgba(99, 102, 241, 0.3); }
+        .seed-btn:hover {
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(168, 85, 247, 0.25));
+          transform: scale(1.1);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
 
         .campaign-detail-panel {
-          background: rgba(255,255,255,0.02);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(99,102,241,0.15);
           border-radius: 16px;
           padding: 24px;
           overflow-y: auto;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+          position: relative;
+        }
+        .campaign-detail-panel::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: linear-gradient(90deg, #ec4899, #8b5cf6, #6366f1);
+          border-radius: 16px 16px 0 0;
         }
         .campaign-detail-panel h3 {
-          margin: 0 0 20px;
+          margin: 8px 0 20px;
           font-size: 1.1rem;
+          background: linear-gradient(135deg, #e0e7ff, #f9a8d4);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
 
         .detail-metrics-grid {
@@ -337,15 +430,22 @@ function AnalyticsDashboard({ user }) {
         }
 
         .detail-metric {
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.06);
+          background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+          border: 1px solid rgba(255,255,255,0.1);
           border-radius: 12px;
-          padding: 14px;
+          padding: 16px;
           text-align: center;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+        }
+        .detail-metric:hover {
+          transform: translateY(-3px);
+          border-color: rgba(99,102,241,0.3);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.2);
         }
         .detail-metric.highlight {
-          background: rgba(99, 102, 241, 0.08);
-          border-color: rgba(99, 102, 241, 0.2);
+          background: linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(168,85,247,0.12) 100%);
+          border-color: rgba(99,102,241,0.4);
+          box-shadow: 0 6px 20px rgba(99,102,241,0.2);
         }
         .detail-metric .dm-icon { opacity: 0.4; margin-bottom: 6px; }
         .detail-metric .dm-value { font-size: 1.2rem; font-weight: 700; margin: 0; }
@@ -354,9 +454,12 @@ function AnalyticsDashboard({ user }) {
         .bar-chart-section h4 {
           font-size: 0.8rem;
           text-transform: uppercase;
-          letter-spacing: 1px;
-          opacity: 0.5;
+          letter-spacing: 1.2px;
           margin: 0 0 14px;
+          background: linear-gradient(135deg, #818cf8, #ec4899);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
         .bar-row {
           display: flex;
@@ -379,8 +482,9 @@ function AnalyticsDashboard({ user }) {
         }
         .bar-fill {
           height: 100%;
-          background: linear-gradient(90deg, #6366f1, #818cf8);
+          background: linear-gradient(90deg, #6366f1 0%, #a855f7 40%, #ec4899 70%, #f43f5e 100%);
           border-radius: 4px;
+          box-shadow: 0 0 16px rgba(99,102,241,0.5), 0 0 4px rgba(236,72,153,0.3);
         }
         .bar-value {
           width: 60px;
@@ -401,19 +505,24 @@ function AnalyticsDashboard({ user }) {
         .empty-msg { opacity: 0.4; text-align: center; margin-top: 40px; }
 
         .back-btn {
-          background: transparent;
-          border: 1px solid rgba(255,255,255,0.1);
+          background: rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.15);
           color: white;
-          padding: 8px 15px;
-          border-radius: 20px;
+          padding: 8px 16px;
+          border-radius: 10px;
           display: flex;
           align-items: center;
           gap: 8px;
           font-size: 0.85rem;
           cursor: pointer;
           text-decoration: none;
+          transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
         }
-        .back-btn:hover { background: rgba(255,255,255,0.05); }
+        .back-btn:hover {
+          background: rgba(255,255,255,0.15);
+          transform: translateX(-2px);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+        }
 
         @media (max-width: 1024px) {
           .metrics-overview { grid-template-columns: repeat(2, 1fr); }
@@ -427,8 +536,8 @@ function AnalyticsDashboard({ user }) {
 
 function MetricCard({ icon, label, value, color }) {
   return (
-    <motion.div className="metric-card" whileHover={{ scale: 1.02 }}>
-      <div className="metric-icon" style={{ background: `${color}20`, color }}>
+    <motion.div className="metric-card" whileHover={{ scale: 1.02 }} style={{ borderLeft: `4px solid ${color}`, background: `linear-gradient(135deg, ${color}12, ${color}06)` }}>
+      <div className="metric-icon" style={{ background: `${color}25`, color }}>
         {icon}
       </div>
       <div className="metric-info">

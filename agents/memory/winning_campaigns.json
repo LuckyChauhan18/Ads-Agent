@@ -141,5 +141,96 @@
     "angle": "General",
     "tone": "Empathetic & Soft",
     "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-10T21:48:33.570952",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "problem_solution",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "authority",
+      "pain_amplification"
+    ],
+    "angle": "General",
+    "tone": "",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-10T22:20:43.658823",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "pain_amplification",
+      "curiosity_gap",
+      "social_proof"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-10T22:33:05.684334",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "problem_solution",
+    "psychological_triggers": [
+      "contrast_principle",
+      "authority",
+      "identity_alignment"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-11T10:48:49.096558",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "before_after",
+    "psychological_triggers": [
+      "contrast_principle",
+      "identity_alignment",
+      "reciprocity"
+    ],
+    "angle": "General",
+    "tone": "Urgent & Hype",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-11T22:20:01.759764",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "social_proof",
+      "identity_alignment",
+      "curiosity_gap"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-11T22:42:58.963379",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "customer_story",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "pain_amplification",
+      "fear_of_missing_out"
+    ],
+    "angle": "General",
+    "tone": "Bold & Aggressive",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-11T23:06:45.856804",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "problem_solution",
+    "psychological_triggers": [
+      "fear_of_missing_out",
+      "social_proof",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
   }
 ]

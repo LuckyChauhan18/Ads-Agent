@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 // Pages (full-page routed views)
 import HomePage from './pages/HomePage';
@@ -14,26 +14,37 @@ import Layout from './components/layout/Layout';
 
 // Wizard
 import Wizard from './components/wizard/Wizard';
+import ToastContainer from './components/Toast';
 
 import './index.css';
 
-
-function App() {
+function AppRoutes() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(localStorage.getItem('spectra_user'));
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('spectra_token');
     localStorage.removeItem('spectra_user');
     setUser(null);
-    window.location.href = '/';
-  };
+    navigate('/');
+  }, [navigate]);
 
-  const handleLogin = (username) => {
+  const handleLogin = useCallback((username) => {
     setUser(username);
-  };
+  }, []);
+
+  // Listen for 401 auto-logout events from the API interceptor
+  useEffect(() => {
+    const handleAuthLogout = () => {
+      setUser(null);
+      navigate('/auth');
+    };
+    window.addEventListener('auth:logout', handleAuthLogout);
+    return () => window.removeEventListener('auth:logout', handleAuthLogout);
+  }, [navigate]);
 
   return (
-    <Router>
+    <>
       <Routes>
         {/* Public Home Page */}
         <Route path="/" element={<HomePage />} />
@@ -176,6 +187,15 @@ function App() {
           }
         }
       `}</style>
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppRoutes />
+      <ToastContainer />
     </Router>
   );
 }
