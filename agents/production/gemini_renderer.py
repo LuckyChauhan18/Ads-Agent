@@ -209,17 +209,20 @@ class GeminiRenderer:
 
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
 
-        # Build a FIXED, detailed person description so Veo generates
-        # the SAME person across every scene (consistent identity)
+        # Build a FIXED, hyper-detailed person description so Veo generates
+        # the SAME person across every scene (consistent identity).
+        # More specific = more consistent across scenes.
         if gender.lower() in ("female", "woman", "girl"):
             person_desc = (
-                "a 25-year-old Indian woman with straight shoulder-length black hair, "
-                "light brown skin, oval face, wearing a white cotton kurta top"
+                "a 26-year-old Indian woman with straight jet-black hair past her shoulders, "
+                "warm light-brown skin, soft oval face, dark brown eyes, thin gold nose stud on left nostril, "
+                "wearing a pastel pink crew-neck cotton t-shirt with no print"
             )
         else:
             person_desc = (
-                "a 28-year-old Indian man with short black hair, clean-shaven, "
-                "light brown skin, wearing a plain white collared shirt"
+                "a 28-year-old Indian man with short neatly-trimmed black hair, clean-shaven with no beard, "
+                "warm light-brown skin, angular jawline, dark brown eyes, "
+                "wearing a plain sky-blue crew-neck cotton t-shirt with no print"
             )
 
         return {
@@ -280,47 +283,56 @@ class GeminiRenderer:
         ctx = self._get_scene_context()
         person = ctx["person_desc"]
 
+        setting = (
+            "a cozy Indian home bathroom with warm beige walls, a wooden shelf with toiletries, "
+            "a round mirror above a white ceramic sink — lit by two soft diffused overhead LED panels "
+            "giving even, warm-toned (3200K) studio lighting with NO harsh shadows and NO direct sunlight"
+        )
+
         prompt = f"""You are a cinematographer writing video prompts for Google Veo 3.1.
 
 PRODUCT: {ctx['product_name']} by {ctx['brand']} ({ctx['category']})
 PROBLEM IT SOLVES: {ctx['user_problem']}
 PRESENTER (SAME person in ALL scenes): {person}
-SETTING: bright modern Indian bathroom with white tiles and natural sunlight from a window
+SETTING (SAME in ALL scenes): {setting}
+LIGHTING (SAME in ALL scenes): Soft diffused overhead LED panels, warm 3200K color temperature, even illumination across face with no harsh shadows, no direct sunlight, no window light.
 
 === ABSOLUTE RULES ===
-1. EVERY prompt MUST start with the EXACT same person description: "{person}"
-2. SAME bathroom/vanity setting in ALL scenes (consistency!)
-3. Each prompt: 2-3 sentences MAX
-4. EVERY scene has physical movement (gesturing, picking up, turning, stepping)
-5. ONE camera move per scene (dolly, tracking, push-in, handheld)
-6. The person speaks directly to camera
-7. NEVER mention "same person" or "same woman/man" — just describe them identically each time
+1. EVERY prompt MUST start with EXACT person description: "{person}"
+2. EVERY prompt MUST include EXACT setting: "{setting}"
+3. EVERY prompt MUST include EXACT lighting: "soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows"
+4. Each prompt: 2-3 sentences MAX
+5. EVERY scene has physical movement (gesturing, picking up, turning, stepping)
+6. ONE camera move per scene (dolly, tracking, push-in, steadicam)
+7. The person speaks directly to camera
+8. NEVER mention sunlight, window light, or natural light — ONLY soft overhead LED panels
+9. NEVER say "same person" — just describe them identically each time
 
-Write prompts for ONLY these scenes. Use the EXACT person description at the start of each:
+Write prompts for ONLY these scenes:
 
-HOOK: {person} stands at a bathroom vanity, looks into mirror then turns to camera with concern, gestures while speaking. Slow dolly in.
+HOOK: {person} in {setting}. Stands at the sink, looks into the round mirror, then turns to camera with a concerned expression, gestures with hands while speaking. Slow dolly-in, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
-PROBLEM: {person} at the same vanity, picks up a generic product and shakes head, puts it down, turns to camera speaking with frustration. Handheld close-up.
+PROBLEM: {person} in {setting}. Picks up a generic product from the shelf and shakes head in frustration, puts it down and turns to camera speaking emotionally. Handheld close-up, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
-SOLUTION: {person} at the same vanity, reaches for {ctx['product_name']}, holds it up toward camera with a smile, turns it to show the label. Tracking shot.
+SOLUTION: {person} in {setting}. Reaches for {ctx['product_name']} on the wooden shelf, picks it up with both hands and holds it toward camera with excitement, turns it to show the label. Tracking shot, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
-TRUST: {person} at the same vanity, gestures confidently while speaking about results, nods with conviction. Steadicam medium shot.
+TRUST: {person} in {setting}. Gestures confidently while speaking about results, nods with conviction. Steadicam medium shot, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
-PROOF: {person} at the same vanity, squeezes {ctx['product_name']} onto palm, applies it on face, smiles at camera while demonstrating. Close-up tracking shot.
+PROOF: {person} in {setting}. Squeezes {ctx['product_name']} onto palm, applies it while looking at camera with a genuine smile. Close-up tracking shot, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
-CTA: {person} at the same vanity, holds {ctx['product_name']} forward toward camera, speaks with energy and urgency. {"Mentions: " + ctx['discount'] + ". " if ctx['discount'] else ""}Push-in shot.
+CTA: {person} in {setting}. Holds {ctx['product_name']} forward toward camera, speaks with energy and urgency. {"Mentions: " + ctx['discount'] + ". " if ctx['discount'] else ""}Push-in shot, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
-RELATABLE MOMENT: {person} at the same vanity, casually looking at mirror, touches face, then turns to camera to speak naturally. Handheld documentary style.
+RELATABLE MOMENT: {person} in {setting}. Casually looking at the round mirror, touches face gently, then turns to camera to speak naturally. Handheld shot, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows.
 
 Return ONLY valid JSON:
 {{
-  "Hook": "prompt starting with person description...",
-  "Problem": "prompt starting with person description...",
-  "Solution": "prompt starting with person description...",
-  "Trust": "prompt starting with person description...",
-  "Proof": "prompt starting with person description...",
-  "CTA": "prompt starting with person description...",
-  "Relatable Moment": "prompt starting with person description..."
+  "Hook": "prompt starting with person description and setting...",
+  "Problem": "prompt starting with person description and setting...",
+  "Solution": "prompt starting with person description and setting...",
+  "Trust": "prompt starting with person description and setting...",
+  "Proof": "prompt starting with person description and setting...",
+  "CTA": "prompt starting with person description and setting...",
+  "Relatable Moment": "prompt starting with person description and setting..."
 }}"""
 
         try:
@@ -341,16 +353,20 @@ Return ONLY valid JSON:
         except Exception as e:
             print(f"     LLM scene prompt generation failed: {e}. Using fallback.")
 
-        # Fallback: hardcoded identity-locked prompts
-        setting = "bright modern Indian bathroom with white tiles, natural sunlight from window"
+        # Fallback: hardcoded identity-locked prompts with consistent lighting
+        fb_setting = (
+            "a cozy Indian home bathroom with warm beige walls, a wooden shelf with toiletries, "
+            "a round mirror above a white ceramic sink"
+        )
+        fb_light = "soft diffused overhead LED panels, warm 3200K color temperature, even illumination across face, no harsh shadows, no direct sunlight"
         self._cached_scene_prompts = {
-            "Hook": f"{person} stands at a vanity in a {setting}, looks into the mirror then turns to camera with a concerned expression, gestures with hands while speaking. Slow dolly-in, 50mm lens, warm natural light.",
-            "Problem": f"{person} at the same vanity in a {setting}, picks up a generic product and shakes head in frustration, puts it down and turns to camera speaking emotionally. Handheld camera with subtle push-in.",
-            "Solution": f"{person} at the same vanity in a {setting}, reaches for {ctx['product_name']}, picks it up with both hands and holds it toward camera with genuine excitement, turns the product to show different angles while speaking. Smooth tracking shot, bright soft lighting.",
-            "Trust": f"{person} at the same vanity in a {setting}, gestures confidently while speaking about {ctx['brand']}, nods with conviction. Steadicam medium shot, soft overhead lighting.",
-            "Proof": f"{person} at the same vanity in a {setting}, squeezes {ctx['product_name']} onto palm, applies it on face while looking at camera with a genuine smile. Close-up tracking shot, natural daylight.",
-            "CTA": f"{person} at the same vanity in a {setting}, holds {ctx['product_name']} forward toward camera, speaks with urgency and energy. {'Mentions: ' + ctx['discount'] + '.' if ctx['discount'] else ''} Dramatic push-in shot, bright punchy lighting.",
-            "Relatable Moment": f"{person} at the same vanity in a {setting}, casually looking at mirror, touches face gently, then turns to camera to speak naturally. Handheld documentary style, 35mm lens, available light."
+            "Hook": f"{person} in {fb_setting}. Stands at the sink, looks into the round mirror then turns to camera with a concerned expression, gestures with hands while speaking. Slow dolly-in, 50mm lens, {fb_light}.",
+            "Problem": f"{person} in {fb_setting}. Picks up a generic product from the shelf and shakes head in frustration, puts it down and turns to camera speaking emotionally. Handheld close-up, {fb_light}.",
+            "Solution": f"{person} in {fb_setting}. Reaches for {ctx['product_name']} on the wooden shelf, picks it up with both hands and holds it toward camera with genuine excitement, turns the product to show different angles while speaking. Smooth tracking shot, {fb_light}.",
+            "Trust": f"{person} in {fb_setting}. Gestures confidently while speaking about {ctx['brand']}, nods with conviction. Steadicam medium shot, {fb_light}.",
+            "Proof": f"{person} in {fb_setting}. Squeezes {ctx['product_name']} onto palm, applies it on face while looking at camera with a genuine smile. Close-up tracking shot, {fb_light}.",
+            "CTA": f"{person} in {fb_setting}. Holds {ctx['product_name']} forward toward camera, speaks with urgency and energy. {'Mentions: ' + ctx['discount'] + '.' if ctx['discount'] else ''} Push-in shot, {fb_light}.",
+            "Relatable Moment": f"{person} in {fb_setting}. Casually looking at the round mirror, touches face gently, then turns to camera to speak naturally. Handheld shot, {fb_light}."
         }
         return self._cached_scene_prompts
 
@@ -372,8 +388,9 @@ Return ONLY valid JSON:
         person = ctx["person_desc"]
 
         prompt = scene_prompts.get(scene_name,
-            f"{person} presenting a product to camera in a bright modern bathroom. "
-            f"50mm lens, soft natural lighting, shallow depth of field."
+            f"{person} in a cozy Indian home bathroom with warm beige walls, a wooden shelf, "
+            f"a round mirror above a white ceramic sink. Presents a product to camera. "
+            f"50mm lens, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows."
         )
 
         # Ensure identity lock — prepend person description if missing
@@ -386,8 +403,13 @@ Return ONLY valid JSON:
             pronoun = "She" if ctx["gender"].lower() in ("female", "woman", "girl") else "He"
             prompt += f' {pronoun} speaks naturally in {language} and says: "{roman_text}"'
 
-        # Quality suffix — realism + NO text overlays
-        prompt += " Shot on Sony A7IV, 50mm f/1.8 lens, natural window light, skin pores visible, real bathroom environment. No CGI, no text, no captions, no watermark."
+        # Quality suffix — consistent controlled lighting + realism + NO text overlays
+        prompt += (
+            " Filmed on 35mm film with Fujifilm X-T5, 56mm f/1.2 lens. "
+            "Soft diffused overhead LED panels providing even warm-toned illumination. "
+            "Skin texture visible, real indoor environment. "
+            "No sunlight, no window light, no harsh shadows, no CGI, no text, no captions, no watermark."
+        )
 
         return prompt
 
@@ -458,7 +480,9 @@ Return ONLY valid JSON:
                         "blurry, low quality, distorted face, extra fingers, "
                         "deformed hands, cartoon, anime, CGI, 3D render, "
                         "text overlay, watermark, logo, caption, subtitle, "
-                        "plastic skin, uncanny valley, bad anatomy, static image"
+                        "plastic skin, uncanny valley, bad anatomy, static image, "
+                        "harsh sunlight, direct sunlight, window light, lens flare, "
+                        "dark shadows, high contrast lighting, overexposed, underexposed"
                     ),
                 }
 
@@ -575,7 +599,7 @@ Return ONLY valid JSON:
             return
 
         norm_dir = tempfile.mkdtemp(prefix="merge_")
-        FADE = 0.4
+        FADE = 1.2  # Longer crossfade for smoother scene transitions
 
         # Step 1: Normalize all scenes (consistent resolution, fps, audio)
         print("     Normalizing scenes for merge compatibility...")

@@ -88,6 +88,7 @@ async def get_campaign_analytics(campaign_id: str) -> dict:
             "ctr": ctr,
             "engagement_rate": engagement_rate,
         },
+        "source": doc.get("source", "manual"),  # "manual" or "instagram"
         "updated_at": doc.get("updated_at"),
     }
 
@@ -209,9 +210,12 @@ def _empty_metrics(campaign_id: str) -> dict:
             "shares": 0,
             "clicks": 0,
             "impressions": 0,
+            "saves": 0,
+            "reach": 0,
             "ctr": 0,
             "engagement_rate": 0,
         },
+        "source": "manual",
         "updated_at": None,
     }
 
@@ -224,6 +228,8 @@ def _empty_totals() -> dict:
         "shares": 0,
         "clicks": 0,
         "impressions": 0,
+        "saves": 0,
+        "reach": 0,
         "ctr": 0,
         "engagement_rate": 0,
         "total_campaigns": 0,
