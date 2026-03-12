@@ -260,6 +260,45 @@ class AvatarSelector:
         selected_score, selected = scored[0]
         return selected.get(id_key, ""), selected.get(name_key, ""), selected_score
     
+    def select_limited_avatars(self, max_count: int = 2) -> List[Dict]:
+        """Selects only the top 1-2 avatars to lock identity across the video.
+        
+        This prevents the round-robin rotation from showing unlimited different
+        faces, which is the #1 cause of unrealistic AI-generated ads.
+        
+        Args:
+            max_count: Maximum number of avatar identities (1 for ≤30s, 2 for longer).
+        
+        Returns:
+            List of top-scored avatar dicts (max 'max_count' entries).
+        """
+        requirements = self._determine_requirements()
+        
+        if not self.avatars:
+            return []
+        
+        # Score all avatars
+        scored = [(self._score_avatar(a, requirements), a) for a in self.avatars]
+        scored.sort(key=lambda x: x[0], reverse=True)
+        
+        # Take only the top max_count
+        locked = []
+        for score, avatar in scored[:max_count]:
+            locked.append({
+                "avatar_id": avatar.get("avatar_id", ""),
+                "name": avatar.get("name", ""),
+                "gender": avatar.get("gender", "unknown"),
+                "score": score,
+                "url": avatar.get("url") or avatar.get("preview_image", ""),
+                "styles": avatar.get("styles", []),
+            })
+        
+        print(f"   [AvatarSelector] Locked {len(locked)} avatar identit(ies) (max {max_count}):")
+        for i, a in enumerate(locked):
+            print(f"     {'Primary' if i == 0 else 'Secondary'}: {a['name']} (score: {a['score']})")
+        
+        return locked
+
     def generate_output(self) -> Dict:
         """Produces the full STEP 4 output with real HeyGen IDs."""
         
@@ -294,6 +333,11 @@ class AvatarSelector:
                 "voice_id", "name"
             )
         
+        # --- Locked Avatars: limit identities to 1-2 ---
+        ad_length = self.context.get("ad_parameters", {}).get("ad_length", 30)
+        max_avatar_identities = 1 if ad_length <= 30 else 2
+        locked_avatars = self.select_limited_avatars(max_count=max_avatar_identities)
+        
         pattern = self.script.get("pattern_used", {})
         platform_specs = self.user_prefs.get("platform_specs", {})
         
@@ -305,6 +349,9 @@ class AvatarSelector:
             "selected_avatar_name": avatar_name,
             "selected_voice_id": voice_id,
             "selected_voice_name": voice_name,
+            
+            # Locked avatar identities (1-2 max for realism)
+            "locked_avatars": locked_avatars,
             
             # Delivery profile
             "avatar_profile": {

@@ -66,6 +66,7 @@ export const workflowService = {
   runUploadAssets: (campaignId, assetType, formData) =>
     api.post(`/workflow/upload-assets/${campaignId}/${assetType}`, formData),
   runGetHistory: () => api.get('/workflow/history'),
+  runGetAvatarHistory: () => api.get('/workflow/avatars/history'),
   runGetDashboard: () => api.get('/workflow/dashboard'),
   submitFeedback: (data) => api.post('/workflow/feedback', data),
   getFeedback: () => api.get('/workflow/feedback'),

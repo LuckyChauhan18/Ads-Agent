@@ -108,7 +108,6 @@ class GeminiRenderer:
                 metadata = item.get("metadata", {})
                 item_campaign_id = metadata.get("campaign_id")
                 
-                # Check for campaign_id match (if provided)
                 if campaign_id and item_campaign_id and str(item_campaign_id) != str(campaign_id):
                     continue
                 
@@ -118,12 +117,48 @@ class GeminiRenderer:
                     loaded[asset_type].append(file_id)
         except Exception as e:
             print(f"       Failed to load assets from GridFS: {e}")
+
+        # --- Local Assets Fallback ---
+        import glob
+        assets_base = os.path.join(self.base_dir, "assets", campaign_id if campaign_id else "")
+        if not os.path.exists(assets_base):
+            assets_base = os.path.join(self.base_dir, "assets")
+
+        image_exts = ("*.png", "*.jpg", "*.jpeg", "*.webp")
+        for asset_type in ["product", "logo", "lifestyle"]:
+            local_dir = os.path.join(assets_base, asset_type)
+            if os.path.exists(local_dir):
+                for ext in image_exts:
+                    for img_path in glob.glob(os.path.join(local_dir, ext)):
+                        # Add relative path or absolute path as fallback if not in GridFS
+                        if img_path not in loaded[asset_type]:
+                            loaded[asset_type].append(img_path)
             
-        print(f"   Assets loaded: {len(loaded['product'])} product, {len(loaded['logo'])} logo")
+        print(f"   Assets loaded: {len(loaded['product'])} product, {len(loaded['logo'])} logo, {len(loaded['lifestyle'])} lifestyle")
+        
+        if len(loaded['logo']) == 0:
+            print("   ⚠️ WARNING: NO LOGO ASSETS FOUND! The renderer is set to strictly ban hallucinated logos, but since no real logo was provided, the CTA scene may look bare. Please upload a logo.")
+        if len(loaded['product']) == 0:
+            print("   ⚠️ WARNING: NO PRODUCT ASSETS FOUND! The renderer relies on product images for the Hook and Solution scenes. Please upload product images.")
+            
         return loaded
 
     async def _load_image_for_veo(self, asset_id: str):
-        """Loads an image from GridFS and returns a types.Image."""
+        """Loads an image from GridFS or local disk and returns a types.Image."""
+        # Check if it's a local file path
+        if os.path.exists(asset_id):
+            try:
+                import mimetypes
+                mime_type, _ = mimetypes.guess_type(asset_id)
+                if not mime_type:
+                    mime_type = "image/jpeg"
+                with open(asset_id, "rb") as f:
+                    image_bytes = f.read()
+                return types.Image(image_bytes=image_bytes, mime_type=mime_type)
+            except Exception as e:
+                print(f"       Failed to load local image {asset_id}: {e}")
+                return None
+
         from api.services.db_mongo_service import get_file_from_gridfs
         try:
             image_bytes, metadata = await get_file_from_gridfs(asset_id)
@@ -162,12 +197,12 @@ class GeminiRenderer:
                     references.append(ref)
                     print(f"       ✅ Using custom avatar reference for scene: {file_id}")
         
-        # --- D2C STORY ARC: NO product in Hook/Problem ---
-        if scene_name in ("Hook", "Problem", "Relatable Moment", "Stop scroll", "Agitate pain"):
-            return references[:3]
+        # --- D2C STORY ARC: Remove avatar from B-roll to prevent Veo lock-on ---
+        if scene_name in ("Problem", "Relatable Moment", "Trust", "Proof"):
+            return []
         
-        # --- Solution/Proof: Product images (the reveal) ---
-        elif scene_name in ("Solution", "Proof", "Introduce product", "Show results"):
+        # --- Hook/Solution/Proof: Product images (the reveal) ---
+        elif scene_name in ("Hook", "Solution", "Proof", "Introduce product", "Show results"):
             for img_path in self.assets["product"][:2]:
                 img = await self._load_image_for_veo(img_path)
                 if img:
@@ -226,57 +261,97 @@ class GeminiRenderer:
             "guarantee": guarantee,
         }
 
-    def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
-        """Uses Gemini Flash to generate hyper-specific photorealistic Veo prompts.
+    def _get_character_description(self) -> str:
+        """Builds a detailed, persistent character description for Veo consistency.
+        
+        This description is injected into EVERY avatar scene prompt to ensure
+        Veo generates the SAME person across all scenes.
+        """
+        ctx = self._get_scene_context()
+        gender = ctx['gender']
+        
+        # Try to get avatar_persona from variant/script data
+        avatar_persona = ""
+        variants = self.variants.get("variants", [])
+        if variants:
+            storyboard_output = variants[0].get("storyboard_output", {})
+            avatar_persona = storyboard_output.get("avatar_persona", "")
+        if not avatar_persona:
+            avatar_persona = self.variants.get("avatar_persona", "")
+        
+        description = (
+            f"A {gender} in their late 20s to early 30s with natural skin, "
+            f"subtle imperfections, and warm brown eyes. "
+            f"They have a friendly, approachable expression. "
+            f"They wear the SAME casual outfit throughout: a simple solid-colored t-shirt. "
+            f"Their hair style and color remain EXACTLY the same in every scene. "
+            f"Speaking in {ctx['language']}."
+        )
+        
+        return description
 
-        Focus: short, visually precise descriptions with real camera/lighting
-        language that Veo understands. Avoids abstract instructions.
+    def _generate_scene_prompts(self, scene_list: List[Dict]) -> Dict[str, str]:
+        """Uses Gemini Flash to generate structured, cinematic Veo prompts.
+
+        Uses 5-BLOCK STRUCTURE per scene:
+        [ACTOR] + [ENVIRONMENT] + [ACTION] + [CINEMATIC STYLE] + [PRODUCT DETAIL]
+        
+        This produces much more realistic videos vs generic prompts.
         """
         if hasattr(self, '_cached_scene_prompts'):
             return self._cached_scene_prompts
 
         ctx = self._get_scene_context()
+        character_desc = self._get_character_description()
+        
         continuity_hints = "\n".join([
             f"- {s.get('scene')}: {s.get('visual_continuity', 'Maintain consistency')}"
             for s in scene_list
         ])
+        
+        # Extract environment/camera from storyboard scene rules if available
+        scene_environments = {}
+        scene_cameras = {}
+        for s in scene_list:
+            sname = s.get("scene", "")
+            scene_environments[sname] = s.get("environment", "")
+            scene_cameras[sname] = s.get("camera_shot", "")
 
-        prompt = f"""You are a cinematographer writing SHORT, PRECISE video prompts for Google Veo 3.1 AI video generator.
+        prompt = f"""You are directing a short-form cinematic advertisement for {ctx['brand']}.
 
-PRODUCT: {ctx['product_name']} by {ctx['brand']} ({ctx['category']})
-FEATURES: {', '.join(ctx['features'][:4]) if ctx['features'] else 'premium quality'}
+CRITICAL STRUCTURE RULES:
+The advertisement contains MULTIPLE DISTINCT SCENES.
+Each scene must have:
+- different environment
+- different camera angle
+- different motion style
+The scenes must look like separate shots in a commercial, not a single continuous recording.
+
+PRODUCT: {ctx['product_name']} ({ctx['category']})
 PROBLEM IT SOLVES: {ctx['user_problem']}
-PRESENTER: {ctx['gender']}, speaking in {ctx['language']}
 
-SCENE CONTINUITY NOTES:
+=== CRITICAL: CHARACTER CONSISTENCY ===
+The SAME person appears ONLY in the Hook and CTA scenes.
+CHARACTER: {character_desc}
+
+=== SCENE CONTINUITY ===
 {continuity_hints}
-
-=== RULES FOR WRITING VEO PROMPTS ===
-1. Each prompt must be 2-3 sentences MAX. Veo works best with concise, specific descriptions.
-2. ALWAYS specify: camera gear, lens type, lighting, exact setting, and what the person is doing.
-3. Use REAL filmmaking terms: "Shot on Arri Alexa 65", "85mm lens", "shallow depth of field", "golden hour", "tracking shot", "rack focus", "handheld", "steadicam", "close-up", "medium close-up".
-4. Describe the person's EXACT appearance, clothing, and expression. Action should be grounded and subtle.
-5. Specify the EXACT location (e.g. "modern minimalist apartment with white walls and warm practical lights").
-6. BANNED WORDS: "cinematic", "premium", "dynamic", "high quality", "4k". Instead, describe what makes it look that way.
-7. GROUNDED REALISM: Specify "natural skin texture", "subtle skin imperfection", "real-world mixed lighting".
-8. The person speaks directly to camera in {ctx['language']}.
-9. For product scenes: describe the product's REAL physical appearance (color, shape, size).
 
 Write prompts for these scenes:
 
-HOOK: The presenter in a real {ctx['category']}-related setting, speaking to camera about {ctx['user_problem']}. No product visible. Show genuine emotion.
+HOOK: A person speaking directly to camera. Environment: modern home living room. Camera: medium close-up, slow push-in. Natural human micro expressions. Speaking about {ctx['user_problem']}.
+PROBLEM: NO PERSON. Only hands and environment. Close-up of objects showing the problem.
+SOLUTION: Macro product shot. Product rotating slowly on table. Dramatic lighting.
+TRUST: NO PERSON. Hands interacting with product naturally in bright workspace.
+PROOF: NO PERSON. Real-life usage in different environment, outdoor cafe or park.
+CTA: The SAME person from the HOOK scene. Holding product. Direct eye contact. Confident expression.
+RELATABLE MOMENT: NO PERSON. Everyday candid moment in an urban street.
 
-PROBLEM: Same presenter, same setting. Frustrated expression, speaking emotionally about the pain of {ctx['user_problem']}. Tight framing on face.
-
-SOLUTION: Presenter's face lights up with excitement. They present {ctx['product_name']} to camera. First time product appears. Describe the product physically.
-
-TRUST: Presenter in a clean, well-lit setting. Speaking confidently about {ctx['brand']}. Professional and trustworthy energy.
-
-PROOF: Presenter demonstrating {ctx['product_name']} in use. Show the product being used naturally. Happy, satisfied expression.
-
-CTA: Presenter holds/shows {ctx['product_name']} close to camera with energy. {"Mentions " + ctx['discount'] + ". " if ctx['discount'] else ""}Urgent, excited call to action.
-
-RELATABLE MOMENT: Candid slice-of-life moment. The presenter in an everyday {ctx['category']}-related situation before discovering the product.
+CRITICAL VISUAL RULES:
+- Scenes MUST NOT reuse the same camera shot.
+- Scenes MUST NOT reuse the same environment.
+- Scenes MUST look like edited commercial footage.
+- The person speaks in {ctx['language']}
 
 Return ONLY valid JSON with scene names as keys and prompt strings as values.
 {{
@@ -297,32 +372,80 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
                     config={'response_mime_type': 'application/json'}
                 )
                 self._cached_scene_prompts = json.loads(response.text)
-                print(f"     Generated {len(self._cached_scene_prompts)} photorealistic scene prompts via Gemini")
+                print(f"     Generated {len(self._cached_scene_prompts)} structured cinematic scene prompts via Gemini")
                 return self._cached_scene_prompts
         except Exception as e:
-            print(f"     LLM scene prompt generation failed: {e}. Using fallback.")
+            print(f"     LLM scene prompt generation failed: {e}. Using structured fallback.")
 
-        # Fallback: highly specific photorealistic prompts
+        # Fallback: 5-block structured photorealistic prompts
         ctx = self._get_scene_context()
         self._cached_scene_prompts = {
-            "Hook": f"Medium close-up of a {ctx['gender']} standing in a naturally lit {ctx['category']}-related environment, looking directly into camera with a concerned expression. Shot on Arri Alexa 65, 50mm lens, f/2.8, shallow depth of field, warm natural window light. Natural skin texture. The person speaks in {ctx['language']} about {ctx['user_problem']}.",
-            "Problem": f"Tight close-up on the same {ctx['gender']}'s face, 85mm lens with creamy bokeh. Soft directional practical light from the left. Frustrated expression, subtle micro-expressions. They speak emotionally in {ctx['language']} about the struggle with {ctx['user_problem']}. Subtle handheld camera drift.",
-            "Solution": f"Medium shot of the same {ctx['gender']} holding {ctx['product_name']} up to camera with both hands, face lit up with genuine excitement. Clean bright background with soft diffused overhead lighting. 35mm lens. True-to-life color grading. They speak enthusiastically in {ctx['language']} about {ctx['product_name']}.",
-            "Trust": f"The same {ctx['gender']} in a modern, clean white environment with soft practical lighting. Medium close-up, 50mm lens. Confident posture, direct eye contact with camera. Speaking in {ctx['language']} about {ctx['brand']}'s quality and reputation.",
-            "Proof": f"Extreme close-up macro tracking shot of {ctx['product_name']} being used naturally in a real-life setting. Shot on 35mm lens, natural daylight. Authentic interaction. The person speaks in {ctx['language']} about the results.",
-            "CTA": f"Close-up of the same {ctx['gender']} energetically presenting {ctx['product_name']} to camera. Bright, punchy lighting but with natural shadow roll-off. 50mm lens. Excited expression, urgent tone, speaking in {ctx['language']}. {'Mentions ' + ctx['discount'] + '.' if ctx['discount'] else ''}",
-            "Relatable Moment": f"Medium close-up of a {ctx['gender']} in an everyday {ctx['category']}-related situation. Natural ambient lighting, 35mm lens. Candid, documentary style, slight grain. No product visible. Slight handheld camera movement."
+            "Hook": (
+                f"The same {ctx['gender']} in their late 20s, casual modern clothes, same person across the entire video, "
+                f"modern home interior with diffused 4 PM golden hour daylight from high window, "
+                f"speaking directly to camera with genuine concerned expression about {ctx['user_problem']}, natural micro-expressions and subtle head movement, "
+                f"medium close-up with slow push-in, shot on Arri Alexa 65 50mm lens f/2.8, shallow depth of field, handheld camera feel with subtle drift, "
+                f"IDENTITY_LOCK: stable face, consistent facial features. The person speaks in {ctx['language']}."
+            ),
+            "Problem": (
+                f"Tight close-up on hands and environment showing frustration, NO FACES visible, "
+                f"everyday messy desk or cluttered space showing {ctx['category']}-related frustration, "
+                f"hands interacting with objects in frustrated manner, showing pain of {ctx['user_problem']}, "
+                f"85mm lens with creamy bokeh rack focus, handheld emotional tracking shot, natural imperfect lighting with moody shadows, depth of field focus pull."
+            ),
+            "Solution": (
+                f"{ctx['product_name']} rotating slowly on a clean minimal surface, "
+                f"clean surface with dramatic directional lighting dark background with reflections, "
+                f"product reveal shot showing the product being picked up or rotating slowly, premium product photography, "
+                f"macro lens detail shot, dramatic lighting with realistic reflections on product surface, commercial product shot style."
+            ),
+            "Trust": (
+                f"Product placed naturally in real-world setting, NO FACES, "
+                f"bright modern workspace or kitchen counter with warm practical lights, "
+                f"person's hands naturally interacting with {ctx['product_name']} realistic finger movement natural grip, smooth tracking pan across the product, "
+                f"50mm lens, medium shot, soft ambient lighting with natural shadows, high contrast, authentic lifestyle moment."
+            ),
+            "Proof": (
+                f"Person naturally using {ctx['product_name']} with realistic finger movement scrolling or interacting authentically, NO FACES, "
+                f"outdoor park or cafe setting, golden hour environmental lighting, "
+                f"active usage showing results or authentic interaction NOT just holding, slight camera movement, "
+                f"35mm lens, steadicam movement eye-level angle, golden hour natural lighting, documentary feel."
+            ),
+            "CTA": (
+                f"The same {ctx['gender']} from the previous scenes, same face same hairstyle same clothes, same person across the entire video, "
+                f"same modern home interior as Hook for visual bookend, "
+                f"holding {ctx['product_name']} close to camera with natural hand grip, speaking with excited energy, direct eye contact, confident posture, "
+                f"close-up 50mm lens slow zoom-out reveal, bright punchy lighting with natural shadow roll-off, "
+                f"natural human micro-expressions subtle head movement. {'Mentions ' + ctx['discount'] + '.' if ctx['discount'] else ''} "
+                f"The person speaks in {ctx['language']}."
+            ),
+            "Relatable Moment": (
+                f"Everyday {ctx['category']}-related moment, NO FACES, "
+                f"urban street or coffee shop with natural ambient lighting and people in background, "
+                f"candid slice-of-life interaction with objects, documentary style, "
+                f"wide shot transitioning to medium, 35mm lens, slight film grain, subtle camera movement, real-world mixed lighting."
+            )
         }
         return self._cached_scene_prompts
 
     def _build_prompt(self, scene: Dict) -> str:
-        """Builds a photorealistic Veo prompt with dialogue and cinematic quality cues."""
+        """Builds a structured Veo prompt with:
+        - 5-block structure (Actor, Environment, Action, Camera, Product)
+        - Voiceover transcript for lip-sync
+        - Character consistency anchoring
+        - Realism boosters (micro-expressions, handheld feel, imperfect lighting)
+        """
         scene_name = scene.get("scene", "")
         directives = scene.get("realistic_directives", "")
         copy_text = scene.get("voiceover", "")
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
 
         shot_type = scene.get("shot_type", "")
+        is_avatar_scene = "avatar" in shot_type.lower()
+        
+        # Extract environment and camera from storyboard scene data
+        scene_environment = scene.get("environment", "")
+        scene_camera = scene.get("camera_shot", "")
 
         # Get dynamically generated scene prompts
         storyboard = []
@@ -331,40 +454,116 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             storyboard = variants[0].get("storyboard", [])
         scene_prompts = self._generate_scene_prompts(storyboard)
         
-        default_fallback = f"A person presenting a product to camera. 50mm lens, soft natural lighting."
+        default_fallback = (
+            f"A person presenting a product to camera, modern apartment interior, "
+            f"natural window lighting, 50mm lens, handheld camera feel."
+        )
         if "b_roll" in shot_type.lower():
-            default_fallback = f"Cinematic B-roll footage. NO FACES ALLOWED. High quality macro or environment tracking shot. Soft natural lighting."
+            default_fallback = (
+                f"Product-focused B-roll footage, NO FACES ALLOWED, "
+                f"macro tracking shot, natural imperfect lighting with shadows, "
+                f"handheld camera style."
+            )
 
         prompt = scene_prompts.get(scene_name, default_fallback)
         
-        # Override if the LLM mistakenly put a person in a B-roll prompt cache!
+        # Override if the LLM mistakenly put a person in a B-roll prompt
         if "b_roll" in shot_type.lower() and ("presenter" in prompt.lower() or "person" in prompt.lower()):
             prompt = prompt.replace("The presenter", "The product").replace("Same presenter", "").replace("presenter", "product").replace("person", "product")
             prompt += " ABSOLUTELY NO FACES IN THIS SHOT. B-ROLL ONLY."
 
-        # Add spoken dialogue for Veo's native audio generation
-        if copy_text:
-            prompt += f' The person speaks in {language} and says: "{copy_text}"'
+        # --- Inject environment and camera from storyboard rules ---
+        if scene_environment and scene_environment not in prompt:
+            prompt += f" Environment: {scene_environment}."
+        if scene_camera and scene_camera not in prompt:
+            prompt += f" Camera: {scene_camera}."
+
+        # --- Stability Keywords (Fix for ghosting/morphing) ---
+        if is_avatar_scene:
+            prompt += (
+                " STABILITY RULES: The person is speaking calmly with subtle head movement, "
+                "minimal hand gestures, stable posture, stable face, consistent identity, "
+                "no morphing artifacts, no ghosting, no double face overlap."
+            )
+
+        # --- Strict Product Definition ---
+        product_name = self.context.get("product_understanding", {}).get("product_name", "the product")
+        prompt += (
+            f" PRODUCT ACCURACY: The product is {product_name}. "
+            f"Maintain EXACT color, camera module layout, and design across all scenes. "
+            f"Use ONLY the provided product assets and logo."
+        )
+
+        # --- Voiceover transcript for lip-sync ---
+        if copy_text and is_avatar_scene:
+            prompt += f' The person speaks directly to camera in {language}, saying: "{copy_text}"'
+        elif copy_text:
+            prompt += f" Voiceover in {language}."
 
         # Add scene-specific directives from the storyboard
         if directives:
             prompt += f" {directives}"
 
-        # Combine with Global Style if available
+        # Combine with Global Style
         global_style_str = ""
         variants = self.variants.get("variants", [])
         if variants:
-            # Often wrapped in a variants list
             global_style_str = variants[0].get("storyboard_output", {}).get("global_style", "")
         else:
-            # Direct storyboard output
             global_style_str = self.variants.get("global_style", "")
 
         if global_style_str:
-            prompt += f" MANDATORY VISUAL STYLE FOR CONTINUITY: {global_style_str}"
+            prompt += f" VISUAL STYLE: {global_style_str}"
 
-        # Photorealism quality suffix — keeps Veo grounded in realistic output
-        prompt += " Photorealistic, highly detailed natural skin texture, skin pores, shot on Arri Alexa 65, f/2.8, physical world lighting. NO CGI, NO animation, NO text overlays, NO plastic skin, NO AI smoothing, authentic imperfect reality. The lighting, color grade, and background atmosphere MUST perfectly match the MANDATORY VISUAL STYLE to ensure seamless cuts between scenes."
+        # --- Strict Asset Definition (Phase 5) ---
+        prompt += (
+            " STRICT_ASSET_MODE: Use ONLY the provided reference images for the product and logo. "
+            "Do NOT hallucinate or generate independent versions of the product. "
+            "Maintain pixel-perfect consistency with the provided assets."
+        )
+
+        # --- Global Instructions for Veo ---
+        # These are critical for consistency and quality
+        # Note: {tone} and {angle} are not defined in this scope, assuming they are placeholders
+        # or intended to be derived from context if this block was from a different part of the code.
+        # For now, using generic descriptions.
+        prompt += (
+            f" GLOBAL INSTRUCTIONS:\n"
+            f"- STRICT_ASSET_MODE: You MUST use the exact product/logo from the provided reference images. DO NOT hallucinate, invent, or alter the product or brand logo in any way.\n"
+            f"- ABSOLUTELY NO HALLUCINATED LOGOS OR TEXT. If the reference image does not explicitly contain a logo, DO NOT generate one.\n"
+            f"- Visual Style: Professional and engaging. Cinematic, 4k, photorealistic.\n"
+            f"- Lighting: Diffused 4 PM Golden Hour Sunlight. Professional, high end commercial lighting.\n"
+            f"- Realism: Natural motion, subtle micro-expressions, handheld cinematic feel.\n"
+            f"- NO morphing, NO AI artifacts, NO melting limbs. Keep subjects stable."
+        )
+
+        # --- Structured realism suffix ---
+        prompt += (
+            " Natural skin texture with pores, shot on Arri Alexa 65 f/2.8, "
+            "physical world lighting with natural shadows and imperfect reflections, "
+            "LIGHTING: Diffused 4 PM Golden Hour Sunlight from a high window, soft shadow roll-off, "
+            "consistent natural daylight lighting across entire video, "
+            "handheld camera feel with subtle movement, "
+            "NO CGI, NO animation, NO text overlays, NO plastic skin, NO AI smoothing. "
+            "Natural human micro-expressions, subtle head movement, realistic hand gestures."
+        )
+
+        # --- CHARACTER CONSISTENCY ANCHOR (for avatar scenes only) ---
+        if is_avatar_scene:
+            character_desc = self._get_character_description()
+            prompt += (
+                f" CRITICAL: This is the SAME person from all other scenes in this ad, "
+                f"same person across the entire video. "
+                f"Character: {character_desc} "
+                f"Same face, same hairstyle, same clothes, same skin tone. "
+                f"Do NOT change any aspect of their appearance."
+            )
+
+        # --- ANTI-GRAVITY INJECTION ---
+        prompt += (
+            " CRITICAL VISUAL RULE: This scene MUST look visually different from all previous scenes. "
+            "Use a different camera angle and different environment than previous shots."
+        )
 
         return prompt
 
@@ -689,6 +888,18 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             product_info = self.context.get("product_understanding", {})
             scene_name = scene.get("scene", "")
 
+            # Add zoompan effect to base video
+            zoom_out = os.path.join(temp_dir, f"scene_{idx}_zoomed.mp4")
+            zoom_cmd = [
+                "ffmpeg", "-y", "-i", video_path,
+                "-vf", "zoompan=z='min(zoom+0.0015,1.1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=720x1280",
+                "-c:a", "copy", zoom_out
+            ]
+            subprocess.run(zoom_cmd, capture_output=True)
+            if os.path.exists(zoom_out):
+                video_path = zoom_out
+                output_path = zoom_out
+
             overlay_inputs = []
             filter_complex = "[0:v]"
             input_idx = 1
@@ -708,7 +919,7 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
                     input_idx += 1
 
             # B. Product Image Overlay (Solution/Proof/CTA scenes)
-            relevant_scenes = ["Solution", "Proof", "CTA", "Introduce product", "Show results", "Drive action"]
+            relevant_scenes = ["Solution", "Proof", "CTA", "Introduce product", "Show results", "Drive action", "Benefit"]
             if scene_name in relevant_scenes and product_ids:
                 img_data, _ = await get_file_from_gridfs(product_ids[0])
                 if img_data:
@@ -722,12 +933,11 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
                     filter_complex = "[v_with_prod]"
                     input_idx += 1
             
-            # C. Product Name Text
-            if scene_name in ["Solution", "CTA", "Introduce product", "Drive action"]:
-                text_to_show = f"{brand_name} {product_name}".strip().upper()
-                if text_to_show:
-                    font_path = "C\\\\:/Windows/Fonts/arial.ttf"
-                    filter_complex += f",drawtext=text='{text_to_show}':fontfile='{font_path}':fontsize=36:fontcolor=white:shadowcolor=black@0.5:shadowx=2:shadowy=2:x=(w-text_w)/2:y=H-th-80"
+            # C. Dynamic Script Text Overlay
+            text_overlay = scene.get("text_overlay", "")
+            if text_overlay:
+                font_path = "C\\\\:/Windows/Fonts/arialbd.ttf"
+                filter_complex += f",drawtext=text='{text_overlay}':fontfile='{font_path}':fontsize=48:fontcolor=white:shadowcolor=black@0.6:shadowx=3:shadowy=3:x=(w-text_w)/2:y=H/4"
             
             # D. BUY NOW CTA Banner
             if scene_name in ["CTA", "Drive action"]:
@@ -738,8 +948,8 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
                     buy_text = f"BUY NOW  {domain}".replace("'", "").replace(":", "\\\\:")
                     font_path = "C\\\\:/Windows/Fonts/arialbd.ttf"
                     filter_complex += (
-                        f",drawbox=x=0:y=H-60:w=W:h=60:color=black@0.7:t=fill"
-                        f",drawtext=text='{buy_text}':fontfile='{font_path}':fontsize=28:fontcolor=white:x=(w-text_w)/2:y=H-45"
+                        f",drawbox=x=0:y=H-80:w=W:h=80:color=black@0.8:t=fill"
+                        f",drawtext=text='{buy_text}':fontfile='{font_path}':fontsize=32:fontcolor=white:x=(w-text_w)/2:y=H-55"
                     )
 
             if input_idx > 1 or "drawtext" in filter_complex:

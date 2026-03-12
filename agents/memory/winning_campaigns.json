@@ -193,5 +193,135 @@
     "angle": "General",
     "tone": "",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T14:34:58.827567",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "myth_busting",
+    "psychological_triggers": [
+      "identity_alignment",
+      "contrast_principle",
+      "social_proof"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T15:36:18.186599",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "problem_solution",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "identity_alignment",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Empathetic & Soft",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T16:26:28.904217",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "before_after",
+    "psychological_triggers": [
+      "pain_amplification",
+      "curiosity_gap",
+      "reciprocity"
+    ],
+    "angle": "General",
+    "tone": "Bold & Aggressive",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-12T18:26:00.685441",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "customer_story",
+    "psychological_triggers": [
+      "pain_amplification",
+      "contrast_principle",
+      "fear_of_missing_out"
+    ],
+    "angle": "General",
+    "tone": "Authentic & Raw",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T18:40:47.831641",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "identity_alignment",
+      "pain_amplification",
+      "future_self_visualization"
+    ],
+    "angle": "General",
+    "tone": "Authentic & Raw",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T18:55:50.382074",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "contrast_principle",
+      "future_self_visualization",
+      "reciprocity"
+    ],
+    "angle": "General",
+    "tone": "Authentic & Raw",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T23:39:22.617339",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "before_after",
+    "psychological_triggers": [
+      "identity_alignment",
+      "social_proof",
+      "future_self_visualization"
+    ],
+    "angle": "General",
+    "tone": "Authentic & Raw",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-13T00:38:23.150751",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "day_in_life",
+    "psychological_triggers": [
+      "contrast_principle",
+      "loss_aversion",
+      "fear_of_missing_out"
+    ],
+    "angle": "General",
+    "tone": "Witty & Sarcastic",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-13T01:08:14.808681",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "myth_busting",
+    "psychological_triggers": [
+      "reciprocity",
+      "identity_alignment",
+      "loss_aversion"
+    ],
+    "angle": "General",
+    "tone": "Witty & Sarcastic",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-13T01:45:38.766531",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "customer_story",
+    "psychological_triggers": [
+      "fear_of_missing_out",
+      "future_self_visualization",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Witty & Sarcastic",
+    "funnel_stage": "cold"
   }
 ]

@@ -5,71 +5,130 @@ import subprocess
 import sys
 
 # --- Global Style Config ---
-GLOBAL_CINEMATIC_STYLE = "Premium commercial lighting, 35mm lens, high fidelity, 4K resolution, authentic."
+GLOBAL_CINEMATIC_STYLE = (
+    "Natural cinematic lighting, realistic shadows, imperfect reflections, "
+    "handheld camera style, shallow depth of field, natural skin texture, "
+    "subtle human micro-expressions, realistic hand gestures, "
+    "shot on Arri Alexa 65, authentic imperfect reality."
+)
 
 # --- Step 5: Scene-to-Asset Mapping Rules ---
+# Each scene has: unique environment, distinct camera shot, product interaction details
 
 SCENE_ASSET_RULES = {
     "Hook": {
         "shot_type": "avatar_talking_head",
-        "asset_categories": [],
-        "text_overlay": None,
-        "realistic_directives": "Dynamic push-in camera movement, natural micro-expressions, engaging eye contact.",
-        "rationale": "Clean hook — establish the human connection early."
+        "asset_categories": ["product", "logo"],
+        "text_overlay": "BRAND_LOGO",
+        "environment": "modern home interior with soft daylight from window, warm natural tones",
+        "camera_shot": "medium close-up with slow push-in, 50mm lens, shallow depth of field",
+        "realistic_directives": (
+            "The person is holding the product close to the camera immediately in the first frame. "
+            "Handheld camera feel with subtle drift, natural window lighting with soft shadows, "
+            "consistent natural daylight lighting across entire video, "
+            "natural human micro-expressions, slight head movement, warm color grade, "
+            "the person speaks directly to camera with genuine concerned expression."
+        ),
+        "rationale": "Product reveal in first 3 seconds -- establish human connection and product presence."
     },
     "Problem": {
         "shot_type": "b_roll_lifestyle",
         "asset_categories": ["lifestyle"],
         "text_overlay": None,
-        "realistic_directives": "Handheld emotional tracking shot, depth of field focus pull, cinematic shadow contrast, NO FACES visible.",
-        "rationale": "Show the pain point visually. Hiding the face prevents AI character morphing."
+        "environment": "everyday setting showing the frustration context, messy desk or cluttered space",
+        "camera_shot": "tight close-up on hands/environment, 85mm lens, creamy bokeh, rack focus",
+        "realistic_directives": (
+            "Handheld emotional tracking shot, frustrated interaction visible, "
+            "consistent natural daylight lighting across entire video, "
+            "depth of field focus pull, natural imperfect lighting with shadows, "
+            "moody atmospheric contrast, NO FACES visible, show the pain point through objects and environment."
+        ),
+        "rationale": "Show the pain point visually with environmental storytelling."
     },
     "Relatable Moment": {
         "shot_type": "b_roll_lifestyle",
         "asset_categories": ["lifestyle"],
         "text_overlay": None,
-        "realistic_directives": "Slow creeping zoom, focus on hands and environment, moody atmospheric lighting, NO FACES visible.",
-        "rationale": "Build emotional empathy through B-Roll."
+        "environment": "urban street or coffee shop, natural ambient lighting, people in background",
+        "camera_shot": "wide establishing shot transitioning to medium, 35mm lens, documentary style",
+        "realistic_directives": (
+            "Slow creeping zoom, focus on hands and environment, natural ambient lighting, "
+            "consistent natural daylight lighting across entire video, "
+            "slight film grain, documentary candid style, NO FACES visible, "
+            "subtle camera movement, real-world mixed lighting."
+        ),
+        "rationale": "Build emotional empathy through real-world environment change."
     },
     "Solution": {
         "shot_type": "b_roll_product_macro",
         "asset_categories": ["product"],
         "text_overlay": None,
-        "realistic_directives": "Extreme macro close-up, slow-motion slide camera tracking, bright studio lighting highlighting texture, product clearly visible.",
-        "rationale": "Hero product reveal — B-roll product focus."
+        "environment": "clean minimal surface, dramatic directional lighting, dark background with reflections",
+        "camera_shot": "cinematic hero shot, macro lens, product rotating slowly, dramatic lighting",
+        "realistic_directives": (
+            "Ultra cinematic product reveal shot, product rotating slowly or being picked up, "
+            "consistent natural daylight lighting across entire video, "
+            "dramatic lighting with dark background and reflections, macro lens detail, "
+            "premium commercial product photography style, realistic reflections on product surface."
+        ),
+        "rationale": "Hero product reveal -- dramatic cinematic product shot."
     },
     "Trust": {
         "shot_type": "b_roll_product_lifestyle",
         "asset_categories": ["product", "lifestyle"],
         "text_overlay": None,
-        "realistic_directives": "Smooth tracking pan across the product in a real-world setting, soft ambient lighting, high contrast.",
-        "rationale": "Show product in use or placed elegantly."
+        "environment": "bright modern workspace or kitchen counter, warm practical lights, lifestyle context",
+        "camera_shot": "smooth tracking pan, 50mm lens, medium shot, natural depth of field",
+        "realistic_directives": (
+            "Product placed naturally in real-world setting, smooth tracking pan, "
+            "consistent natural daylight lighting across entire video, "
+            "soft ambient lighting with natural shadows, person naturally interacting with product "
+            "(realistic finger movement, natural grip, scrolling with thumb, unlocking device), "
+            "high contrast, authentic lifestyle moment."
+        ),
+        "rationale": "Show product in authentic real-world usage environment."
     },
     "Proof": {
         "shot_type": "b_roll_product_lifestyle",
         "asset_categories": ["product"],
         "text_overlay": None,
-        "realistic_directives": "Dynamic parallax orbit around the product, clean environmental lighting, showcasing results or usage.",
-        "rationale": "Visual proof of the product."
+        "environment": "different real-world setting (outdoor park, cafe, or commute), golden hour lighting",
+        "camera_shot": "dynamic parallax orbit, 35mm lens, steadicam movement, eye-level angle",
+        "realistic_directives": (
+            "Person naturally using the product with realistic finger movement, "
+            "scrolling or interacting authentically, natural grip, "
+            "playing mobile game smoothly, taking photo with smartphone camera near window, "
+            "consistent natural daylight lighting across entire video, "
+            "golden hour environmental lighting, slight camera movement, "
+            "showcasing results or active usage, NOT just holding."
+        ),
+        "rationale": "Visual proof through authentic product interaction in varied environment."
     },
     "CTA": {
         "shot_type": "avatar_with_cta",
-        "asset_categories": ["logo"],
+        "asset_categories": ["logo", "product"],
         "text_overlay": None,
-        "realistic_directives": "Confident posture, direct eye contact, soft zoom-out, well-lit studio environment.",
-        "rationale": "Bring the original avatar back for the final call to action."
+        "environment": "same home environment as Hook for visual bookend, or clean branded backdrop",
+        "camera_shot": "close-up with energy, 50mm lens, slow zoom-out reveal, bright punchy lighting",
+        "realistic_directives": (
+            "Confident posture, direct eye contact, energetic presentation, "
+            "person holds/shows product close to camera with natural hand grip, "
+            "bright punchy lighting with natural shadow roll-off, "
+            "natural human micro-expressions, subtle head movement, excited energy."
+        ),
+        "rationale": "Bring the same person back with product for energetic call to action."
     }
 }
 
-# Duration estimates per scene (adjusted to ~8.5s for 48s total after fades)
+# Duration estimates per scene (adjusted to ~5s for sharper Veo motion)
 SCENE_DURATION = {
-    "Hook": "8.5s",
-    "Problem": "8s",
-    "Relatable Moment": "8s",
-    "Solution": "8.5s",
-    "Trust": "7.5s",
-    "Proof": "7.5s",
-    "CTA": "8s"
+    "Hook": "5s",
+    "Problem": "5s",
+    "Relatable Moment": "5s",
+    "Solution": "5s",
+    "Trust": "5s",
+    "Proof": "5s",
+    "CTA": "5s"
 }
 
 
@@ -317,24 +376,49 @@ class StoryboardBuilder:
         return bound_assets
     
     def build_storyboard(self):
-        """Core STEP 5: Builds scene-by-scene storyboard with asset binding and avatar rotation."""
+        """Core STEP 5: Builds scene-by-scene storyboard with asset binding and LOCKED avatar identity.
+        
+        Key change: Instead of round-robin through all available avatars,
+        uses only 1-2 LOCKED avatar identities for the entire video to
+        ensure visual consistency and realism.
+        """
         scenes = self.script.get("scenes", [])
         avatar_profile = self.avatar.get("avatar_profile", {})
         trust_overlay = self._get_trust_overlay()
         cta_text = self.script.get("pattern_used", {}).get("cta", "Learn More")
         
+        # --- Use LOCKED avatars (1-2 identities max) ---
+        locked_avatars = self.avatar.get("locked_avatars", [])
+        
+        # Fallback: if no locked_avatars, use selected_avatars but cap to 2
+        if not locked_avatars:
+            if self.selected_avatars:
+                locked_avatars = self.selected_avatars[:2]
+            else:
+                locked_avatars = []
+        
+        # Determine primary and secondary avatar
+        primary_avatar = locked_avatars[0] if locked_avatars else None
+        secondary_avatar = locked_avatars[1] if len(locked_avatars) > 1 else None
+        
+        print(f"   [Storyboard] Locked Avatars: {len(locked_avatars)} identity(ies)")
+        if primary_avatar:
+            print(f"     Primary: {primary_avatar.get('name', primary_avatar.get('url', 'unknown'))}")
+        if secondary_avatar:
+            print(f"     Secondary: {secondary_avatar.get('name', secondary_avatar.get('url', 'unknown'))}")
+        
         # Calculate dynamic avatar cap based on ad length
         ad_length = self.context.get("ad_parameters", {}).get("ad_length", 15)
         if ad_length <= 15:
-            max_avatars = 1
+            max_avatar_scenes = 1
         elif ad_length <= 30:
-            max_avatars = 2
+            max_avatar_scenes = 2
         elif ad_length <= 45:
-            max_avatars = 3
+            max_avatar_scenes = 3
         else:
-            max_avatars = 4
+            max_avatar_scenes = 4
             
-        print(f"   [Storyboard] Ad Length: {ad_length}s -> Max Avatars Allowed: {max_avatars}")
+        print(f"   [Storyboard] Ad Length: {ad_length}s -> Max Avatar Scenes: {max_avatar_scenes}")
         
         storyboard = []
         avatar_usage_count = 0
@@ -344,26 +428,36 @@ class StoryboardBuilder:
             rules = SCENE_ASSET_RULES.get(scene_name, SCENE_ASSET_RULES["Hook"])
             shot_type = rules["shot_type"]
             
-            # Ensure we don't exceed the avatar cap for short videos
+            # Ensure we don't exceed the avatar scene cap
             if "avatar" in shot_type:
-                if avatar_usage_count >= max_avatars:
-                    print(f"   [Storyboard] Scene '{scene_name}': Cap reached ({max_avatars}). Falling back to B-Roll.")
+                if avatar_usage_count >= max_avatar_scenes:
+                    print(f"   [Storyboard] Scene '{scene_name}': Cap reached ({max_avatar_scenes}). Falling back to B-Roll.")
                     shot_type = "b_roll_lifestyle"
                 else:
                     avatar_usage_count += 1
             
-            # Rotation logic: Pick avatar based on scene index (Round Robin)
+            # --- LOCKED AVATAR ASSIGNMENT ---
+            # Hook + CTA always use PRIMARY avatar (visual anchor)
+            # Intermediate avatar scenes use PRIMARY (or secondary for variety in long ads)
             current_avatar_url = None
-            if self.selected_avatars and "avatar" in shot_type:
-                avatar_obj = self.selected_avatars[idx % len(self.selected_avatars)]
-                current_avatar_url = avatar_obj.get("url") or avatar_obj.get("id")
-                print(f"   [Storyboard] Scene {idx}: Binding avatar {current_avatar_url} (Usage: {avatar_usage_count}/{max_avatars})")
+            if "avatar" in shot_type and primary_avatar:
+                if scene_name in ("Hook", "CTA"):
+                    # Always primary for bookend scenes
+                    avatar_obj = primary_avatar
+                elif secondary_avatar and avatar_usage_count > 2:
+                    # Only use secondary for intermediate scenes in longer ads
+                    avatar_obj = secondary_avatar
+                else:
+                    avatar_obj = primary_avatar
+                
+                current_avatar_url = avatar_obj.get("url") or avatar_obj.get("id") or avatar_obj.get("avatar_id")
+                avatar_name = avatar_obj.get("name", "locked")
+                print(f"   [Storyboard] Scene {idx} '{scene_name}': Using LOCKED avatar '{avatar_name}' (Usage: {avatar_usage_count}/{max_avatar_scenes})")
             
             # Determine text overlay per scene
             text_overlay = trust_overlay if scene_name == "Trust" else (cta_text if scene_name == "CTA" else None)
             
             # Bind real assets (rotating through available ones)
-            # Pass modified context so we grab a lifestyle asset if we fell back from avatar
             fallback_scene_name = "Relatable Moment" if shot_type == "b_roll_lifestyle" else scene_name
             bound_assets = self._bind_assets(fallback_scene_name, scene_index=idx)
             
@@ -379,7 +473,8 @@ class StoryboardBuilder:
                     "expression": avatar_profile.get("facial_expression", "neutral"),
                     "energy": avatar_profile.get("delivery_energy", "balanced"),
                     "pace": avatar_profile.get("speaking_pace", "normal"),
-                    "custom_image_url": current_avatar_url
+                    "custom_image_url": current_avatar_url,
+                    "locked_identity": True  # Flag for renderer to enforce consistency
                 } if "avatar" in shot_type else None,
                 "assets": bound_assets,
                 "text_overlay": text_overlay,

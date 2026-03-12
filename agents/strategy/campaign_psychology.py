@@ -61,19 +61,22 @@ WINNING_CAMPAIGNS_FILE = os.path.join(MEMORY_DIR, "winning_campaigns.json")
 class CampaignPsychologyEngine:
     FUNNEL_RULES = {
         "cold": {
-            "allowed_cta": ["Learn More", "Watch Now"],
-            "focus": "education",
-            "urgency": "low"
+            "allowed_cta": ["Discover the Secret", "See How it Works", "Experience the Story"],
+            "focus": "impact_discovery",
+            "urgency": "low",
+            "voice_directive": "Be a relatable friend sharing a discovery, not a salesperson."
         },
         "warm": {
-            "allowed_cta": ["See Reviews", "View Details"],
-            "focus": "trust",
-            "urgency": "medium"
+            "allowed_cta": ["See the Transformation", "Hear from the Community", "Explore Features"],
+            "focus": "impact_validation",
+            "urgency": "medium",
+            "voice_directive": "Be a trusted guide validating their needs with proof."
         },
         "hot": {
-            "allowed_cta": ["Buy Now", "Complete Order"],
-            "focus": "conversion",
-            "urgency": "high"
+            "allowed_cta": ["Start Your Journey", "Try it Risk-Free", "Join the Brand"],
+            "focus": "impact_transformation",
+            "urgency": "high",
+            "voice_directive": "Be the bridge to their desired transformation, focusing on value over price."
         }
     }
 
@@ -358,17 +361,15 @@ class CampaignPsychologyEngine:
         # ── Improvement #7: Drastically improved LLM prompt ──
         prompt = f"""You are a world-class direct response advertising strategist.
 
-Your goal is NOT to copy competitors.
-Your goal is to create a psychologically powerful ad strategy
-that STANDS OUT in a crowded feed.
-
-Use the competitor insights to understand market norms,
-but intentionally design a strategy that DIFFERENTIATES from them.
+Your goal is NOT to copy competitors or shout "BUY NOW".
+Your goal is to create a psychologically impactful ad strategy
+that makes the user DESIRE the product through authentic storytelling.
 
 The ad should feel:
-- authentic and emotionally believable
-- conversational and non-generic
-- like a real person talking, not a corporate script
+- IMPACT-FIRST: Show the transformation or the moment of relief clearly.
+- SOFT-SELL: Never say "buy directly" or "purchase now" in the narrative. 
+- AUTHENTIC: High-impact emotional believability.
+- CONVERSATIONAL: Like a real person sharing a life-changing secret.
 
 ═══════════════════════════════════════
 FOUNDER INTENT

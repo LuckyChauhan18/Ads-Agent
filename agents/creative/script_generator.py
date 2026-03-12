@@ -144,17 +144,8 @@ class ScriptGenerator:
             print("   Gemini client not initialized for Script. Falling back to templates.")
             return self.generate_script(fallback=True)
             
-        # Calculate required scenes based on user request:
-        if ad_length >= 60:
-            scene_count = 9
-        elif ad_length >= 45:
-            scene_count = 6
-        elif ad_length >= 30:
-            scene_count = 4
-        else:
-            scene_count = math.ceil(ad_length / 6)
-            
-        scene_count = max(2, scene_count) # Minimum Hook + CTA
+        # Enforce strict 7-part advertising framework requested by user
+        scene_count = 7
         
         print(f"   Generating {language} script for {platform} ({ad_length}s, {scene_count} scenes) with Gemini AI...")
         
@@ -236,59 +227,96 @@ PLATFORM STYLE GUIDELINES:
 - Current Platform: {platform}
 """
         
+        # --- Build Character Persona for story consistency ---
+        gender_label = self.context.get("avatar_gender", "")
+        if not gender_label or gender_label.lower() in ("any", "unknown", "auto"):
+            gender_label = "young person"
+        
+        character_persona = (
+            f"A relatable {gender_label} in their late 20s to early 30s who personally experienced {user_problem}. "
+            f"They discovered {product} by {brand} and it transformed their daily routine. "
+            f"The ad follows THEIR authentic journey: frustration, discovery, transformation."
+        )
+
+        # Extract research and pricing data
+        price_range = product_info.get("price_range", "Competitive")
+        target_user = product_info.get("target_user", "General Audience")
+        
+        # Extract research / competitor insights
+        research_data = self.context.get("research", {})
+        competitor_results = research_data.get("competitor_results", [])
+        top_competitor_punchlines = []
+        for res in competitor_results:
+            if res.get("top_punchline"):
+                top_competitor_punchlines.append(res["top_punchline"])
+        
+        competitor_insight_section = ""
+        if top_competitor_punchlines:
+            competitor_insight_section = f"- Successful Competitor Hook/Taglines: {', '.join(top_competitor_punchlines[:3])}"
+
         prompt = f"""You are a {writer_role}.
-Create a high-converting {language} video ad script for {product} by {brand}.
+Create a high-converting, psychologically persuasive {language} video ad script for {product} by {brand}.
 
-The ad must feel AUTHENTIC, HUMAN, and UNIQUE — not like a corporate script.
+We are moving AWAY from generic product explanations and static talking-heads.
+The ad MUST follow a strict 7-part emotional advertising structure based on competitor insights and audience psychology.
 
-CAMPAIGN DETAILS:
+CHARACTER PERSONA (USE CONSISTENTLY ACROSS ALL SCENES):
+{character_persona}
+- The SAME person appears ONLY in the Hook and CTA scenes. They are the narrator throughout.
+- Write the script as THEIR personal story. Use first-person perspective where natural.
+- The character's emotional journey MUST flow chronologically: Frustrated -> Agitated -> Relieved -> Transformed -> Confident.
+
+CAMPAIGN DETAILS & PSYCHOLOGY:
 - Product: {product}
-- Brand: {self.context.get('product_understanding', {}).get('brand_name', '')}
 - Category: {category}
-- Features: {', '.join(features[:5]) if features else 'N/A'}
-- Funnel Stage: {funnel}
-- Tone: {tone} (Style: {brand_voice})
-- Angle: {angle}
+- Target Audience: {target_user}
 - User Problem: {user_problem}
-- SPECIFIC OFFERS (MUST USE THESE NUMBERS/DETAILS): {offer_str if offer_str else "NONE PROVIDED - DO NOT MENTION ANY DISCOUNTS OR OFFERS"}
-- Flow: Hook, Problem, Solution, Trust, Proof, CTA
+- Tone: {tone} (Style: {brand_voice})
+- Funnel Stage: {funnel}
+- Narrative Anchor: Relief and Transformation
+{competitor_insight_section}
 {lang_constraints}
 {creative_dna_section}
 
-VISUAL ASSETS AVAILABLE:
-- Product Images: {image_count} different shots of the product.
-- Logos: {logo_count} brand logo variants.
+CRITICAL VISUAL RULES FOR VIDEO GENERATION:
+1. Scene 1 (Hook) and Scene 7 (CTA) MUST feature the Avatar speaking to the camera.
+2. Scenes 2, 3, 4, 5, and 6 MUST BE B-ROLL (No Faces).
+3. Do NOT describe "person talking" for the intermediate scenes. Use action-oriented B-roll (e.g., "Macro shot of product texture", "Hands struggling with problem", "Wide atmospheric shot of messy room").
+4. Product MUST ONLY be introduced visually in Scene 4. Do NOT show the product directly in Scenes 1, 2, or 3.
 
-CRITICAL VISUAL RULES (B-ROLL OVER TALKING HEADS):
-1. The Hook and CTA scenes MUST feature the Avatar (person talking).
-2. The INTERMEDIATE scenes (Problem, Solutions, Proof, etc.) MUST BE B-ROLL (No Faces). 
-3. Describe DIFFERENT visual scenarios across the intermediate scenes (e.g., 'Close up of the heel detail', 'Wide shot of product in use', 'Top-down flat lay'). Do NOT describe 'person talking' or 'influencer looking at camera' for the middle scenes. Provide action-oriented B-roll.
+CRITICAL SCRIPT RULES:
+1. ONE CONTINUOUS STORY: The voiceover must read like a single flowing paragraph, NOT disjointed statements.
+2. NO REPETITIVE INTRODUCTIONS: Do not introduce the person multiple times. Start the hook with a strong pattern interrupt.
+3. COMPETITOR INSIGHT: The Hook (Scene 1) MUST use the insights from "Successful Competitor Hook/Taglines" to create a compelling pattern interrupt.
+4. The word "{product}" MUST appear literally in Scene 4 and Scene 7.
+5. If an Offer is provided, mention it in the CTA.
 
-CRITICAL RULES (DO NOT IGNORE):
-1. The word "{product}" MUST appear literally in Solution and CTA copy.
-2. SPECIFIC OFFER DETAILS: If an offer is provided in the DETAILS above, you MUST mention those exact numbers/terms in the CTA or Solution scene. IF NONE PROVIDED, DO NOT INVENT A FAKE DISCOUNT. 
-3. AUDIENCE FIT: Write the dialogue to sound natural for {platform} users experiencing {user_problem}.
-4. Problem scene MUST show {category}-specific pain.
-5. Hook should feel authentic to {category} users.
-6. USE THE CREATIVE DNA to make this script DIFFERENT from typical {category} ads.
-7. DURATION CONSTRAINT: You MUST generate exactly {scene_count} scenes to fit the {ad_length}s target duration.
+STRICT 7-PART SCENE STRUCTURE (YOU MUST RETURN EXACTLY 7 SCENES):
+1. "Hook": Pattern interrupt based on audience pain point.
+2. "Problem": Identify the problem visually and verbally. 
+3. "Agitation": Deepen the emotional pain of the problem.
+4. "Solution": Product introduction (First visual reveal of the product).
+5. "Benefits": Key benefits linked directly back to the pain points.
+6. "Transformation": Show the result/outcome using the product.
+7. "CTA": Clear call to action from the Hook actor.
 
-WARNING: If Solution or CTA copy does NOT contain "{product}" by name, or ignores the SPECIFIC OFFER rules, the output is INVALID.
-
-Return ONLY valid JSON with exactly {scene_count} scenes. 
-
-STRICT SCENE STRUCTURE:
-1. The FIRST scene (index 0) MUST be named "Hook".
-2. Subsequent scenes can have creative names relevant to the ad content (e.g., "Problem Breakdown", "Visual Metaphor", "The Transformation", "Feature Spotlight", "Rapid Fire Benefits").
-3. The FINAL scene MUST be the "CTA".
-
-FORMAT:
+Return ONLY valid JSON. The JSON must be an array of exactly 7 objects matching this exact format:
 [
-  {{"scene": "Hook", "intent": "Stop scroll", "copy": "{language} text about {category} world", "visual_continuity": "Establish environment"}},
-  ... ({scene_count - 2} intermediate scenes with creative, descriptive names relevant to the script flow)
-  {{"scene": "CTA", "intent": "Drive action", "copy": "{language} text WITH {product} name + BUY NOW", "visual_continuity": "Final payoff"}}
-]
-"""
+  {{
+    "scene_objective": "Hook",
+    "visual_description": "Close-up face, frustrated expression, sighing contextually.",
+    "voiceover": "{language} text",
+    "camera_style": "50mm lens, handheld, slight push-in",
+    "emotion": "Frustrated"
+  }},
+  {{
+    "scene_objective": "Problem",
+    "visual_description": "...",
+    "voiceover": "...",
+    "camera_style": "...",
+    "emotion": "..."
+  }}
+]"""
         try:
             import requests
             openrouter_key = os.getenv("OPENROUTER_API_KEY")
@@ -337,26 +365,29 @@ FORMAT:
             else:
                 scenes = script
             
-            # Post-process: replace generic 'Product' with actual product name
+            # Post-process mapping for downstream compatibility
             processed_scenes = []
             for scene in scenes:
                 if isinstance(scene, dict):
-                    # Standardize fields for frontend
-                    scene_type = scene.get("scene", "Scene")
-                    intent = scene.get("intent", "")
-                    copy = scene.get("copy", "")
+                    scene_obj = scene.get("scene_objective", scene.get("scene", "Scene"))
+                    voice = scene.get("voiceover", scene.get("copy", ""))
+                    vis_desc = scene.get("visual_description", scene.get("visual_continuity", ""))
+                    cam_style = scene.get("camera_style", "")
+                    
+                    combined_visual = f"{vis_desc}. Camera: {cam_style}".strip()
+                    if combined_visual == ". Camera:": combined_visual = ""
                     
                     # Clean the copy
-                    copy = copy.replace("Product", product)
-                    copy = copy.replace("product", product)
-                    copy = copy.replace("प्रोडक्ट", product)
-                    copy = copy.replace("उत्पाद", product)
+                    voice = voice.replace("Product", product)
+                    voice = voice.replace("product", product)
+                    voice = voice.replace("प्रोडक्ट", product)
+                    voice = voice.replace("उत्पाद", product)
                     
                     processed_scenes.append({
-                        "scene": scene_type,
-                        "intent": intent,
-                        "voiceover": copy,
-                        "visual_continuity": scene.get("visual_continuity", "")
+                        "scene": scene_obj,
+                        "intent": scene.get("emotion", scene.get("intent", "Neutral")),
+                        "voiceover": voice,
+                        "visual_continuity": combined_visual
                     })
             
             return processed_scenes
@@ -415,11 +446,27 @@ FORMAT:
     def generate_output(self, language="Hindi", platform="Instagram Reels", ad_length=30):
         """Produces the full STEP 3 output object."""
         script = self.generate_script_llm(language, platform, ad_length)
+        
+        # Build character persona for downstream propagation
+        product_info = self.context.get("product_understanding", {})
+        product = product_info.get("product_name") or self.context.get("product_name") or "Product"
+        brand = product_info.get("brand_name") or self.context.get("brand_name") or "the brand"
+        user_problem = self.context.get("user_problem_raw", "the problem")
+        gender_label = self.context.get("avatar_gender", "")
+        if not gender_label or gender_label.lower() in ("any", "unknown", "auto"):
+            gender_label = "young person"
+        
+        avatar_persona = (
+            f"A relatable {gender_label} in their late 20s to early 30s who personally experienced {user_problem}. "
+            f"They discovered {product} by {brand} and it transformed their daily routine."
+        )
+        
         return {
             "campaign_id": self.context.get("campaign_id", "unknown"),
             "ad_length": ad_length,
             "platform": platform,
             "script_type": "scene_wise",
+            "avatar_persona": avatar_persona,
             "pattern_used": {
                 "hook_type": self.pattern.get("hook_type"),
                 "opening_style": self.pattern.get("opening_style"),

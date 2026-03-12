@@ -1,0 +1,58 @@
+Traceback (most recent call last):
+  File "C:\Users\Lucky\OneDrive\Desktop\langgraph_add\api\routes\workflow.py", line 331, in run_step_render
+    state_out = await production_graph.ainvoke(state_in, config)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langgraph\pregel\main.py", line 3184, in ainvoke
+    async for chunk in self.astream(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langgraph\pregel\main.py", line 2914, in astream
+    async with AsyncPregelLoop(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langgraph\pregel\_loop.py", line 1323, in __aexit__
+    return await exit_task
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\contextlib.py", line 714, in __aexit__
+    raise exc_details[1]
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\contextlib.py", line 697, in __aexit__
+    cb_suppress = await cb(*exc_details)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langgraph\pregel\_executor.py", line 209, in __aexit__
+    raise exc
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langgraph\checkpoint\mongodb\saver.py", line 606, in aput_writes
+    return await run_in_executor(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langchain_core\runnables\config.py", line 636, in run_in_executor
+    return await asyncio.get_running_loop().run_in_executor(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langchain_core\runnables\config.py", line 627, in wrapper
+    return func(*args, **kwargs)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\langgraph\checkpoint\mongodb\saver.py", line 489, in put_writes
+    self.writes_collection.bulk_write(operations)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\_csot.py", line 125, in csot_wrapper
+    return func(self, *args, **kwargs)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\collection.py", line 791, in bulk_write
+    bulk_api_result = blk.execute(write_concern, session, _Op.INSERT)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\bulk.py", line 751, in execute
+    return self.execute_command(generator, write_concern, session, operation)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\bulk.py", line 604, in execute_command
+    _ = client._retryable_write(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 2082, in _retryable_write
+    return self._retry_with_session(retryable, func, s, bulk, operation, operation_id)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 1968, in _retry_with_session
+    return self._retry_internal(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\_csot.py", line 125, in csot_wrapper
+    return func(self, *args, **kwargs)
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 2014, in _retry_internal
+    ).run()
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 2765, in run
+    return self._read() if self._is_read else self._write()
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 2875, in _write
+    self._server = self._get_server()
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 2858, in _get_server
+    return self._client._select_server(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\mongo_client.py", line 1833, in _select_server
+    server = topology.select_server(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\topology.py", line 409, in select_server
+    server = self._select_server(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\topology.py", line 387, in _select_server
+    servers = self.select_servers(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\topology.py", line 294, in select_servers
+    server_descriptions = self._select_servers_loop(
+  File "C:\Users\Lucky\OneDrive\Desktop\study\Anaconda\envs\ads-agent\lib\site-packages\pymongo\synchronous\topology.py", line 344, in _select_servers_loop
+    raise ServerSelectionTimeoutError(
+pymongo.errors.ServerSelectionTimeoutError: ac-oz5lpht-shard-00-01.w6ofrrs.mongodb.net:27017: [Errno 11001] getaddrinfo failed (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms),ac-oz5lpht-shard-00-00.w6ofrrs.mongodb.net:27017: [Errno 11001] getaddrinfo failed (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms),ac-oz5lpht-shard-00-02.w6ofrrs.mongodb.net:27017: [Errno 11001] getaddrinfo failed (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms), Timeout: 5.0s, Topology Description: <TopologyDescription id: 69b314f80a8fe5b400cd8412, topology_type: ReplicaSetNoPrimary, servers: [<ServerDescription ('ac-oz5lpht-shard-00-00.w6ofrrs.mongodb.net', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('ac-oz5lpht-shard-00-00.w6ofrrs.mongodb.net:27017: [Errno 11001] getaddrinfo failed (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>, <ServerDescription ('ac-oz5lpht-shard-00-01.w6ofrrs.mongodb.net', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('ac-oz5lpht-shard-00-01.w6ofrrs.mongodb.net:27017: [Errno 11001] getaddrinfo failed (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>, <ServerDescription ('ac-oz5lpht-shard-00-02.w6ofrrs.mongodb.net', 27017) server_type: Unknown, rtt: None, error=AutoReconnect('ac-oz5lpht-shard-00-02.w6ofrrs.mongodb.net:27017: [Errno 11001] getaddrinfo failed (configured timeouts: socketTimeoutMS: 20000.0ms, connectTimeoutMS: 20000.0ms)')>]>

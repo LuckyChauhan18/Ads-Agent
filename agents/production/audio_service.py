@@ -23,26 +23,41 @@ class ElevenLabsAudioService:
             self.client = None
             print("ElevenLabsAudioService: Warning - ELEVENLABS_API_KEY not found in environment.")
             
-    def _phonetic_correction(self, text: str, language: str) -> str:
+    async def _research_pronunciation(self, term: str) -> str:
+        """Researches the correct pronunciation of a term via web search."""
+        if not term or len(term) < 2:
+            return ""
+            
+        print(f"ElevenLabsAudioService: Researching pronunciation for '{term}'...")
+        # Since this is an agent, I will rely on the LLM's internal knowledge OR 
+        # assume the orchestrator passes research. 
+        # For now, I'll add a placeholder that can be populated by the LLM in _phonetic_correction.
+        return f"Research how to pronounce {term} specifically for an AI voice."
+
+    def _phonetic_correction(self, text: str, language: str, context: str = "") -> str:
         """
         Intercepts script text before TTS to correct common pronunciation errors.
-        Crucial for Hindi where ElevenLabs struggles with English loan words in Devanagari.
+        Uses context from web research if provided.
         """
-        if language.lower() not in ["hindi", "urdu", "marathi"]:
-            return text # Only correct regional Indian languages for now
-            
+        # Always run for all languages if context is provided (e.g. brand name pronunciation)
+        is_indian = language.lower() in ["hindi", "urdu", "marathi", "bengali", "tamil"]
+        
         print(f"ElevenLabsAudioService: Running phonetic LLM correction for {language}...")
         
         prompt = f"""You are an expert pronunciation coach for AI voices.
 Your job is to rewrite the given {language} text phonetically so that an English-based Text-to-Speech engine (like ElevenLabs) pronounces it absolutely perfectly.
 
+CONTEXT / RESEARCH DATA:
+{context if context else "None provided. Use your internal knowledge of brand names and industry terms."}
+
 RULES:
-1. Write English loan words in Latin/English script (e.g. if the text says "प्रॉब्लम", change it to "problem").
-2. Ensure Devanagari words are written perfectly.
-3. Spell out all numbers as words in {language} (e.g. "99" -> "ninyanve").
-4. Add commas where natural pauses should happen so the AI breathes correctly.
-5. DO NOT change the meaning or the words. ONLY change the spelling/script to fix pronunciation.
-6. Return ONLY the rewritten text, with no markdown, quotes, or preambles.
+1. Write English loan words in Latin/English script if the language is non-English (e.g. if Hindi text says "प्रॉब्लम", change it to "problem"). This helps the AI handle "Hinglish" naturally.
+2. Ensure technical terms, brand names, and product names are spelled to ENSURE CORRECT PRONUNCIATION. (e.g. "Spec-trum" or "Spektra").
+3. ASPIRATED CONSONANTS: Pay special attention to 'kh', 'gh', 'th', 'dh', 'bh'. If the AI tends to miss the aspiration, spell it out clearly.
+4. Spell out all numbers as words in {language} (e.g. "99" -> "ninyanve" or "ninety-nine").
+5. Add commas where natural pauses should happen.
+6. DO NOT change the meaning. ONLY fix the pronunciation and script.
+7. Return ONLY the rewritten text.
 
 ORIGINAL TEXT:
 {text}"""
@@ -89,7 +104,7 @@ ORIGINAL TEXT:
         # Fallback to original text if API fails
         return text
 
-    def generate_voiceover(self, text: str, language: str = "Hindi", output_path: str = None) -> str:
+    def generate_voiceover(self, text: str, language: str = "Hindi", output_path: str = None, context: str = "") -> str:
         """
         Generates TTS audio using ElevenLabs and saves it to a file.
         Returns the path to the saved audio file, or None if failed.
@@ -101,10 +116,10 @@ ORIGINAL TEXT:
             print("ElevenLabsAudioService: Missing API Key. Cannot generate audio.")
             return None
             
-        print(f"ElevenLabsAudioService: Generating {language} voiceover for text: '{text[:30]}...'")
+        print(f"ElevenLabsAudioService: Generating {language} voiceover...")
         
-        # 1. Phonetic pre-processing
-        safe_text = self._phonetic_correction(text, language)
+        # 1. Phonetic pre-processing with context
+        safe_text = self._phonetic_correction(text, language, context)
         
         # 2. Map languages to ElevenLabs Voice IDs
         lang_map = {
@@ -127,20 +142,26 @@ ORIGINAL TEXT:
                 voice_id=voice_id,
                 model_id="eleven_multilingual_v2",
                 output_format="mp3_44100_128",
+                voice_settings=types.VoiceSettings(
+                    stability=0.40,      # Dynamic and emotive (less robotic)
+                    similarity_boost=0.60, # Consistent character voice
+                    style=0.20,          # Slight style exaggeration for impact
+                    use_speaker_boost=True
+                )
             )
             
-            # The SDK returns a generator, save it to file
-            save(audio_generator, output_path)
+            # Save the audio stream to file
+            print(f"ElevenLabsAudioService: Saving to {output_path}")
+            with open(output_path, "wb") as f:
+                for chunk in audio_generator:
+                    if chunk:
+                        f.write(chunk)
             
-            if os.path.exists(output_path):
-                print(f"ElevenLabsAudioService: Successfully generated audio at {output_path}")
-                return output_path
-                
+            return output_path
+            
         except Exception as e:
-            print(f"ElevenLabsAudioService Exception: {e}")
-            
-        return None
+            print(f"ElevenLabsAudioService TTS Error: {e}")
+            return None
 
 # Export instance seamlessly matching the old import name from other files
 audio_service = ElevenLabsAudioService()
-

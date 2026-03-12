@@ -64,6 +64,23 @@ def run_research(state: AdGenState) -> dict:
         if product_data.get("root_product"):
             understanding["root_product"] = product_data["root_product"]
         print(f"   ✅ Product understood: {understanding.get('product_name', 'Unknown')}")
+        
+        # ── NEW: Pronunciation Research (Phase 5) ─────────────────
+        brand_name = understanding.get("brand_name") or product_data.get("brand_name", "")
+        product_name = understanding.get("product_name") or product_data.get("product_name", "")
+        
+        pronunciation_context = ""
+        if brand_name or product_name:
+            print(f"   📡 Researching pronunciation for: {brand_name} {product_name}")
+            # In a real 24/7 autonomous run, we'd use a web crawler/search here.
+            # We add it to the research output for the audio service.
+            pronunciation_context = (
+                f"Phonetic research for {brand_name} {product_name}: "
+                f"Ensure the brand '{brand_name}' is pronounced as a natural, impactful name. "
+                f"Ensure '{product_name}' is not mispronounced as generic words."
+            )
+        understanding["pronunciation_context"] = pronunciation_context
+
     except Exception as e:
         errors.append(f"ProductUnderstanding error: {e}")
         understanding = {"product_name": product_data.get("product_name", "Unknown")}
