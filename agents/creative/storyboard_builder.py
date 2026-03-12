@@ -323,31 +323,56 @@ class StoryboardBuilder:
         trust_overlay = self._get_trust_overlay()
         cta_text = self.script.get("pattern_used", {}).get("cta", "Learn More")
         
+        # Calculate dynamic avatar cap based on ad length
+        ad_length = self.context.get("ad_parameters", {}).get("ad_length", 15)
+        if ad_length <= 15:
+            max_avatars = 1
+        elif ad_length <= 30:
+            max_avatars = 2
+        elif ad_length <= 45:
+            max_avatars = 3
+        else:
+            max_avatars = 4
+            
+        print(f"   [Storyboard] Ad Length: {ad_length}s -> Max Avatars Allowed: {max_avatars}")
+        
         storyboard = []
+        avatar_usage_count = 0
         
         for idx, scene_data in enumerate(scenes):
             scene_name = scene_data["scene"]
             rules = SCENE_ASSET_RULES.get(scene_name, SCENE_ASSET_RULES["Hook"])
+            shot_type = rules["shot_type"]
+            
+            # Ensure we don't exceed the avatar cap for short videos
+            if "avatar" in shot_type:
+                if avatar_usage_count >= max_avatars:
+                    print(f"   [Storyboard] Scene '{scene_name}': Cap reached ({max_avatars}). Falling back to B-Roll.")
+                    shot_type = "b_roll_lifestyle"
+                else:
+                    avatar_usage_count += 1
             
             # Rotation logic: Pick avatar based on scene index (Round Robin)
             current_avatar_url = None
-            if self.selected_avatars:
+            if self.selected_avatars and "avatar" in shot_type:
                 avatar_obj = self.selected_avatars[idx % len(self.selected_avatars)]
                 current_avatar_url = avatar_obj.get("url") or avatar_obj.get("id")
-                print(f"   [Storyboard] Scene {idx}: Binding avatar {current_avatar_url} (Selection count: {len(self.selected_avatars)})")
+                print(f"   [Storyboard] Scene {idx}: Binding avatar {current_avatar_url} (Usage: {avatar_usage_count}/{max_avatars})")
             
             # Determine text overlay per scene
             text_overlay = trust_overlay if scene_name == "Trust" else (cta_text if scene_name == "CTA" else None)
             
             # Bind real assets (rotating through available ones)
-            bound_assets = self._bind_assets(scene_name, scene_index=idx)
+            # Pass modified context so we grab a lifestyle asset if we fell back from avatar
+            fallback_scene_name = "Relatable Moment" if shot_type == "b_roll_lifestyle" else scene_name
+            bound_assets = self._bind_assets(fallback_scene_name, scene_index=idx)
             
             shot = {
                 "scene": scene_name,
                 "duration": SCENE_DURATION.get(scene_name, "8s"),
                 "voiceover": scene_data["voiceover"],
                 "intent": scene_data.get("intent", ""),
-                "shot_type": rules["shot_type"],
+                "shot_type": shot_type,
                 "avatar": {
                     "type": avatar_profile.get("avatar_type", "presenter"),
                     "camera": avatar_profile.get("camera_style", "studio"),
@@ -355,12 +380,12 @@ class StoryboardBuilder:
                     "energy": avatar_profile.get("delivery_energy", "balanced"),
                     "pace": avatar_profile.get("speaking_pace", "normal"),
                     "custom_image_url": current_avatar_url
-                },
+                } if "avatar" in shot_type else None,
                 "assets": bound_assets,
                 "text_overlay": text_overlay,
-                "realistic_directives": rules.get("realistic_directives"),
+                "realistic_directives": SCENE_ASSET_RULES.get(fallback_scene_name, rules).get("realistic_directives"),
                 "visual_continuity": scene_data.get("visual_continuity", ""),
-                "rationale": rules["rationale"]
+                "rationale": SCENE_ASSET_RULES.get(fallback_scene_name, rules)["rationale"]
             }
             
             storyboard.append(shot)

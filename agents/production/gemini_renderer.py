@@ -322,17 +322,25 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
         copy_text = scene.get("voiceover", "")
         language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
 
+        shot_type = scene.get("shot_type", "")
+
         # Get dynamically generated scene prompts
         storyboard = []
         variants = self.variants.get("variants", [])
         if variants:
             storyboard = variants[0].get("storyboard", [])
         scene_prompts = self._generate_scene_prompts(storyboard)
+        
+        default_fallback = f"A person presenting a product to camera. 50mm lens, soft natural lighting."
+        if "b_roll" in shot_type.lower():
+            default_fallback = f"Cinematic B-roll footage. NO FACES ALLOWED. High quality macro or environment tracking shot. Soft natural lighting."
 
-        prompt = scene_prompts.get(scene_name,
-            f"A person presenting a product to camera. 50mm lens, soft natural lighting, "
-            f"shallow depth of field. Clean modern background. Photorealistic."
-        )
+        prompt = scene_prompts.get(scene_name, default_fallback)
+        
+        # Override if the LLM mistakenly put a person in a B-roll prompt cache!
+        if "b_roll" in shot_type.lower() and ("presenter" in prompt.lower() or "person" in prompt.lower()):
+            prompt = prompt.replace("The presenter", "The product").replace("Same presenter", "").replace("presenter", "product").replace("person", "product")
+            prompt += " ABSOLUTELY NO FACES IN THIS SHOT. B-ROLL ONLY."
 
         # Add spoken dialogue for Veo's native audio generation
         if copy_text:
@@ -343,12 +351,20 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             prompt += f" {directives}"
 
         # Combine with Global Style if available
-        global_style = self.variants.get("variants", [])[0].get("storyboard_output", {}).get("global_style", "")
-        if global_style:
-            prompt += f" Overall Style Setup: {global_style}"
+        global_style_str = ""
+        variants = self.variants.get("variants", [])
+        if variants:
+            # Often wrapped in a variants list
+            global_style_str = variants[0].get("storyboard_output", {}).get("global_style", "")
+        else:
+            # Direct storyboard output
+            global_style_str = self.variants.get("global_style", "")
+
+        if global_style_str:
+            prompt += f" MANDATORY VISUAL STYLE FOR CONTINUITY: {global_style_str}"
 
         # Photorealism quality suffix — keeps Veo grounded in realistic output
-        prompt += " Photorealistic, highly detailed natural skin texture, skin pores, shot on Arri Alexa 65, f/2.8, physical world lighting. NO CGI, NO animation, NO text overlays, NO plastic skin, NO AI smoothing, authentic imperfect reality."
+        prompt += " Photorealistic, highly detailed natural skin texture, skin pores, shot on Arri Alexa 65, f/2.8, physical world lighting. NO CGI, NO animation, NO text overlays, NO plastic skin, NO AI smoothing, authentic imperfect reality. The lighting, color grade, and background atmosphere MUST perfectly match the MANDATORY VISUAL STYLE to ensure seamless cuts between scenes."
 
         return prompt
 

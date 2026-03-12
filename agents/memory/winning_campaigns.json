@@ -180,5 +180,18 @@
     "angle": "General",
     "tone": "",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-12T01:34:52.565364",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "myth_busting",
+    "psychological_triggers": [
+      "curiosity_gap",
+      "contrast_principle",
+      "loss_aversion"
+    ],
+    "angle": "General",
+    "tone": "",
+    "funnel_stage": "cold"
   }
 ]
