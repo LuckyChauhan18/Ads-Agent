@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from pydantic import BaseModel
 from typing import Optional
-from api.models.user import Token
 from api.auth_utils import authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES, get_current_user
 from api.services.db_mongo_service import find_user_by_username, create_user
 
@@ -59,17 +58,15 @@ async def signup(req: SignupRequest):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Signup failed: {error_msg}")
 
-    return {
-        "username": req.username,
-        "email": req.email,
-        "full_name": req.full_name,
-        "company_id": req.company_id,
-        "id": uid,
-    }
+    return {"message": "Signup successful"}
 
 
-@router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+@router.post("/login")
+async def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Authenticate user and set HTTP-only cookie with JWT.
+    This prevents XSS attacks from stealing the token.
+    """
     print(f"[LOGIN] Attempt for username: {form_data.username}")
     user = await authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -89,7 +86,32 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     access_token = create_access_token(
         data={"sub": user["username"]}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Set HTTP-only cookie with JWT token
+    # httponly=True: Prevents JavaScript access (XSS protection)
+    # secure=True: Only sent over HTTPS (use True in production)
+    # samesite="lax": CSRF protection while allowing navigation
+    # max_age: Cookie expiry in seconds (matches token expiry)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=False,  # Set to True in production with HTTPS
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert minutes to seconds
+    )
+    
+    return {"message": "Login successful"}
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """
+    Clear the HTTP-only authentication cookie.
+    This ensures the user is logged out securely.
+    """
+    response.delete_cookie(key="access_token", samesite="lax")
+    return {"message": "Logout successful"}
 
 
 @router.get("/me")

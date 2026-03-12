@@ -1,13 +1,37 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Upload, X, Camera, Image as ImageIcon, Loader2 } from 'lucide-react';
-import { aiAssistService } from '../../services/api';
+import { Sparkles, Upload, X, Camera, Image as ImageIcon, Loader2, FolderOpen, Check } from 'lucide-react';
+import { aiAssistService, workflowService } from '../../services/api';
 import { toast } from '../Toast';
+import config from '../../config/config';
 
 const ProductStep = ({ data, updateData }) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [existingAssets, setExistingAssets] = useState({ logos: [], products: [] });
+  const [showLogoSelector, setShowLogoSelector] = useState(false);
+  const [showProductSelector, setShowProductSelector] = useState(false);
+  const [loadingAssets, setLoadingAssets] = useState(false);
   const logoInputRef = useRef(null);
   const imagesInputRef = useRef(null);
+
+  useEffect(() => {
+    fetchExistingAssets();
+  }, []);
+
+  const fetchExistingAssets = async () => {
+    try {
+      setLoadingAssets(true);
+      const res = await workflowService.runGetDashboard();
+      setExistingAssets({
+        logos: res.data.assets?.logos || [],
+        products: res.data.assets?.products || []
+      });
+    } catch (e) {
+      console.error('Failed to fetch existing assets:', e);
+    } finally {
+      setLoadingAssets(false);
+    }
+  };
 
   const handleGenerateDescription = async () => {
     if (isGenerating) return;
@@ -81,6 +105,16 @@ const ProductStep = ({ data, updateData }) => {
     }
   };
 
+  const handleSelectExistingLogo = (logo) => {
+    const fullUrl = `${config.apiBaseUrl}${logo.url}`;
+    updateData({
+      product_logo: fullUrl,
+      product_logo_file: null // Clear file since we're using existing
+    });
+    setShowLogoSelector(false);
+    toast('Logo selected from library', 'success');
+  };
+
   const handleImagesUpload = (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
@@ -90,6 +124,24 @@ const ProductStep = ({ data, updateData }) => {
         product_images_files: [...(data.product_images_files || []), ...files]
       });
     }
+  };
+
+  const handleSelectExistingProduct = (product) => {
+    const fullUrl = `${config.apiBaseUrl}${product.url}`;
+    const currentImages = data.product_images || [];
+    const currentFiles = data.product_images_files || [];
+    
+    // Check if already added
+    if (currentImages.includes(fullUrl)) {
+      toast('This image is already added', 'info');
+      return;
+    }
+    
+    updateData({
+      product_images: [...currentImages, fullUrl],
+      product_images_files: currentFiles // Keep existing files
+    });
+    toast('Product image added from library', 'success');
   };
 
   const removeImage = (index) => {
@@ -115,84 +167,112 @@ const ProductStep = ({ data, updateData }) => {
       <div className="input-grid">
         {/* Brand & Product */}
         <div className="input-group">
-          <label>Brand Name</label>
+          <label>Brand Name <span className="mandatory">*</span></label>
           <input
             type="text"
             value={data.brand_name || ''}
             onChange={(e) => updateData({ brand_name: e.target.value })}
             placeholder="e.g. Apple"
+            required
           />
         </div>
         <div className="input-group">
-          <label>Product Name</label>
+          <label>Product Name <span className="mandatory">*</span></label>
           <input
             type="text"
             value={data.product_name || ''}
             onChange={(e) => updateData({ product_name: e.target.value })}
             placeholder="e.g. MacBook Air M3"
+            required
           />
         </div>
 
         {/* Visual Identity */}
         <div className="input-group">
           <label>Product Logo</label>
-          <div
-            className="upload-box logo-upload"
-            onClick={() => logoInputRef.current?.click()}
-          >
-            {data.product_logo ? (
-              <img src={data.product_logo} alt="Logo" className="preview-logo" />
-            ) : (
-              <div className="upload-placeholder">
-                <Camera size={20} />
-                <span>Upload Logo</span>
-              </div>
+          <div className="asset-upload-group">
+            <div
+              className="upload-box logo-upload"
+              onClick={() => logoInputRef.current?.click()}
+            >
+              {data.product_logo ? (
+                <img src={data.product_logo} alt="Logo" className="preview-logo" />
+              ) : (
+                <div className="upload-placeholder">
+                  <Camera size={20} />
+                  <span>Upload Logo</span>
+                </div>
+              )}
+              <input
+                type="file"
+                ref={logoInputRef}
+                hidden
+                accept="image/*"
+                onChange={handleLogoUpload}
+              />
+            </div>
+            {existingAssets.logos.length > 0 && (
+              <button
+                type="button"
+                className="browse-existing-btn"
+                onClick={() => setShowLogoSelector(true)}
+                title="Select from previously uploaded logos"
+              >
+                <FolderOpen size={16} />
+                <span>Browse Existing ({existingAssets.logos.length})</span>
+              </button>
             )}
-            <input
-              type="file"
-              ref={logoInputRef}
-              hidden
-              accept="image/*"
-              onChange={handleLogoUpload}
-            />
           </div>
         </div>
 
         <div className="input-group">
           <label>Product Images</label>
-          <div className="images-upload-container">
-            <div
-              className="upload-box image-add"
-              onClick={() => imagesInputRef.current?.click()}
-            >
-              <Upload size={20} />
-              <input
-                type="file"
-                ref={imagesInputRef}
-                hidden
-                multiple
-                accept="image/*"
-                onChange={handleImagesUpload}
-              />
+          <div className="asset-upload-group">
+            <div className="images-upload-container">
+              <div
+                className="upload-box image-add"
+                onClick={() => imagesInputRef.current?.click()}
+              >
+                <Upload size={20} />
+                <input
+                  type="file"
+                  ref={imagesInputRef}
+                  hidden
+                  multiple
+                  accept="image/*"
+                  onChange={handleImagesUpload}
+                />
+              </div>
+              <div className="images-preview-list">
+                <AnimatePresence>
+                  {data.product_images?.map((url, i) => (
+                    <motion.div
+                      key={url}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      className="image-preview-item"
+                    >
+                      <img src={url} alt={`Product ${i}`} />
+                      <button className="remove-btn" onClick={() => removeImage(i)}>
+                        <X size={12} />
+                      </button>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
             </div>
-            <div className="images-preview-list">
-              <AnimatePresence>
-                {data.product_images?.map((url, i) => (
-                  <motion.div
-                    key={url}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="image-preview-item"
-                  >
-                    <img src={url} alt={`Product ${i}`} />
-                    <button className="remove-btn" onClick={() => removeImage(i)}>
-                      <X size={12} />
-                    </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+            {existingAssets.products.length > 0 && (
+              <button
+                type="button"
+                className="browse-existing-btn"
+                onClick={() => setShowProductSelector(true)}
+                title="Select from previously uploaded product images"
+              >
+                <FolderOpen size={16} />
+                <span>Browse Existing ({existingAssets.products.length})</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -252,7 +332,7 @@ const ProductStep = ({ data, updateData }) => {
         {/* Description with Generate Feature */}
         <div className="input-group full-width relative">
           <div className="label-row">
-            <label>Description</label>
+            <label>Description <span className="mandatory">*</span></label>
             <button
               className={`generate-btn ${isGenerating ? 'loading' : ''}`}
               onClick={handleGenerateDescription}
@@ -268,6 +348,7 @@ const ProductStep = ({ data, updateData }) => {
             onChange={(e) => updateData({ description: e.target.value })}
             placeholder="Brief description of the product..."
             style={{ minHeight: '100px' }}
+            required
           />
         </div>
 
@@ -281,6 +362,109 @@ const ProductStep = ({ data, updateData }) => {
           />
         </div>
       </div>
+
+      {/* Logo Selector Modal */}
+      <AnimatePresence>
+        {showLogoSelector && (
+          <motion.div
+            className="asset-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowLogoSelector(false)}
+          >
+            <motion.div
+              className="asset-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="asset-modal-header">
+                <h3>Select Logo from Library</h3>
+                <button className="modal-close-btn" onClick={() => setShowLogoSelector(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="asset-modal-grid">
+                {existingAssets.logos.map((logo) => {
+                  const fullUrl = `${config.apiBaseUrl}${logo.url}`;
+                  const isSelected = data.product_logo === fullUrl;
+                  return (
+                    <motion.div
+                      key={logo.id}
+                      className={`asset-modal-item ${isSelected ? 'selected' : ''}`}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleSelectExistingLogo(logo)}
+                    >
+                      <img src={fullUrl} alt={logo.filename} />
+                      {isSelected && (
+                        <div className="selected-badge">
+                          <Check size={16} />
+                        </div>
+                      )}
+                      <p className="asset-filename">{logo.filename}</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Product Images Selector Modal */}
+      <AnimatePresence>
+        {showProductSelector && (
+          <motion.div
+            className="asset-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowProductSelector(false)}
+          >
+            <motion.div
+              className="asset-modal"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="asset-modal-header">
+                <h3>Select Product Images from Library</h3>
+                <button className="modal-close-btn" onClick={() => setShowProductSelector(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+              <p className="asset-modal-hint">Click images to add them to your product images</p>
+              <div className="asset-modal-grid">
+                {existingAssets.products.map((product) => {
+                  const fullUrl = `${config.apiBaseUrl}${product.url}`;
+                  const isAdded = (data.product_images || []).includes(fullUrl);
+                  return (
+                    <motion.div
+                      key={product.id}
+                      className={`asset-modal-item ${isAdded ? 'selected' : ''}`}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleSelectExistingProduct(product)}
+                    >
+                      <img src={fullUrl} alt={product.filename} />
+                      {isAdded && (
+                        <div className="selected-badge">
+                          <Check size={16} />
+                        </div>
+                      )}
+                      <p className="asset-filename">{product.filename}</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .step-form {
@@ -523,6 +707,150 @@ const ProductStep = ({ data, updateData }) => {
         .remove-btn:hover {
           background: #ef4444;
           transform: scale(1.1);
+        }
+
+        /* Asset Upload Group */
+        .asset-upload-group {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .browse-existing-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(99, 102, 241, 0.08);
+          border: 1px solid rgba(99, 102, 241, 0.2);
+          padding: 10px 14px;
+          border-radius: 10px;
+          color: #a5b4fc;
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .browse-existing-btn:hover {
+          background: rgba(99, 102, 241, 0.15);
+          border-color: rgba(99, 102, 241, 0.4);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        /* Asset Modal */
+        .asset-modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.85);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+        .asset-modal {
+          background: linear-gradient(135deg, #1e1b4b 0%, #1a1a2e 100%);
+          border: 1px solid rgba(99, 102, 241, 0.3);
+          border-radius: 20px;
+          max-width: 800px;
+          width: 100%;
+          max-height: 80vh;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 100px rgba(99, 102, 241, 0.2);
+        }
+        .asset-modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 24px 28px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .asset-modal-header h3 {
+          margin: 0;
+          font-size: 1.3rem;
+          font-weight: 700;
+          background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .modal-close-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: rgba(255, 255, 255, 0.6);
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .modal-close-btn:hover {
+          background: rgba(239, 68, 68, 0.15);
+          border-color: rgba(239, 68, 68, 0.3);
+          color: #ef4444;
+        }
+        .asset-modal-hint {
+          padding: 0 28px 12px;
+          margin: 0;
+          font-size: 0.85rem;
+          color: rgba(255, 255, 255, 0.4);
+        }
+        .asset-modal-grid {
+          padding: 20px 28px 28px;
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 16px;
+          overflow-y: auto;
+          max-height: calc(80vh - 120px);
+        }
+        .asset-modal-item {
+          position: relative;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 2px solid rgba(255, 255, 255, 0.08);
+          overflow: hidden;
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .asset-modal-item:hover {
+          border-color: rgba(99, 102, 241, 0.4);
+          box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+        }
+        .asset-modal-item.selected {
+          border-color: #10b981;
+          box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+          background: rgba(16, 185, 129, 0.08);
+        }
+        .asset-modal-item img {
+          width: 100%;
+          height: 140px;
+          object-fit: cover;
+        }
+        .selected-badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: #10b981;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        .asset-filename {
+          padding: 10px;
+          margin: 0;
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.6);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       `}</style>
     </motion.div>

@@ -2,11 +2,13 @@ import React from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Layout as LayoutIcon, LogOut, Sparkles, BarChart3, Send, User, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../context/AuthContext';
 
-const Layout = ({ children, user, onLogout }) => {
+const Layout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const path = location.pathname;
+  const { user, logout } = useAuth();
 
   const navItems = [
     { path: '/create', icon: Sparkles, label: 'Create', description: 'Generate new campaigns' },
@@ -65,11 +67,11 @@ const Layout = ({ children, user, onLogout }) => {
               <User size={18} />
             </div>
             <div className="user-details">
-              <span className="user-name">{user || 'User'}</span>
+              <span className="user-name">{user?.username || user?.full_name || 'User'}</span>
               <span className="user-status">Active</span>
             </div>
           </div>
-          <button className="logout-btn" onClick={onLogout} title="Logout">
+          <button className="logout-btn" onClick={logout} title="Logout">
             <LogOut size={18} />
             <span>Logout</span>
           </button>

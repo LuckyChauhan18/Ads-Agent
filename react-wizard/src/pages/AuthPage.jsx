@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion';
-import { Mail, Lock, User, ArrowRight, Sparkles, Building2, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Zap, Home } from 'lucide-react';
-import { authService } from '../services/api';
+import { Mail, Lock, User, ArrowRight, Sparkles, Building2, Eye, EyeOff, XCircle, Zap, Home } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-function AuthPage({ onLogin }) {
+function AuthPage() {
   const navigate = useNavigate();
+  const { login: authLogin, signup: authSignup } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({ username: '', password: '', email: '', fullName: '', companyId: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [fieldErrors, setFieldErrors] = useState({});
-  const [touched, setTouched] = useState({});
 
   // Mouse Tracking for Parallax
   const mouseX = useMotionValue(0);
@@ -42,139 +41,41 @@ function AuthPage({ onLogin }) {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [mouseX, mouseY]);
 
-  // Real-time validation
-  const validateField = (name, value) => {
-    const errors = {};
-    
-    if (name === 'username' && !isLogin) {
-      if (value.length < 3) errors.username = 'Username must be at least 3 characters';
-      else if (value.length > 30) errors.username = 'Username cannot exceed 30 characters';
-      else if (!/^[a-zA-Z0-9_]+$/.test(value)) errors.username = 'Only letters, numbers, and underscores allowed';
-    }
-    
-    if (name === 'password') {
-      if (value.length === 0) errors.password = '';
-      else if (value.length < 6) errors.password = 'Password must be at least 6 characters';
-      else if (!isLogin && !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
-        errors.password = 'Include uppercase, lowercase, and number';
-      }
-    }
-    
-    if (name === 'email' && !isLogin && value) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.email = 'Invalid email format';
-    }
-    
-    if (name === 'fullName' && !isLogin && value.length > 0 && value.length < 2) {
-      errors.fullName = 'Name is too short';
-    }
-    
-    return errors;
-  };
-
-  const handleFieldChange = (name, value) => {
-    setFormData({ ...formData, [name]: value });
-    if (touched[name]) {
-      const errors = validateField(name, value);
-      setFieldErrors(prev => ({ ...prev, ...errors, [name]: errors[name] || null }));
-    }
-    setError('');
-    setSuccess('');
-  };
-
-  const handleBlur = (name) => {
-    setTouched(prev => ({ ...prev, [name]: true }));
-    const errors = validateField(name, formData[name]);
-    setFieldErrors(prev => ({ ...prev, ...errors }));
-  };
-
-  const getPasswordStrength = (password) => {
-    if (!password) return { level: 0, label: '', color: '' };
-    let strength = 0;
-    if (password.length >= 8) strength++;
-    if (password.length >= 12) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/\d/.test(password)) strength++;
-    if (/[^a-zA-Z\d]/.test(password)) strength++;
-    
-    if (strength <= 2) return { level: 1, label: 'Weak', color: '#ef4444' };
-    if (strength <= 4) return { level: 2, label: 'Fair', color: '#f59e0b' };
-    if (strength <= 5) return { level: 3, label: 'Good', color: '#10b981' };
-    return { level: 4, label: 'Strong', color: '#059669' };
-  };
-
-  const passwordStrength = !isLogin ? getPasswordStrength(formData.password) : null;
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    
-    // Mark all fields as touched
-    const allFields = isLogin 
-      ? ['username', 'password'] 
-      : ['username', 'password', 'email', 'fullName'];
-    const newTouched = {};
-    allFields.forEach(field => newTouched[field] = true);
-    setTouched(newTouched);
-
-    // Validate all fields
-    let allErrors = {};
-    allFields.forEach(field => {
-      const errors = validateField(field, formData[field]);
-      allErrors = { ...allErrors, ...errors };
-    });
-    
-    if (Object.keys(allErrors).filter(key => allErrors[key]).length > 0) {
-      setFieldErrors(allErrors);
-      setError('Please fix the errors above');
-      return;
-    }
-
     setLoading(true);
     try {
       if (isLogin) {
-        const res = await authService.login(formData.username, formData.password);
-        const { access_token } = res.data;
-        localStorage.setItem('spectra_token', access_token);
-        localStorage.setItem('spectra_user', formData.username);
-        
-        setSuccess('✨ Login successful! Redirecting...');
-        setTimeout(() => {
-          onLogin(formData.username);
-          navigate('/create');
-        }, 1200);
+        const result = await authLogin(formData.username, formData.password);
+        if (result.success) {
+          setSuccess('✨ Login successful! Redirecting...');
+          // Navigate is handled by AuthContext
+        } else {
+          // Error is already shown by toast in AuthContext
+          setError(result.error);
+        }
       } else {
-        await authService.signup(
+        const result = await authSignup(
           formData.username, 
           formData.password, 
           formData.email, 
           formData.fullName, 
           formData.companyId
         );
-        setSuccess('✅ Account created successfully! Please login.');
-        setIsLogin(true);
-        setFormData({ username: formData.username, password: '', email: '', fullName: '', companyId: '' });
-        setFieldErrors({});
-        setTouched({});
+        
+        if (result.success) {
+          setSuccess('✅ Account created and logged in! Redirecting...');
+          // Navigate is handled by AuthContext
+        } else {
+          // Error is already shown by toast in AuthContext
+          setError(result.error);
+        }
       }
     } catch (err) {
       console.error('Auth error:', err);
-      
-      if (!err.response) {
-        // Network error
-        setError('🌐 Network error. Please check your connection and try again.');
-      } else if (err.response.status === 500) {
-        setError('⚠️ Server error. Please try again in a moment.');
-      } else if (err.response.status === 503) {
-        setError('🔧 Service temporarily unavailable. Please try again later.');
-      } else if (err.response.status === 429) {
-        setError('⏱️ Too many attempts. Please wait a moment before trying again.');
-      } else {
-        // Show backend validation message
-        const backendError = err.response?.data?.detail || err.response?.data?.message;
-        setError(backendError || '❌ Authentication failed. Please try again.');
-      }
+      setError('❌ An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -287,41 +188,25 @@ function AuthPage({ onLogin }) {
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.3 }}
                 >
-                  <div className={`input-group-glass ${fieldErrors.fullName ? 'error' : ''} ${touched.fullName && !fieldErrors.fullName && formData.fullName ? 'valid' : ''}`}>
+                  <div className="input-group-glass">
                     <User size={18} className="input-icon" />
                     <input
                       type="text"
                       placeholder="Full Name"
                       value={formData.fullName}
-                      onChange={e => handleFieldChange('fullName', e.target.value)}
-                      onBlur={() => handleBlur('fullName')}
-                      required
+                      onChange={e => setFormData({ ...formData, fullName: e.target.value })}
                     />
-                    {touched.fullName && !fieldErrors.fullName && formData.fullName && (
-                      <CheckCircle2 size={18} className="validation-icon success" />
-                    )}
                   </div>
-                  {fieldErrors.fullName && touched.fullName && (
-                    <div className="field-error"><AlertCircle size={14} /> {fieldErrors.fullName}</div>
-                  )}
 
-                  <div className={`input-group-glass ${fieldErrors.email ? 'error' : ''} ${touched.email && !fieldErrors.email && formData.email ? 'valid' : ''}`}>
+                  <div className="input-group-glass">
                     <Mail size={18} className="input-icon" />
                     <input
                       type="email"
                       placeholder="Email Address"
                       value={formData.email}
-                      onChange={e => handleFieldChange('email', e.target.value)}
-                      onBlur={() => handleBlur('email')}
-                      required
+                      onChange={e => setFormData({ ...formData, email: e.target.value })}
                     />
-                    {touched.email && !fieldErrors.email && formData.email && (
-                      <CheckCircle2 size={18} className="validation-icon success" />
-                    )}
                   </div>
-                  {fieldErrors.email && touched.email && (
-                    <div className="field-error"><AlertCircle size={14} /> {fieldErrors.email}</div>
-                  )}
 
                   <div className="input-group-glass">
                     <Building2 size={18} className="input-icon" />
@@ -329,39 +214,31 @@ function AuthPage({ onLogin }) {
                       type="text"
                       placeholder="Company / Brand Name (Optional)"
                       value={formData.companyId}
-                      onChange={e => handleFieldChange('companyId', e.target.value)}
+                      onChange={e => setFormData({ ...formData, companyId: e.target.value })}
                     />
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <motion.div className={`input-group-glass ${fieldErrors.username ? 'error' : ''} ${touched.username && !fieldErrors.username && formData.username ? 'valid' : ''}`} variants={itemVariants}>
+            <motion.div className="input-group-glass" variants={itemVariants}>
               <User size={18} className="input-icon" />
               <input
                 type="text"
                 placeholder="Username"
                 value={formData.username}
-                onChange={e => handleFieldChange('username', e.target.value)}
-                onBlur={() => handleBlur('username')}
+                onChange={e => setFormData({ ...formData, username: e.target.value })}
                 required
               />
-              {touched.username && !fieldErrors.username && formData.username && (
-                <CheckCircle2 size={18} className="validation-icon success" />
-              )}
             </motion.div>
-            {fieldErrors.username && touched.username && (
-              <div className="field-error"><AlertCircle size={14} /> {fieldErrors.username}</div>
-            )}
 
-            <motion.div className={`input-group-glass ${fieldErrors.password ? 'error' : ''} ${touched.password && !fieldErrors.password && formData.password ? 'valid' : ''}`} variants={itemVariants}>
+            <motion.div className="input-group-glass" variants={itemVariants}>
               <Lock size={18} className="input-icon" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={formData.password}
-                onChange={e => handleFieldChange('password', e.target.value)}
-                onBlur={() => handleBlur('password')}
+                onChange={e => setFormData({ ...formData, password: e.target.value })}
                 required
               />
               <button
@@ -373,30 +250,6 @@ function AuthPage({ onLogin }) {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </motion.div>
-            {fieldErrors.password && touched.password && (
-              <div className="field-error"><AlertCircle size={14} /> {fieldErrors.password}</div>
-            )}
-            
-            {!isLogin && formData.password && passwordStrength && (
-              <motion.div 
-                className="password-strength"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-              >
-                <div className="strength-bar-container">
-                  <motion.div 
-                    className="strength-bar"
-                    style={{ background: passwordStrength.color }}
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(passwordStrength.level / 4) * 100}%` }}
-                    transition={{ duration: 0.3 }}
-                  />
-                </div>
-                <span className="strength-label" style={{ color: passwordStrength.color }}>
-                  {passwordStrength.label}
-                </span>
-              </motion.div>
-            )}
 
             <AnimatePresence mode="wait">
               {error && (

@@ -4,19 +4,16 @@ import config from '../config/config';
 const api = axios.create({
   baseURL: config.apiBaseUrl,
   timeout: config.apiTimeout,
+  withCredentials: true,  // Send cookies with every request
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Auth Interceptor
+// Handle FormData Content-Type
 api.interceptors.request.use((reqConfig) => {
   if (reqConfig.data instanceof FormData) {
     delete reqConfig.headers['Content-Type'];
-  }
-  const token = localStorage.getItem(config.storageKeys.token);
-  if (token) {
-    reqConfig.headers.Authorization = `Bearer ${token}`;
   }
   return reqConfig;
 });
@@ -27,8 +24,7 @@ api.interceptors.response.use(
   (err) => {
     const isLoginRequest = err.config?.url?.includes('/auth/login');
     if (err.response?.status === 401 && !isLoginRequest) {
-      localStorage.removeItem(config.storageKeys.token);
-      localStorage.removeItem(config.storageKeys.user);
+      // Dispatch logout event for global handling
       window.dispatchEvent(new Event('auth:logout'));
     }
     return Promise.reject(err);
@@ -52,6 +48,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
   },
+  logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
 };
 

@@ -48,6 +48,20 @@ function Wizard() {
 
   const handleNext = async () => {
     if (currentStep === 1) {
+      // Validate required fields
+      if (!state.product.brand_name || !state.product.brand_name.trim()) {
+        toast('Please fill Brand Name - it is a required field', 'warning');
+        return;
+      }
+      if (!state.product.product_name || !state.product.product_name.trim()) {
+        toast('Please fill Product Name - it is a required field', 'warning');
+        return;
+      }
+      if (!state.product.description || !state.product.description.trim()) {
+        toast('Please fill Description - it is a required field', 'warning');
+        return;
+      }
+
       const camId = state.strategy?.campaign_id || `${state.product.brand_name?.toLowerCase().replace(/\s/g, '_') || 'ad'}_${new Date().getTime().toString().slice(-4)}`;
       setState(prev => ({ ...prev, strategy: { ...prev.strategy, campaign_id: camId } }));
 

@@ -112,12 +112,20 @@ def run_research(state: AdGenState) -> dict:
                         refined_ad = ai_finder.refine_ad_dna(ad)
                         brand_verified.append(refined_ad)
 
+                # Safe extraction of punch_lines
+                punch_lines = []
+                for ad in brand_verified:
+                    dna = ad.get("dna", {})
+                    punch_line = dna.get("punch_line") or dna.get("punchline") or dna.get("hook", "")
+                    if punch_line:
+                        punch_lines.append(punch_line)
+
                 competitor_results.append({
                     "company": brand_name,
                     "target_count": target_count,
                     "actual_count": len(brand_verified),
-                    "punch_lines": [ad["dna"]["punch_line"] for ad in brand_verified],
-                    "top_punchline": brand_verified[0]["dna"]["punch_line"] if brand_verified else "No ads found",
+                    "punch_lines": punch_lines,
+                    "top_punchline": punch_lines[0] if punch_lines else (brand_verified[0].get("dna", {}).get("hook", "No ads found") if brand_verified else "No ads found"),
                     "ads": brand_verified
                 })
                 print(f"   ✅ {brand_name}: {len(brand_verified)} verified ads")

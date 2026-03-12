@@ -3,8 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
 from api.models.user import TokenData
 from api.services.db_mongo_service import find_user_by_username
 
@@ -23,8 +22,6 @@ ALGORITHM = "HS256"
 # Token expires in 24 hours (reduced from 1 week — shorter window limits stolen token damage)
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
-
 def verify_password(plain_password, hashed_password):
     return bcrypt.checkpw(plain_password.encode("utf-8")[:72], hashed_password.encode("utf-8"))
 
@@ -41,15 +38,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(request: Request):
+    """
+    Extract and validate JWT from HTTP-only cookie instead of Authorization header.
+    This prevents XSS attacks from stealing tokens stored in localStorage.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    # --- FIX A4 (bonus): Removed 4 debug print() calls that ran on EVERY request ---
-    # They were logging partial JWT values and usernames to stdout, which leaks
-    # sensitive data into any log aggregation / monitoring system.
+    
+    # Read token from HTTP-only cookie
+    token = request.cookies.get("access_token")
+    if not token:
+        raise credentials_exception
+    
+    # Strip "Bearer " prefix if present
+    if token.startswith("Bearer "):
+        token = token[7:]
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -57,7 +65,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
             raise credentials_exception
         token_data = TokenData(username=username)
     except JWTError:
-        # Don't log the JWTError detail — it can leak token format information
         raise credentials_exception
 
     user = await find_user_by_username(token_data.username)

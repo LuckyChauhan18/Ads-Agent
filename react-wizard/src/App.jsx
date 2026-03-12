@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Pages (full-page routed views)
 import HomePage from './pages/HomePage';
@@ -16,33 +16,12 @@ import Layout from './components/layout/Layout';
 import Wizard from './components/wizard/Wizard';
 import ToastContainer from './components/Toast';
 
+// Auth Context
+import { AuthProvider } from './context/AuthContext';
+
 import './index.css';
 
 function AppRoutes() {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(localStorage.getItem('spectra_user'));
-
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem('spectra_token');
-    localStorage.removeItem('spectra_user');
-    setUser(null);
-    navigate('/');
-  }, [navigate]);
-
-  const handleLogin = useCallback((username) => {
-    setUser(username);
-  }, []);
-
-  // Listen for 401 auto-logout events from the API interceptor
-  useEffect(() => {
-    const handleAuthLogout = () => {
-      setUser(null);
-      navigate('/auth');
-    };
-    window.addEventListener('auth:logout', handleAuthLogout);
-    return () => window.removeEventListener('auth:logout', handleAuthLogout);
-  }, [navigate]);
-
   return (
     <>
       <Routes>
@@ -55,7 +34,7 @@ function AppRoutes() {
           element={
             <div className="app-container">
               <div className="bg-layer bg-auth" />
-              <AuthPage onLogin={handleLogin} />
+              <AuthPage />
             </div>
           }
         />
@@ -65,7 +44,7 @@ function AppRoutes() {
           path="/create"
           element={
             <ProtectedRoute>
-              <Layout user={user} onLogout={handleLogout}>
+              <Layout>
                 <Wizard />
               </Layout>
             </ProtectedRoute>
@@ -76,8 +55,8 @@ function AppRoutes() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Layout user={user} onLogout={handleLogout}>
-                <Dashboard user={user} />
+              <Layout>
+                <Dashboard />
               </Layout>
             </ProtectedRoute>
           }
@@ -87,8 +66,8 @@ function AppRoutes() {
           path="/analytics"
           element={
             <ProtectedRoute>
-              <Layout user={user} onLogout={handleLogout}>
-                <AnalyticsDashboard user={user} />
+              <Layout>
+                <AnalyticsDashboard />
               </Layout>
             </ProtectedRoute>
           }
@@ -98,8 +77,8 @@ function AppRoutes() {
           path="/publish"
           element={
             <ProtectedRoute>
-              <Layout user={user} onLogout={handleLogout}>
-                <PublishCenter user={user} />
+              <Layout>
+                <PublishCenter />
               </Layout>
             </ProtectedRoute>
           }
@@ -194,8 +173,10 @@ function AppRoutes() {
 function App() {
   return (
     <Router>
-      <AppRoutes />
-      <ToastContainer />
+      <AuthProvider>
+        <AppRoutes />
+        <ToastContainer />
+      </AuthProvider>
     </Router>
   );
 }
