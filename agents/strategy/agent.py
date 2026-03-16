@@ -53,8 +53,10 @@ def run_strategy(state: AdGenState) -> dict:
 
     # ── Step 1: Campaign Psychology Engine ─────────────────────
     try:
+        print(f"   📡 Running Campaign Psychology Engine...")
         engine_1 = CampaignPsychologyEngine(founder_data, competitor_results)
         campaign_psychology = engine_1.generate_campaign_psychology()
+        print(f"   ✅ Campaign Psychology Engine completed.")
 
         # Inject product understanding into psychology context
         if product_understanding:
@@ -66,8 +68,8 @@ def run_strategy(state: AdGenState) -> dict:
         campaign_psychology = {"product_understanding": product_understanding}
         print(f"   ⚠️ Campaign psychology failed: {e}")
 
-    # ── Step 2: Pattern Selection Engine ───────────────────────
     try:
+        print(f"   📡 Running Pattern Selection Engine...")
         engine_2 = PatternSelectionEngine(campaign_psychology)
         pattern_blueprint = engine_2.generate_blueprint()
         print(f"   ✅ Ad pattern selected: {pattern_blueprint.get('pattern_name', 'Unknown')}")

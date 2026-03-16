@@ -49,6 +49,11 @@ output/
 tmp/
 assets/
 video/
+extra/
+*.txt
+*.json
+!package.json
+!composer.json
 
 # IDEs and Editors
 .vscode/

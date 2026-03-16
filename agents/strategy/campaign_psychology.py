@@ -90,7 +90,8 @@ class CampaignPsychologyEngine:
             model="gpt-4o-mini",
             openai_api_key=self.api_key,
             openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0.7
+            temperature=0.7,
+            timeout=60  # Added timeout to prevent hanging
         )
 
     # ────────────────────────────────────────────────────────────────
@@ -438,6 +439,7 @@ Return ONLY a JSON object with these keys:
 """
 
         try:
+            print(f"   📡 Calling LLM for psychology generation (prompt length: {len(prompt)})...")
             response = self.llm.invoke([
                 SystemMessage(content=(
                     "You are a world-class direct-response advertising strategist "
@@ -446,7 +448,7 @@ Return ONLY a JSON object with these keys:
                 )),
                 HumanMessage(content=prompt)
             ])
-
+            print(f"   ✅ LLM response received.")
             content = response.content
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0].strip()
