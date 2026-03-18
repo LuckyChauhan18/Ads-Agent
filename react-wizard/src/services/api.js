@@ -21,11 +21,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Auto-logout on 401
+// Auto-logout on 401 — but NOT for auth endpoints (login/signup)
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/signup');
+    if (err.response?.status === 401 && !isAuthEndpoint) {
       localStorage.removeItem('spectra_token');
       localStorage.removeItem('spectra_user');
       window.location.href = '/auth';

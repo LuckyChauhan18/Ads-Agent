@@ -162,6 +162,8 @@ async def find_user_by_email(email: str):
 
 async def create_user(user_data: dict):
     """Insert a new user document."""
+    if mongo.db is None:
+        raise Exception("Database is not connected. Please check your MongoDB configuration.")
     result = await mongo.db.users.insert_one(user_data)
     return str(result.inserted_id)
 

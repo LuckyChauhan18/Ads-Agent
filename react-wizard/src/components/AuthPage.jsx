@@ -61,24 +61,38 @@ function AuthPage({ onLogin }) {
       const detail = err.response?.data?.detail || '';
       const status = err.response?.status;
 
-      if (!isLogin && status === 401) {
-        // Login failure
-        const msg = detail || 'Incorrect username or password';
+      if (isLogin && status === 401) {
+        // Login failed — show specific message from backend
+        const msg = detail || 'Incorrect username or password. Please try again.';
         setError(msg);
         toast(msg, 'error');
-      } else if (isLogin && status === 401) {
-        setError('Incorrect username or password. Please try again.');
-        toast('Incorrect username or password', 'error');
-      } else if (detail.includes('already registered')) {
+        // If user doesn't exist, suggest signup
+        if (detail.includes('No account found')) {
+          setTimeout(() => {
+            toast('Create an account to get started', 'info');
+            setIsLogin(false);
+          }, 1500);
+        }
+      } else if (!isLogin && status === 400 && detail.includes('already registered')) {
+        // Signup conflict — username/email/company already taken
         setError(detail);
         toast(detail, 'warning');
-        // If username exists, suggest logging in
         if (detail.includes('Username')) {
           setTimeout(() => {
             toast('Try logging in with your existing account', 'info');
             setIsLogin(true);
           }, 1500);
         }
+      } else if (!isLogin && status === 500) {
+        // Signup server error
+        const msg = detail || 'Signup failed due to a server error. Please try again.';
+        setError(msg);
+        toast(msg, 'error');
+      } else if (!err.response) {
+        // Network error — server not reachable
+        const msg = 'Cannot connect to server. Make sure the backend is running.';
+        setError(msg);
+        toast(msg, 'error');
       } else {
         const msg = detail || `${isLogin ? 'Login' : 'Signup'} failed. Please try again.`;
         setError(msg);
