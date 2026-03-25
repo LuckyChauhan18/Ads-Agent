@@ -357,6 +357,15 @@ Generate a JSON object with these fields:
    - Actions must be realistic for how someone actually uses/interacts with this product category.
    - Do NOT use skincare-specific actions (applying on face, squeezing onto palm) unless the product IS skincare.
 
+   === CRITICAL REALISM RULES FOR ACTIONS ===
+   - NEVER involve mirrors in any action. No touching mirrors, no reaching toward mirrors, no looking into mirrors, no hands near reflective surfaces. Mirrors can exist in the setting but the person must NEVER interact with them.
+   - ALL actions must obey real-world physics. Objects are picked up from shelves, tables, or counters — NEVER from walls, mirrors, or thin air.
+   - Specify exact body position: the person is STANDING or SITTING. State what EACH HAND is doing.
+   - The person has exactly ONE body with TWO hands. Both hands must be visibly connected to arms at all times.
+   - Every action must be filmable in a SINGLE continuous take by a real human actor — no jump cuts, no transformations, no teleportation.
+   - NEVER describe objects appearing, materializing, floating, or morphing. Objects are always already present on a surface before the person picks them up.
+   - AVOID abstract or metaphorical actions. Only describe literal, physical, observable movements.
+
 4. "per_scene_lighting": A JSON object with ONE consistent lighting setup for ALL scenes.
    - Key "global": one detailed lighting description that works for the setting.
    - Must include: light source type, color temperature, shadow quality, ambient fill.
@@ -456,13 +465,13 @@ Return ONLY valid JSON, no explanation.
             )
 
         scene_actions = {
-            "Hook": "stands in the space, looks around with a mildly frustrated expression, then turns to camera and gestures with hands while speaking",
-            "Problem": "picks up a generic item from nearby, shakes head in disappointment, puts it down and turns to camera speaking emotionally",
-            "Solution": f"reaches for the EXACT product from the reference image ({product_name}), picks it up with both hands and holds it toward camera with genuine excitement",
-            "Trust": "gestures confidently while speaking about results, nods with conviction",
-            "Proof": f"uses the EXACT product from the reference image ({product_name}) naturally while looking at camera with a genuine smile",
-            "CTA": f"holds the EXACT product from the reference image ({product_name}) forward toward camera, speaks with energy and urgency",
-            "Relatable Moment": "pauses in the space, looks thoughtful, then turns to camera to speak naturally and casually",
+            "Hook": "stands facing camera with both hands at sides, looks slightly frustrated, then raises right hand to gesture while speaking directly to camera",
+            "Problem": "stands near a shelf, picks up a generic item from the shelf with right hand, shakes head in disappointment, puts it back on shelf and turns to camera speaking with left hand gesturing",
+            "Solution": f"stands near a counter, reaches with right hand to pick up the EXACT product from the reference image ({product_name}) from the counter, holds it up with both hands toward camera with genuine excitement",
+            "Trust": "stands facing camera with both hands visible, gestures confidently with right hand while speaking about results, nods with conviction",
+            "Proof": f"stands at counter, holds the EXACT product from the reference image ({product_name}) in left hand, demonstrates using it naturally with right hand while looking at camera with a genuine smile",
+            "CTA": f"stands facing camera, holds the EXACT product from the reference image ({product_name}) forward with both hands toward camera, speaks with energy and urgency",
+            "Relatable Moment": "stands in the space with both hands relaxed at sides, pauses thoughtfully, then turns to camera and speaks naturally with casual hand gestures",
         }
 
         print(f"     Using category fallback visual context for '{category}'")
@@ -540,6 +549,14 @@ LIGHTING (SAME in ALL scenes): {lighting}
 9. NEVER say "same person" — just describe them identically each time
 10. When the product appears (Solution, Proof, CTA scenes), describe it EXACTLY as the reference image — same packaging shape, same colors, same label design, same brand logo placement. Do NOT reimagine or alter the product appearance.
 11. AVOID: blurry, distorted face, extra fingers, deformed hands, cartoon, anime, CGI, 3D render, text overlay, watermark, caption, subtitle, plastic skin, harsh sunlight
+
+=== CRITICAL PHYSICS & REALISM RULES ===
+12. NEVER describe hands, arms, or objects coming from mirrors, walls, or reflective surfaces. The person must NEVER touch or reach toward a mirror.
+13. ALL objects must be picked up from real horizontal surfaces (shelf, table, counter, desk). NEVER from vertical surfaces, mirrors, or mid-air.
+14. The person has exactly ONE body with TWO hands attached to TWO arms. All limbs must be anatomically correct and visibly connected at all times.
+15. NO magical, surreal, or impossible movements — no telekinesis, no morphing, no objects appearing from nowhere, no floating objects, no transformations.
+16. Every described action must be performable by a real human actor in a single continuous take.
+17. If the setting has a mirror, the person must STAND AWAY from it and NEVER interact with it. The mirror is background decoration only.
 
 Write prompts for ONLY these scenes:
 
@@ -655,7 +672,11 @@ Return ONLY valid JSON:
             f"CGI, 3D render, text overlay, watermark, logo overlay, caption, subtitle, plastic skin, "
             f"uncanny valley, bad anatomy, harsh sunlight, direct sunlight, window light, lens flare, "
             f"dark shadows, high contrast lighting, overexposed, underexposed, "
-            f"different product, generic product, wrong packaging, altered brand label."
+            f"different product, generic product, wrong packaging, altered brand label, "
+            f"hands from mirror, arms through surfaces, objects appearing from nowhere, "
+            f"surreal movement, magical transformation, telekinesis, morphing objects, "
+            f"extra limbs, mirror hands, ghostly appendages, floating objects, "
+            f"body parts disconnected, impossible physics, objects passing through walls."
         )
 
         return prompt
@@ -711,7 +732,11 @@ Return ONLY valid JSON:
                 "plastic skin, uncanny valley, bad anatomy, static image, "
                 "harsh sunlight, direct sunlight, window light, lens flare, "
                 "dark shadows, high contrast lighting, overexposed, underexposed, "
-                "different product, generic product, wrong packaging, altered brand label"
+                "different product, generic product, wrong packaging, altered brand label, "
+                "hands from mirror, arms through surfaces, objects appearing from nowhere, "
+                "surreal movement, magical transformation, telekinesis, morphing objects, "
+                "extra limbs, mirror hands, ghostly appendages, floating objects, "
+                "body parts disconnected, impossible physics, objects passing through walls"
             )
 
             config = None
