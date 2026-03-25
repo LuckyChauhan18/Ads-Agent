@@ -160,7 +160,7 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(product_ids[0])
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="SUBJECT"
+                        image=img, reference_type="ASSET"
                     ))
                     print(f"       Using product image {product_ids[0]} as style anchor for scene '{scene_name}'")
 
@@ -170,7 +170,7 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(pid)
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="SUBJECT"
+                        image=img, reference_type="ASSET"
                     ))
                     print(f"       Using product image {pid} for scene '{scene_name}'")
 
@@ -180,14 +180,14 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(lid)
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="SUBJECT"
+                        image=img, reference_type="ASSET"
                     ))
                     print(f"       Using logo {lid} for scene '{scene_name}'")
             for pid in product_ids[:1]:
                 img = await self._load_image_for_veo(pid)
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="SUBJECT"
+                        image=img, reference_type="ASSET"
                     ))
                     print(f"       Using product image {pid} for scene '{scene_name}'")
 
@@ -197,7 +197,7 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(product_ids[0])
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="SUBJECT"
+                        image=img, reference_type="ASSET"
                     ))
 
         return references[:2]
@@ -717,25 +717,15 @@ Return ONLY valid JSON:
             config = None
 
             if reference_images:
-                # Try full config with negative_prompt + references first
-                try:
-                    config = types.GenerateVideosConfig(
-                        number_of_videos=1,
-                        duration_seconds=duration_sec,
-                        aspect_ratio="9:16",
-                        reference_images=reference_images,
-                        person_generation="allow_all",
-                        negative_prompt=NEGATIVE_PROMPT,
-                    )
-                except (TypeError, ValueError):
-                    # Veo doesn't support negative_prompt with references — use minimal config
-                    # The inline negative prompt embedded in the text prompt still applies
-                    config = types.GenerateVideosConfig(
-                        number_of_videos=1,
-                        duration_seconds=duration_sec,
-                        aspect_ratio="9:16",
-                        reference_images=reference_images,
-                    )
+                # With reference images: NO person_generation (not supported with refs)
+                # Negative prompt is already embedded in the text prompt for coverage
+                config = types.GenerateVideosConfig(
+                    number_of_videos=1,
+                    duration_seconds=duration_sec,
+                    aspect_ratio="9:16",
+                    reference_images=reference_images,
+                    negative_prompt=NEGATIVE_PROMPT,
+                )
             else:
                 config = types.GenerateVideosConfig(
                     number_of_videos=1,
