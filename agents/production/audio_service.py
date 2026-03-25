@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 # ElevenLabs for ultra-realistic, emotively-capable TTS
 from elevenlabs.client import ElevenLabs
-from elevenlabs import save
+from elevenlabs import save, VoiceSettings
 
 load_dotenv()
 
@@ -142,7 +142,7 @@ ORIGINAL TEXT:
                 voice_id=voice_id,
                 model_id="eleven_multilingual_v2",
                 output_format="mp3_44100_128",
-                voice_settings=types.VoiceSettings(
+                voice_settings=VoiceSettings(
                     stability=0.40,      # Dynamic and emotive (less robotic)
                     similarity_boost=0.60, # Consistent character voice
                     style=0.20,          # Slight style exaggeration for impact

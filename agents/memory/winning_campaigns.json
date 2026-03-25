@@ -336,5 +336,212 @@
     "angle": "General",
     "tone": "Friendly & Casual",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T11:35:51.324541",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "day_in_life",
+    "psychological_triggers": [
+      "curiosity_gap",
+      "authority",
+      "contrast_principle"
+    ],
+    "angle": "General",
+    "tone": "Friendly",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T11:46:51.067619",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "pain_amplification",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Friendly",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T11:52:37.179320",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "before_after",
+    "psychological_triggers": [
+      "reciprocity",
+      "fear_of_missing_out",
+      "loss_aversion"
+    ],
+    "angle": "General",
+    "tone": "Friendly",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T12:09:23.385314",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "day_in_life",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "curiosity_gap",
+      "reciprocity"
+    ],
+    "angle": "General",
+    "tone": "Friendly",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T12:34:26.513258",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "myth_busting",
+    "psychological_triggers": [
+      "identity_alignment",
+      "social_proof",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Friendly",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T12:46:48.756857",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "day_in_life",
+    "psychological_triggers": [
+      "social_proof",
+      "authority",
+      "loss_aversion"
+    ],
+    "angle": "General",
+    "tone": "Friendly",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T13:03:10.625028",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "myth_busting",
+    "psychological_triggers": [
+      "pain_amplification",
+      "reciprocity",
+      "identity_alignment"
+    ],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T13:45:35.217412",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "day_in_life",
+    "psychological_triggers": [
+      "identity_alignment",
+      "loss_aversion",
+      "social_proof"
+    ],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-18T14:36:35.460001",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "myth_busting",
+    "psychological_triggers": [
+      "contrast_principle",
+      "fear_of_missing_out",
+      "social_proof"
+    ],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-19T12:04:09.279892",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-19T12:15:27.544871",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-19T13:56:49.172966",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-19T15:08:10.448553",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-19T17:32:57.432112",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-22T00:55:32.859718",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-22T18:22:10.143564",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-22T21:30:30.698412",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-23T12:13:32.891185",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Neutral",
+    "funnel_stage": "warm"
+  },
+  {
+    "timestamp": "2026-03-24T23:18:36.693840",
+    "hook_type": "",
+    "narrative_style": "",
+    "psychological_triggers": [],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "warm"
   }
 ]

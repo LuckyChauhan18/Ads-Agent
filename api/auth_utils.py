@@ -11,7 +11,7 @@ from api.services.db_mongo_service import find_user_by_username
 # Secret keys and algorithms
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "b3984d7f8d6f5e4c3b2a1a09876543210fedcba9876543210fedcba987654321") # Use a real secret in production
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7 # 1 week
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 # 1 hour
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")

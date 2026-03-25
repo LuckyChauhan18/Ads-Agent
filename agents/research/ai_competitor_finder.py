@@ -226,25 +226,26 @@ class AICompetitorFinder:
             print(f"Brand resolution failed for '{query}': {e}")
             return []
 
-    def verify_ad_match(self, ad_data: Dict, product_info: Dict) -> bool:
+    def verify_ad_match(self, ad_data: Dict, product_info: Dict, ads_type: str = "product_demo") -> bool:
         """Verifies if an extracted ad matches the product's contextual properties."""
         prompt = f"""
-        You are an Ad Relevance Analyst. Determine if the EXTRACTED AD is a reasonable context match for the TARGET PRODUCT.
+        You are an Ad Relevance Analyst. Determine if the EXTRACTED AD is a reasonable context match for the TARGET PRODUCT and STYLE.
         
         TARGET PRODUCT:
         - Category: {product_info.get('category')}
         - Features: {', '.join(product_info.get('features', []))}
         - Price: {product_info.get('price_range')}
+        - Requested Style focus: {ads_type}
         
         EXTRACTED AD:
         - Company: {ad_data.get('company')}
         - Hook: {ad_data['dna'].get('hook')}
         
         VERIFICATION RULES:
-        1. BE LENIENT. If the ad is in the same general industry (e.g., any footwear/shoes), it is a MATCH.
-        2. DO NOT discard if the hook is simple or generic.
-        3. ONLY discard if the ad is clearly unrelated (e.g., a software ad, or a "4 ads" metadata error).
-        4. If the company name is a known brand in this space, it is a MATCH.
+        1. BE LENIENT on industry. If the ad is in the same general space (e.g., footcare / shoes), it is a match.
+        2. STYLE ALIGNMENT: The user wants a '{ads_type}' ad (e.g., influencer means authentic narrator face; product_demo means focus on product closeups). If the ad content absolutely violates the chosen format (e.g., text-only when influencer was asked), do not score high, but ONLY discard if completely layout invariant.
+        3. DO NOT discard if the hook is simple or generic.
+        4. ONLY discard if the ad is clearly unrelated (e.g., a software SaaS ad when looking for beauty creams).
         
         Return ONLY a JSON object: {{"is_match": true/false, "reason": "brief reason"}}
         """

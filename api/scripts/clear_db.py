@@ -2,8 +2,8 @@ import os
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
-# Use absolute path for .env to avoid any confusion
-env_path = r"c:\Users\Lucky\OneDrive\Desktop\AI Add Gen\.env"
+# Use absolute path for .env
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
 if os.path.exists(env_path):
     print(f"Loading .env from: {env_path}")
     load_dotenv(env_path)
@@ -18,7 +18,7 @@ def clear_db():
         client = MongoClient(MONGODB_URL)
         db = client[DB_NAME]
         
-        collections = ["products", "research", "campaigns", "scripts", "assets"]
+        collections = ["products", "research", "campaigns", "scripts", "assets", "users"]
         
         for collection_name in collections:
             print(f"Clearing collection: {collection_name}...")

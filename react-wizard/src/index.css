@@ -133,6 +133,11 @@ input, textarea, select {
   transition: var(--transition);
 }
 
+select option {
+  background-color: #111827; /* Dark gray/black matching background */
+  color: #ffffff;
+}
+
 input:focus, textarea:focus, select:focus {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.3);

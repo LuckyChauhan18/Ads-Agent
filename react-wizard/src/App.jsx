@@ -17,6 +17,8 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('spectra_token');
     localStorage.removeItem('spectra_user');
+    localStorage.removeItem('wizard_state');
+    localStorage.removeItem('wizard_step');
     setUser(null);
     window.location.href = '/auth';
   };

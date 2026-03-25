@@ -115,13 +115,13 @@ async def run_step_discover(req: StepRequest, current_user: dict = Depends(get_c
     
     state_in = {"product_input": req.data, "scrape_enabled": False}
 
-    # Inject LTM if company_id is available on the user
-    company_id = current_user.get("company_id")
-    if company_id:
-        from api.services.memory_service import get_company_memory
-        memory = await get_company_memory(company_id)
-        state_in["memory"] = memory
-        state_in["company_id"] = company_id
+    # [LTM Disabled for Current Version]
+    # company_id = current_user.get("company_id")
+    # if company_id:
+    #     from api.services.memory_service import get_company_memory
+    #     memory = await get_company_memory(company_id)
+    #     state_in["memory"] = memory
+    #     state_in["company_id"] = company_id
 
     # LangGraph invoke with thread_id for memory
     config = {"configurable": {"thread_id": campaign_id}}
@@ -180,13 +180,13 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
             }
         }
 
-        # Inject LTM if company_id is available
-        company_id = current_user.get("company_id")
-        if company_id:
-            from api.services.memory_service import get_company_memory
-            memory = await get_company_memory(company_id)
-            state_in["memory"] = memory
-            state_in["company_id"] = company_id
+        # [LTM Disabled for Current Version]
+        # company_id = current_user.get("company_id")
+        # if company_id:
+        #     from api.services.memory_service import get_company_memory
+        #     memory = await get_company_memory(company_id)
+        #     state_in["memory"] = memory
+        #     state_in["company_id"] = company_id
 
         campaign_req_id = req.data.get("founder_data", {}).get("campaign_id", f"camp_{int(datetime.now().timestamp())}")
         config = {"configurable": {"thread_id": campaign_req_id}}
@@ -195,6 +195,7 @@ async def run_step_psychology(req: StepRequest, current_user: dict = Depends(get
         results = {
             "campaign_psychology": state_out.get("strategy", {}).get("campaign_psychology", {}),
             "pattern_blueprint": state_out.get("strategy", {}).get("pattern_blueprint", {}),
+            "script_planning": state_out.get("strategy", {}).get("script_planning", {}),
         }
         
         # Add metadata for history view - use understanding for accurate names
@@ -242,7 +243,8 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
     state_in = {
         "strategy": {
             "pattern_blueprint": req.data["pattern_blueprint"],
-            "campaign_psychology": req.data["campaign_psychology"]
+            "campaign_psychology": req.data["campaign_psychology"],
+            "script_planning": req.data.get("script_planning", {})
         },
         "language": req.data.get("language", "English"),
         "platform": req.data.get("platform") or req.data.get("campaign_psychology", {}).get("platform", "Instagram Reels"),
@@ -252,21 +254,28 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
         }
     }
 
-    # Inject LTM if company_id is available
-    company_id = current_user.get("company_id")
-    if company_id:
-        from api.services.memory_service import get_company_memory
-        memory = await get_company_memory(company_id)
-        state_in["memory"] = memory
-        state_in["company_id"] = company_id
+    # [LTM Disabled for Current Version]
+    # company_id = current_user.get("company_id")
+    # if company_id:
+    #     from api.services.memory_service import get_company_memory
+    #     memory = await get_company_memory(company_id)
+    #     state_in["memory"] = memory
+    #     state_in["company_id"] = company_id
 
     config = {"configurable": {"thread_id": campaign_req_id}}
     state_out = await creative_graph.ainvoke(state_in, config)
-    results = state_out.get("creative", {}).get("script_output", {})
     
-    print(f"DEBUG: run_step_script results keys: {list(results.keys()) if results else 'NONE'}")
+    # Extract ALL creative outputs
+    creative_results = state_out.get("creative", {})
+    script_output = creative_results.get("script_output", {})
+    audio_planning = creative_results.get("audio_planning", {})
+    
+    # We also need the strategy planning state to preserve ad_type
+    script_planning = state_out.get("strategy", {}).get("script_planning", {})
+    
+    print(f"DEBUG: run_step_script results keys: {list(script_output.keys()) if script_output else 'NONE'}")
     # Update individual script record
-    script_data = {"content": results, "user_id": user_id}
+    script_data = {"content": script_output, "user_id": user_id}
     script_id = await save_document("scripts", script_data)
 
     # NEW: Sync results back to the campaign document if campaign_id is provided
@@ -276,15 +285,22 @@ async def run_step_script(req: StepRequest, current_user: dict = Depends(get_cur
         campaign = await get_document("campaigns", campaign_id)
         if campaign:
             print(f"DEBUG: found campaign document for {campaign_id}. Syncing storyboard...")
-            campaign["final_storyboard"] = results
+            campaign["final_storyboard"] = script_output
+            campaign["audio_planning"] = audio_planning
+            campaign["script_planning"] = script_planning
             campaign["platform"] = state_in["platform"]
             campaign["ad_length"] = state_in["ad_length"]
             await save_document("campaigns", campaign)
-            print(f"   🔄 Campaign {campaign_id} synced with new script data.")
+            print(f"   🔄 Campaign {campaign_id} synced with new script and audio data.")
         else:
             print(f"DEBUG: campaign document NOT FOUND for {campaign_id}")
 
-    return {"script_id": script_id, "results": results}
+    return {
+        "script_id": script_id, 
+        "results": script_output, 
+        "audio_planning": audio_planning,
+        "script_planning": script_planning
+    }
 
 @router.post("/step/avatar/generate")
 async def run_step_avatar_generate(req: StepRequest, current_user: dict = Depends(get_current_user)):
@@ -313,10 +329,12 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
             "creative": {
                 "script_output": req.data["script_output"],
                 "avatar_config": req.data["avatar_config"],
-                "storyboard_output": req.data.get("storyboard_output") or req.data["script_output"]
+                "storyboard_output": req.data.get("storyboard_output") or req.data["script_output"],
+                "audio_planning": req.data.get("audio_planning", {})
             },
             "strategy": {
-                "campaign_psychology": req.data["campaign_psychology"]
+                "campaign_psychology": req.data["campaign_psychology"],
+                "script_planning": req.data.get("script_planning", {})
             },
             "campaign_id": campaign_req_id,
             "user_id": user_id,
@@ -384,10 +402,11 @@ async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get
     """Submit feedback for a generated video ad. Validates, structures, and learns from it."""
     from api.services.db_mongo_service import save_feedback
     from agents.shared.feedback_validator import FeedbackValidator
-    from api.services.memory_service import (
-        save_feedback_to_history,
-        process_structured_feedback,
-    )
+    # [LTM Disabled for Current Version]
+    # from api.services.memory_service import (
+    #     save_feedback_to_history,
+    #     process_structured_feedback,
+    # )
 
     user_id = str(current_user["_id"])
     company_id = current_user.get("company_id")
@@ -406,27 +425,28 @@ async def submit_feedback(req: FeedbackRequest, current_user: dict = Depends(get
     feedback_id = await save_feedback(feedback_data)
     print(f"   📝 Feedback saved: rating={req.rating}, id={feedback_id}")
 
-    # 2. If company_id exists, run the two-stage evaluation pipeline
-    evaluation_result = None
-    if company_id and req.feedback_text.strip():
-        # Save to LTM history
-        await save_feedback_to_history(company_id, feedback_data)
-
-        # Stage 1 + 2: Validate and extract
-        validator = FeedbackValidator()
-        evaluation_result = validator.evaluate(req.feedback_text)
-
-        # 3. If valid, process structured feedback via memory service
-        if evaluation_result.get("valid") and evaluation_result.get("structured_feedback"):
-            memory_results = await process_structured_feedback(
-                company_id=company_id,
-                structured_feedback=evaluation_result["structured_feedback"],
-                confidence=evaluation_result.get("confidence", 0.0),
-            )
-            evaluation_result["memory_results"] = memory_results
-            print(f"   🧠 Memory processing complete for {company_id}")
-        else:
-            print(f"   ⛔ Feedback not valid or no structured feedback extracted.")
+    # [LTM Disabled for Current Version]
+    # # 2. If company_id exists, run the two-stage evaluation pipeline
+    # evaluation_result = None
+    # if company_id and req.feedback_text.strip():
+    #     # Save to LTM history
+    #     await save_feedback_to_history(company_id, feedback_data)
+    # 
+    #     # Stage 1 + 2: Validate and extract
+    #     validator = FeedbackValidator()
+    #     evaluation_result = validator.evaluate(req.feedback_text)
+    # 
+    #     # 3. If valid, process structured feedback via memory service
+    #     if evaluation_result.get("valid") and evaluation_result.get("structured_feedback"):
+    #         memory_results = await process_structured_feedback(
+    #             company_id=company_id,
+    #             structured_feedback=evaluation_result["structured_feedback"],
+    #             confidence=evaluation_result.get("confidence", 0.0),
+    #         )
+    #         evaluation_result["memory_results"] = memory_results
+    #         print(f"   🧠 Memory processing complete for {company_id}")
+    #     else:
+    #         print(f"   ⛔ Feedback not valid or no structured feedback extracted.")
 
     return {
         "status": "ok",

@@ -19,27 +19,57 @@ OUTPUT_FILE = "ads_dna_10_competitors.json"
 MAX_UNIQUE_BRANDS = 3
 ADS_PER_BRAND = 3 
 
-def get_history():
-    """Fetch fingerprints from Redis synchronously."""
+def get_history(user_id=None):
+    """Fetch fingerprints from MongoDB for a specific user."""
     try:
-        import redis
+        from pymongo import MongoClient
         load_dotenv()
-        r = redis.Redis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
-        return set(r.smembers("extraction_fingerprints"))
+        mongo_url = os.getenv("MONGODB_URL")
+        if not mongo_url:
+            return set()
+            
+        client = MongoClient(mongo_url)
+        db = client.get_database("ai_ad_generator")
+        collection = db["extraction_fingerprints"]
+        
+        query = {"user_id": user_id} if user_id else {}
+        cursor = collection.find(query, {"fingerprint": 1})
+        return {doc["fingerprint"] for doc in cursor}
     except Exception as e:
-        print(f"Extraction History: Could not fetch from Redis. {e}")
+        print(f"Extraction History: Could not fetch from MongoDB. {e}")
         return set()
 
-def save_history(history):
-    """Save new fingerprints to Redis."""
+def save_history(fingerprints, user_id=None):
+    """Save fingerprints to MongoDB with user_id."""
+    if not fingerprints:
+        return
+        
     try:
-        import redis
+        from pymongo import MongoClient
         load_dotenv()
-        r = redis.Redis.from_url(os.getenv("REDIS_URL"), decode_responses=True)
-        if history:
-            r.sadd("extraction_fingerprints", *history)
+        mongo_url = os.getenv("MONGODB_URL")
+        if not mongo_url:
+            return
+            
+        client = MongoClient(mongo_url)
+        db = client.get_database("ai_ad_generator")
+        collection = db["extraction_fingerprints"]
+        
+        docs = []
+        for fp in fingerprints:
+            docs.append({
+                "user_id": user_id,
+                "fingerprint": fp,
+                "created_at": datetime.utcnow()
+            })
+            
+        if docs:
+            # Use upsert or just insert if we know they are new
+            collection.insert_many(docs, ordered=False)
     except Exception as e:
-        print(f"Extraction History: Could not save to Redis. {e}")
+        # Ignore duplicate key errors if fingerprints overlap
+        if "duplicate key error" not in str(e).lower():
+            print(f"Extraction History: Could not save to MongoDB. {e}")
 
 def find_competitors(driver, company_name):
     print(f"Searching for competitors of: {company_name}...")
@@ -217,9 +247,10 @@ def extract_ads_for_brand(driver, brand_name, history, product_context=None):
     
     return records
 
-def run_extraction(brand_queue, max_unique_brands=MAX_UNIQUE_BRANDS, ads_per_brand=ADS_PER_BRAND, output_file=OUTPUT_FILE, product_context=None):
+def run_extraction(brand_queue, max_unique_brands=MAX_UNIQUE_BRANDS, ads_per_brand=ADS_PER_BRAND, output_file=OUTPUT_FILE, product_context=None, user_id=None):
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
-    history = get_history()
+    history = get_history(user_id)
+    initial_history_count = len(history)
     final_data = []
     processed_brands = set()
     
@@ -259,7 +290,8 @@ def run_extraction(brand_queue, max_unique_brands=MAX_UNIQUE_BRANDS, ads_per_bra
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(final_data, f, indent=2, ensure_ascii=True)
     
-    save_history(history)
+    # Save all fingerprints collected in this run to MongoDB
+    save_history(history, user_id=user_id) 
     print(f"\nProgress: Collected {len(processed_brands)} unique brands.")
     driver.quit()
     return final_data

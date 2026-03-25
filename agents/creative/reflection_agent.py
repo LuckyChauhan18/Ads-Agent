@@ -34,42 +34,53 @@ class ReflectionAgent:
             self.client = None
             print("   ⚠️ ReflectionAgent: No Gemini API key found.")
 
-    def critique(self, script_output: dict, campaign_context: dict) -> dict:
+    def critique(self, script_output: dict, campaign_context: dict, ad_type: str = "product_demo") -> dict:
         """
         Evaluate a generated script and return a critique with score.
-
-        Returns:
-            {
-                "score": 1-10,
-                "issues": ["issue1", "issue2"],
-                "suggestions": ["fix1", "fix2"]
-            }
         """
         if not self.client:
             return {"score": 9, "issues": [], "suggestions": []}
 
-        product_name = campaign_context.get("product_understanding", {}).get("product_name", "the product")
-        brand_voice = campaign_context.get("brand_voice", "modern")
+        # campaign_context is now strategy_data
+        campaign_psychology = campaign_context.get("campaign_psychology", campaign_context)
+        product_name = campaign_psychology.get("product_understanding", {}).get("product_name", "the product")
+        brand_voice = campaign_psychology.get("brand_voice", "modern")
+
+        # Extract Dynamic Template Rules
+        ad_template = campaign_context.get("script_planning", {}).get("template", {})
+        common_rules = ad_template.get("common_rules", [])
+        needs_avatar = ad_template.get("needs_avatar", True)
+        description = ad_template.get("description", "Standard Ad")
+
+        rules_text = "\n".join([f"- {r}" for r in common_rules]) if common_rules else "- Standard ad flow"
 
         scenes_text = ""
-        for scene in script_output.get("scenes", []):
-            scenes_text += f"\n- {scene.get('scene')}: {scene.get('voiceover', '')}"
+        for i, scene in enumerate(script_output.get("scenes", [])):
+            scenes_text += f"\n- Scene {i+1} [{scene.get('scene', 'N/A')}]:"
+            scenes_text += f"\n  VOICEOVER: {scene.get('voiceover', scene.get('copy', ''))}"
+            scenes_text += f"\n  VISUAL: {scene.get('visual_description', scene.get('visual_continuity', 'N/A'))}\n"
 
         prompt = f"""You are an expert ad critic evaluating a video ad script.
 
 PRODUCT: {product_name}
 BRAND VOICE: {brand_voice}
+AD TYPE: {ad_type}
+AD DESCRIPTION: {description}
 
 SCRIPT SCENES:
 {scenes_text}
 
-Evaluate the script on each of these criteria (1-10):
-1. Hook strength — Does the first scene grab attention?
-2. Emotional impact — Does the ad evoke the right emotion?
-3. Script length — Is the dialogue appropriate for a 15-30 second ad?
-4. Story clarity — Does the narrative flow logically?
-5. CTA strength — Is the call to action compelling?
-6. Tone alignment — Does the tone match the brand voice?
+CRITICAL AD TYPE DYNAMIC RULES (MUST VERIFY):
+- Needs Avatar: {needs_avatar}
+{rules_text}
+
+Below is a strict checklist for a {ad_type} ad. Critique this script based on:
+1. **Hook Strength (First 3-5s)** — Is the first scene visually striking? Does the `visual_continuity` specify an arresting image? Does the opening line create an immediate curiosity gap or emotional trigger?
+2. **Visual Feasibility** — Can the `visual_continuity` be realistically rendered by a standard AI video generator (e.g., Gemini Veo 3.1)? Avoid overly complex physics or impossible camera moves.
+3. **Script Pacing** — Is the line length realistic for a 15-30 second ad?
+4. **Story Clarity** — Does the narrative flow logically from scene to scene?
+5. **CTA Strength (Final Scene)** — Does the LAST scene containing the Call To Action feel compelling and clear?
+6. **Tone & Rules Alignment** — Does the pacing match the intended brand voice and obey the ad type guidelines above?
 
 Return ONLY valid JSON:
 {{
@@ -78,7 +89,7 @@ Return ONLY valid JSON:
   "suggestions": ["specific improvement 1", "specific improvement 2"]
 }}
 
-Be strict but fair. Only flag genuine issues."""
+Be strict but fair. Only flag genuine issues. Avoid reviewing scenes out-of-context; for example, do not expect a hook in the middle of the script."""
 
         try:
             response = self.client.models.generate_content(
@@ -93,7 +104,7 @@ Be strict but fair. Only flag genuine issues."""
             print(f"   ⚠️ Reflection failed: {e}. Passing through.")
             return {"score": 9, "issues": [], "suggestions": []}
 
-    def improve(self, script_output: dict, critique: dict, campaign_context: dict) -> dict:
+    def improve(self, script_output: dict, critique: dict, campaign_context: dict, ad_type: str = "product_demo") -> dict:
         """
         Use the critique to improve the script.
 
@@ -102,18 +113,30 @@ Be strict but fair. Only flag genuine issues."""
         if not self.client:
             return script_output
 
-        product_name = campaign_context.get("product_understanding", {}).get("product_name", "the product")
+        # campaign_context is now strategy_data
+        campaign_psychology = campaign_context.get("campaign_psychology", campaign_context)
+        product_name = campaign_psychology.get("product_understanding", {}).get("product_name", "the product")
+
+        # Extract Dynamic Template Rules for improvement context
+        ad_template = campaign_context.get("script_planning", {}).get("template", {})
+        common_rules = ad_template.get("common_rules", [])
+        rules_text = "\n".join([f"- {r}" for r in common_rules]) if common_rules else "- Standard ad flow"
 
         scenes_json = json.dumps(script_output.get("scenes", []), indent=2)
         issues_text = "\n".join([f"- {i}" for i in critique.get("issues", [])])
         suggestions_text = "\n".join([f"- {s}" for s in critique.get("suggestions", [])])
 
-        prompt = f"""You are improving a video ad script based on expert critique.
+        prompt = f"""You are improving a video ad script based on expert critique and template rules.
 
 PRODUCT: {product_name}
 
 CURRENT SCRIPT (JSON scenes):
 {scenes_json}
+
+AD TYPE: {ad_type}
+
+AD TYPE RULES TO MAINTAIN:
+{rules_text}
 
 ISSUES FOUND:
 {issues_text}
@@ -121,9 +144,9 @@ ISSUES FOUND:
 IMPROVEMENT SUGGESTIONS:
 {suggestions_text}
 
-Improve the script to fix the issues. Keep the same JSON structure.
-Return ONLY valid JSON — an array of scene objects with the same keys
-(scene, voiceover, visual_description, duration_seconds, visual_continuity).
+Improve the script to fix the issues while strictly respecting the ad type rules. Keep the same JSON structure.
+Return ONLY valid JSON — an array of scene objects with the exact same keys:
+(scene, voiceover, visual_continuity, duration).
 
 Do NOT add new scenes. Only improve existing ones."""
 
@@ -133,11 +156,25 @@ Do NOT add new scenes. Only improve existing ones."""
                 contents=prompt,
                 config={"response_mime_type": "application/json"},
             )
-            improved_scenes = json.loads(response.text)
+            
+            # Robust JSON parsing
+            try:
+                raw_text = response.text.strip()
+                improved_data = json.loads(raw_text)
+            except json.JSONDecodeError:
+                # Attempt to extract JSON if LLM added markdown blockers
+                import re
+                match = re.search(r'\[.*\]', raw_text, re.DOTALL)
+                if match:
+                    improved_data = json.loads(match.group(0))
+                else:
+                    raise
 
-            # Handle both array and object responses
-            if isinstance(improved_scenes, dict):
-                improved_scenes = improved_scenes.get("scenes", improved_scenes.get("script", []))
+            # Handle both array and object responses (look for 'scenes')
+            if isinstance(improved_data, dict):
+                improved_scenes = improved_data.get("scenes", improved_data.get("script", []))
+            else:
+                improved_scenes = improved_data
 
             if isinstance(improved_scenes, list) and len(improved_scenes) > 0:
                 improved_output = script_output.copy()
@@ -152,15 +189,9 @@ Do NOT add new scenes. Only improve existing ones."""
             return script_output
 
 
-def run_reflection_loop(script_output: dict, campaign_context: dict, max_iterations: int = 2) -> dict:
+def run_reflection_loop(script_output: dict, campaign_context: dict, ad_type: str = "product_demo", max_iterations: int = 2) -> tuple:
     """
     Main reflection loop entry point.
-
-    Runs critique → improve cycle up to max_iterations times.
-    Stops early if score >= 8.
-
-    Returns:
-        Tuple of (improved_script, reflection_results)
     """
     agent = ReflectionAgent()
     reflection_results = []
@@ -170,7 +201,7 @@ def run_reflection_loop(script_output: dict, campaign_context: dict, max_iterati
         print(f"\n   🔄 Reflection iteration {i + 1}/{max_iterations}")
 
         # Critique
-        critique = agent.critique(current_script, campaign_context)
+        critique = agent.critique(current_script, campaign_context, ad_type=ad_type)
         score = critique.get("score", 10)
         reflection_results.append({
             "iteration": i + 1,
@@ -185,6 +216,6 @@ def run_reflection_loop(script_output: dict, campaign_context: dict, max_iterati
 
         # Improve
         print(f"   ⚡ Score {score}/10 — improving...")
-        current_script = agent.improve(current_script, critique, campaign_context)
+        current_script = agent.improve(current_script, critique, campaign_context, ad_type=ad_type)
 
     return current_script, reflection_results

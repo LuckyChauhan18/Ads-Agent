@@ -19,6 +19,7 @@ if BASE_DIR not in sys.path:
 from agents.shared.state import AdGenState
 from agents.strategy.campaign_psychology import CampaignPsychologyEngine
 from agents.strategy.pattern_selection import PatternSelectionEngine
+from agents.strategy.script_planner import ScriptPlannerEngine
 from agents.memory.memory_injector import get_strategy_preferences, build_memory_context_prompt
 
 
@@ -38,18 +39,19 @@ def run_strategy(state: AdGenState) -> dict:
     product_understanding = research_data.get("product_understanding", {})
 
     # ── Memory: Load LTM preferences ──────────────────────────
-    memory = state.get("memory", {})
-    strategy_prefs = get_strategy_preferences(memory)
-    memory_context = build_memory_context_prompt(strategy_prefs, "Strategy")
-    if memory_context:
-        print(f"   🧠 LTM loaded for strategy agent")
-        # Inject preferences into founder_data so engines can use them
-        if strategy_prefs.get("preferred_tones"):
-            founder_data.setdefault("preferred_tones", strategy_prefs["preferred_tones"])
-        if strategy_prefs.get("preferred_hooks"):
-            founder_data.setdefault("preferred_hooks", strategy_prefs["preferred_hooks"])
-        if strategy_prefs.get("learned_preference"):
-            founder_data["memory_note"] = strategy_prefs["learned_preference"]
+    # [LTM Disabled for Current Version]
+    # memory = state.get("memory", {})
+    # strategy_prefs = get_strategy_preferences(memory)
+    # memory_context = build_memory_context_prompt(strategy_prefs, "Strategy")
+    # if memory_context:
+    #     print(f"   🧠 LTM loaded for strategy agent")
+    #     # Inject preferences into founder_data so engines can use them
+    #     if strategy_prefs.get("preferred_tones"):
+    #         founder_data.setdefault("preferred_tones", strategy_prefs["preferred_tones"])
+    #     if strategy_prefs.get("preferred_hooks"):
+    #         founder_data.setdefault("preferred_hooks", strategy_prefs["preferred_hooks"])
+    #     if strategy_prefs.get("learned_preference"):
+    #         founder_data["memory_note"] = strategy_prefs["learned_preference"]
 
     # ── Step 1: Campaign Psychology Engine ─────────────────────
     try:
@@ -78,12 +80,25 @@ def run_strategy(state: AdGenState) -> dict:
         pattern_blueprint = {}
         print(f"   ⚠️ Pattern selection failed: {e}")
 
+    # ── Step 3: Script Planner Engine ──────────────────────────
+    try:
+        print(f"   📡 Running Script Planner Engine...")
+        ads_type = founder_data.get("ads_type")
+        planner = ScriptPlannerEngine(campaign_psychology)
+        script_planning = planner.plan_script(ads_type_preference=ads_type)
+        print(f"   ✅ Script planned: {script_planning.get('ad_type')}")
+    except Exception as e:
+        errors.append(f"ScriptPlanner error: {e}")
+        script_planning = {"needs_avatar": True} # Safe default
+        print(f"   ⚠️ Script planning failed: {e}")
+
     print("🧠 [Strategy Agent] Complete.\n")
 
     return {
         "strategy": {
             "campaign_psychology": campaign_psychology,
             "pattern_blueprint": pattern_blueprint,
+            "script_planning": script_planning,
         },
         "errors": errors,
     }

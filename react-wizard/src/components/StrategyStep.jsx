@@ -12,8 +12,11 @@ import {
   Smile,
   MessageSquare,
   ShieldCheck,
-  Zap
+  Zap,
+  Sparkles
 } from 'lucide-react';
+
+import { aiAssistService } from '../services/api';
 
 const EMOTIONS = [
   "Confidence", "Security", "Greed", "Fear of Missing Out (FOMO)",
@@ -33,12 +36,34 @@ const FUNNEL_INFO = {
   hot: "Bottom of Funnel: Target users who are ready to buy or have already shown high intent. Focus on conversion and risk reversal."
 };
 
-const StrategyStep = ({ data, updateData }) => {
+const StrategyStep = ({ data, updateData, mode = 'full', product = {} }) => {
   const [otherEmotion, setOtherEmotion] = useState('');
   const [showOtherEmotion, setShowOtherEmotion] = useState(false);
   const [otherVoice, setOtherVoice] = useState('');
   const [showOtherVoice, setShowOtherVoice] = useState(false);
   const [otherPlatform, setOtherPlatform] = useState('');
+  const [isGeneratingSuggest, setIsGeneratingSuggest] = useState(false);
+
+  const handleSuggestPainPoints = async () => {
+    setIsGeneratingSuggest(true);
+    try {
+      const fd = new FormData();
+      fd.append("product_name", product.product_name || "");
+      fd.append("category", product.category || "");
+      fd.append("description", product.description || "");
+
+      const res = await aiAssistService.runSuggestPainPoints(fd);
+      if (res.data?.results) {
+        updateData({
+          target_audience_problem: res.data.results
+        });
+      }
+    } catch (e) {
+      console.error("Suggest Pain Points Failed:", e);
+    } finally {
+      setIsGeneratingSuggest(false);
+    }
+  };
 
   const toggleEmotion = (emotion) => {
     const current = data.primary_emotions || [];
@@ -117,244 +142,329 @@ const StrategyStep = ({ data, updateData }) => {
       <div className="strategy-grid">
         {/* Left Column: Core Identity */}
         <div className="strategy-col">
-          <div className="input-group glass-card">
-            <label className="field-label">Campaign ID <span className="mandatory">*</span></label>
-            <input
-              type="text"
-              className="glass-input"
-              value={data.campaign_id || ''}
-              onChange={(e) => updateData({ campaign_id: e.target.value })}
-              placeholder="e.g. MACBOOK_COLD_REEL_01"
-            />
-          </div>
-
-          <div className="input-group glass-card">
-            <label className="field-label flex-between">
-              Funnel Stage <span className="mandatory">*</span>
-              <Info size={14} className="info-icon" />
-            </label>
-            <div className="funnel-toggle-group">
-              {['cold', 'warm', 'hot'].map(stage => (
-                <div
-                  key={stage}
-                  className={`funnel-option ${data.funnel_stage === stage ? 'active' : ''}`}
-                  onClick={() => updateData({ funnel_stage: stage })}
-                  title={FUNNEL_INFO[stage]}
-                >
-                  <span className="capitalize">{stage}</span>
-                  <div className="funnel-tooltip">{FUNNEL_INFO[stage]}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="input-group glass-card">
-            <label className="field-label">Primary Emotions (Multiple) <span className="mandatory">*</span></label>
-            <div className="options-selector scroll-area">
-              {EMOTIONS.map(emotion => (
-                <div
-                  key={emotion}
-                  className={`chip ${data.primary_emotions?.includes(emotion) ? 'active' : ''}`}
-                  onClick={() => toggleEmotion(emotion)}
-                >
-                  {emotion}
-                </div>
-              ))}
-              <div
-                className={`chip other-chip ${showOtherEmotion ? 'active' : ''}`}
-                onClick={() => setShowOtherEmotion(!showOtherEmotion)}
-              >
-                + Other
+          {(mode === 'basics' || mode === 'full') && (
+            <>
+              <div className="input-group glass-card">
+                <label className="field-label">Campaign ID <span className="mandatory">*</span></label>
+                <input
+                  type="text"
+                  className="glass-input"
+                  value={data.campaign_id || ''}
+                  onChange={(e) => updateData({ campaign_id: e.target.value })}
+                  placeholder="e.g. MACBOOK_COLD_REEL_01"
+                />
               </div>
+
+              <div className="input-group glass-card">
+                <label className="field-label flex-between">
+                  Funnel Stage <span className="mandatory">*</span>
+                  <Info size={14} className="info-icon" />
+                </label>
+                <div className="funnel-toggle-group">
+                  {['cold', 'warm', 'hot'].map(stage => (
+                    <div
+                      key={stage}
+                      className={`funnel-option ${data.funnel_stage === stage ? 'active' : ''}`}
+                      onClick={() => updateData({ funnel_stage: stage })}
+                      title={FUNNEL_INFO[stage]}
+                    >
+                      <span className="capitalize">{stage}</span>
+                      <div className="funnel-tooltip">{FUNNEL_INFO[stage]}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {(mode === 'ad_type' || mode === 'full') && (
+            <div className="input-group glass-card">
+              <label className="field-label">Ad Type <span className="mandatory">*</span></label>
+              <select
+                className="glass-input"
+                value={data.ads_type || 'product_demo'}
+                onChange={(e) => updateData({ ads_type: e.target.value })}
+                style={{ appearance: 'auto', background: 'rgba(0,0,0,0.3)' }}
+              >
+                <option value="influencer">Influencer (Narration)</option>
+                <option value="product_demo">Product Demo (B-Roll)</option>
+                <option value="testimonial">Testimonial (Social Proof)</option>
+                <option value="before_after">Before/After (Transformation)</option>
+                <option value="lifestyle">Lifestyle (Aesthetic)</option>
+              </select>
             </div>
-            <AnimatePresence>
-              {showOtherEmotion && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="other-input-container"
+          )}
+
+          {(mode === 'psychology' || mode === 'full') && (
+            <div className="input-group glass-card">
+              <label className="field-label">Primary Emotions (Multiple) <span className="mandatory">*</span></label>
+              <div className="options-selector scroll-area">
+                {EMOTIONS.map(emotion => (
+                  <div
+                    key={emotion}
+                    className={`chip ${data.primary_emotions?.includes(emotion) ? 'active' : ''}`}
+                    onClick={() => toggleEmotion(emotion)}
+                  >
+                    {emotion}
+                  </div>
+                ))}
+                <div
+                  className={`chip other-chip ${showOtherEmotion ? 'active' : ''}`}
+                  onClick={() => setShowOtherEmotion(!showOtherEmotion)}
                 >
+                    + Other
+                </div>
+              </div>
+              <AnimatePresence>
+                {showOtherEmotion && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="other-input-container"
+                  >
+                    <input
+                      type="text"
+                      className="glass-input-sm"
+                      placeholder="Type emotion..."
+                      value={otherEmotion}
+                      onChange={(e) => setOtherEmotion(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleOtherEmotionAdd()}
+                    />
+                    <button className="add-btn-sm" onClick={handleOtherEmotionAdd}>Add</button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          {(mode === 'basics' || mode === 'full') && (
+            <div className="input-group glass-card">
+              <div className="flex-between">
+                <label className="field-label">Target Audience Problem <span className="mandatory">*</span></label>
+                <button 
+                  type="button"
+                  className="add-link-btn flex-center" 
+                  onClick={handleSuggestPainPoints}
+                  disabled={isGeneratingSuggest}
+                  style={{ gap: '5px', fontSize: '0.8rem', opacity: isGeneratingSuggest ? 0.6 : 1 }}
+                >
+                  <Sparkles size={14} /> {isGeneratingSuggest ? 'Generating...' : 'Suggest with AI'}
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Primary Problem</label>
                   <input
                     type="text"
                     className="glass-input-sm"
-                    placeholder="Type emotion..."
-                    value={otherEmotion}
-                    onChange={(e) => setOtherEmotion(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleOtherEmotionAdd()}
+                    value={data.target_audience_problem?.primary_problem || ''}
+                    onChange={(e) => updateData({
+                      target_audience_problem: { ...(data.target_audience_problem || {}), primary_problem: e.target.value }
+                    })}
+                    placeholder="e.g. Dull skin caused by pollution"
                   />
-                  <button className="add-btn-sm" onClick={handleOtherEmotionAdd}>Add</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Root Cause</label>
+                  <input
+                    type="text"
+                    className="glass-input-sm"
+                    value={data.target_audience_problem?.root_cause || ''}
+                    onChange={(e) => updateData({
+                      target_audience_problem: { ...(data.target_audience_problem || {}), root_cause: e.target.value }
+                    })}
+                    placeholder="e.g. Pollution blockages & oil"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Emotional Impact</label>
+                  <input
+                    type="text"
+                    className="glass-input-sm"
+                    value={data.target_audience_problem?.emotional_impact || ''}
+                    onChange={(e) => updateData({
+                      target_audience_problem: { ...(data.target_audience_problem || {}), emotional_impact: e.target.value }
+                    })}
+                    placeholder="e.g. Lack of confidence"
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Desired Outcome</label>
+                  <input
+                    type="text"
+                    className="glass-input-sm"
+                    value={data.target_audience_problem?.desired_outcome || ''}
+                    onChange={(e) => updateData({
+                      target_audience_problem: { ...(data.target_audience_problem || {}), desired_outcome: e.target.value }
+                    })}
+                    placeholder="e.g. Instant glowing appearance"
+                  />
+                </div>
+              </div>
 
-          <div className="input-group glass-card">
-            <label className="field-label">Target Audience Problem <span className="mandatory">*</span></label>
-            <textarea
-              className="glass-textarea"
-              value={data.user_problem_raw || ''}
-              onChange={(e) => updateData({ user_problem_raw: e.target.value })}
-              placeholder="What is the deepest pain point or problem your audience faces?"
-              rows={3}
-            />
-          </div>
+              <div style={{ marginTop: '10px' }}>
+                <label style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)' }}>Extra Context / General Problem Notes</label>
+                <textarea
+                  className="glass-textarea"
+                  value={data.user_problem_raw || ''}
+                  onChange={(e) => updateData({ user_problem_raw: e.target.value })}
+                  placeholder="Any extra context or general audience notes..."
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
 
-          <div className="input-group glass-card">
-            <label className="field-label">Common Objections (Optional)</label>
-            <textarea
-              className="glass-textarea"
-              value={data.objections?.[0] || ''}
-              onChange={(e) => updateData({ objections: [e.target.value] })}
-              placeholder="Why would they say 'No'? (e.g. too expensive, trust issues)"
-              rows={2}
-            />
-          </div>
+          {(mode === 'psychology' || mode === 'full') && (
+            <div className="input-group glass-card">
+              <label className="field-label">Common Objections (Optional)</label>
+              <textarea
+                className="glass-textarea"
+                value={data.objections?.[0] || ''}
+                onChange={(e) => updateData({ objections: [e.target.value] })}
+                placeholder="Why would they say 'No'? (e.g. too expensive, trust issues)"
+                rows={2}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right Column: Offer & Brand */}
         <div className="strategy-col">
-          <div className="input-group glass-card">
-            <div className="flex-between">
-              <label className="field-label">Trust Signals / Proof</label>
-              <button className="add-link-btn" onClick={addTrustSignal}>+ Add Signal</button>
-            </div>
-            <div className="dynamic-list scroll-area-sm">
-              {(data.trust_signals_available || []).map((signal, idx) => (
-                <div key={idx} className="dynamic-row">
-                  <input
-                    type="text"
-                    className="glass-input-sm"
-                    value={signal}
-                    onChange={(e) => updateTrustSignal(idx, e.target.value)}
-                    placeholder="e.g. 5-Star Rating, 10k+ Customers"
-                  />
-                  <button className="icon-btn-danger" onClick={() => removeTrustSignal(idx)}>
-                    <Trash2 size={14} />
-                  </button>
+          {(mode === 'psychology' || mode === 'full') && (
+            <>
+              <div className="input-group glass-card">
+                <div className="flex-between">
+                  <label className="field-label">Trust Signals / Proof</label>
+                  <button className="add-link-btn" onClick={addTrustSignal}>+ Add Signal</button>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="input-group glass-card">
-            <div className="flex-between">
-              <label className="field-label">Offers & Risk Reversal</label>
-              <button className="add-link-btn" onClick={addOffer}>+ Add Offer</button>
-            </div>
-            <div className="dynamic-list scroll-area-sm">
-              {(data.offer_and_risk_reversal?.offers || []).map((offer, idx) => (
-                <div key={idx} className="offer-block">
-                  <div className="offer-inputs">
-                    <input
-                      type="text"
-                      className="glass-input-sm"
-                      value={offer.discount}
-                      onChange={(e) => updateOffer(idx, 'discount', e.target.value)}
-                      placeholder="Offer (e.g. 20% Off)"
-                    />
-                    <input
-                      type="text"
-                      className="glass-input-sm"
-                      value={offer.guarantee}
-                      onChange={(e) => updateOffer(idx, 'guarantee', e.target.value)}
-                      placeholder="Risk Reversal (e.g. 7-Day Refund)"
-                    />
-                  </div>
-                  <button className="icon-btn-danger" onClick={() => removeOffer(idx)}>
-                    <Trash2 size={14} />
-                  </button>
+                <div className="dynamic-list scroll-area-sm">
+                  {(data.trust_signals_available || []).map((signal, idx) => (
+                    <div key={idx} className="dynamic-row">
+                      <input
+                        type="text"
+                        className="glass-input-sm"
+                        value={signal}
+                        onChange={(e) => updateTrustSignal(idx, e.target.value)}
+                        placeholder="e.g. 5-Star Rating, 10k+ Customers"
+                      />
+                      <button className="icon-btn-danger" onClick={() => removeTrustSignal(idx)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="input-group glass-card">
-            <label className="field-label">Brand Voice <span className="mandatory">*</span></label>
-            <div className="options-selector scroll-area-sm">
-              {VOICES.map(voice => (
-                <div
-                  key={voice}
-                  className={`chip ${data.brand_voice === voice ? 'active' : ''}`}
-                  onClick={() => updateData({ brand_voice: voice })}
-                >
-                  {voice}
-                </div>
-              ))}
-              <div
-                className={`chip other-chip ${showOtherVoice ? 'active' : ''}`}
-                onClick={() => setShowOtherVoice(!showOtherVoice)}
-              >
-                + Custom
               </div>
-            </div>
-            <AnimatePresence>
-              {showOtherVoice && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="other-input-container"
-                >
-                  <input
-                    type="text"
-                    className="glass-input-sm"
-                    placeholder="Describe your voice..."
-                    value={otherVoice}
-                    onChange={(e) => setOtherVoice(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && updateData({ brand_voice: otherVoice })}
-                  />
-                  <button className="add-btn-sm" onClick={() => updateData({ brand_voice: otherVoice })}>Set</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
 
-          <div className="input-group glass-card">
-            <label className="field-label">Target Platforms (Select Multiple) <span className="mandatory">*</span></label>
-            <div className="platform-grid">
-              {[
-                { id: 'instagram', icon: Instagram, name: 'Instagram' },
-                { id: 'facebook', icon: Facebook, name: 'Facebook' },
-                { id: 'x', icon: Twitter, name: 'X / Twitter' },
-                { id: 'youtube', icon: Youtube, name: 'YouTube' }
-              ].map(plat => {
-                const platforms = data.platforms || (data.platform ? [data.platform] : []);
-                const isActive = platforms.includes(plat.id);
-                return (
+              <div className="input-group glass-card">
+                <div className="flex-between">
+                  <label className="field-label">Offers & Risk Reversal</label>
+                  <button className="add-link-btn" onClick={addOffer}>+ Add Offer</button>
+                </div>
+                <div className="dynamic-list scroll-area-sm">
+                  {(data.offer_and_risk_reversal?.offers || []).map((offer, idx) => (
+                    <div key={idx} className="offer-block">
+                      <div className="offer-inputs">
+                        <input
+                          type="text"
+                          className="glass-input-sm"
+                          value={offer.discount}
+                          onChange={(e) => updateOffer(idx, 'discount', e.target.value)}
+                          placeholder="Offer (e.g. 20% Off)"
+                        />
+                        <input
+                          type="text"
+                          className="glass-input-sm"
+                          value={offer.guarantee}
+                          onChange={(e) => updateOffer(idx, 'guarantee', e.target.value)}
+                          placeholder="Risk Reversal (e.g. 7-Day Refund)"
+                        />
+                      </div>
+                      <button className="icon-btn-danger" onClick={() => removeOffer(idx)}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="input-group glass-card">
+                <label className="field-label">Brand Voice <span className="mandatory">*</span></label>
+                <div className="options-selector scroll-area-sm">
+                  {VOICES.map(voice => (
+                    <div
+                      key={voice}
+                      className={`chip ${data.brand_voice === voice ? 'active' : ''}`}
+                      onClick={() => updateData({ brand_voice: voice })}
+                    >
+                      {voice}
+                    </div>
+                  ))}
                   <div
-                    key={plat.id}
-                    className={`platform-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => {
-                      const current = data.platforms || (data.platform ? [data.platform] : []);
-                      const updated = isActive
-                        ? current.filter(p => p !== plat.id)
-                        : [...current, plat.id];
-                      updateData({ platforms: updated, platform: updated[0] || '' });
-                    }}
+                    className={`chip other-chip ${showOtherVoice ? 'active' : ''}`}
+                    onClick={() => setShowOtherVoice(!showOtherVoice)}
                   >
-                    <plat.icon size={20} />
-                    <span>{plat.name}</span>
+                    + Custom
                   </div>
-                );
-              })}
-              <div className="platform-other pt-2">
-                <input
-                  type="text"
-                  className="glass-input-sm"
-                  placeholder="Other platform..."
-                  value={otherPlatform}
-                  onChange={(e) => {
-                    setOtherPlatform(e.target.value);
-                    if (e.target.value.trim()) {
-                      const current = data.platforms || (data.platform ? [data.platform] : []);
-                      updateData({ platforms: [...current.filter(p => p !== otherPlatform), e.target.value.trim()], platform: current[0] || e.target.value.trim() });
-                    }
-                  }}
-                />
+                </div>
+                <AnimatePresence>
+                  {showOtherVoice && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="other-input-container"
+                    >
+                      <input
+                        type="text"
+                        className="glass-input-sm"
+                        placeholder="Describe your voice..."
+                        value={otherVoice}
+                        onChange={(e) => setOtherVoice(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && updateData({ brand_voice: otherVoice })}
+                      />
+                      <button className="add-btn-sm" onClick={() => updateData({ brand_voice: otherVoice })}>Set</button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+
+          {(mode === 'basics' || mode === 'full') && (
+            <div className="input-group glass-card">
+              <label className="field-label">Target Platforms (Select Multiple) <span className="mandatory">*</span></label>
+              <div className="platform-grid">
+                {[
+                  { id: 'instagram', icon: Instagram, name: 'Instagram' },
+                  { id: 'facebook', icon: Facebook, name: 'Facebook' },
+                  { id: 'x', icon: Twitter, name: 'X / Twitter' },
+                  { id: 'youtube', icon: Youtube, name: 'YouTube' }
+                ].map(plat => {
+                  const platforms = data.platforms || (data.platform ? [data.platform] : []);
+                  const isActive = platforms.includes(plat.id);
+                  return (
+                    <div
+                      key={plat.id}
+                      className={`platform-btn ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        const current = data.platforms || (data.platform ? [data.platform] : []);
+                        const updated = isActive
+                          ? current.filter(p => p !== plat.id)
+                          : [...current, plat.id];
+                        updateData({ platforms: updated, platform: updated[0] || '' });
+                      }}
+                    >
+                      <plat.icon size={20} />
+                      <span>{plat.name}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

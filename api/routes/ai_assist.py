@@ -88,3 +88,48 @@ async def upload_avatar(file: UploadFile = File(...), current_user: dict = Depen
     except Exception as e:
         print(f"Upload Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/suggest-pain-points")
+async def suggest_pain_points(
+    product_name: Optional[str] = Form(None),
+    category: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """Suggests structured pain points using Gemini AI analysis."""
+    try:
+        results = await ai_service.suggest_pain_points(
+            product_name=product_name or "",
+            category=category or "",
+            description=description or ""
+        )
+        return {"results": results}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/upload-generic")
+async def upload_generic(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """Uploads a generic file to GridFS to secure a durable link for UI caching."""
+    try:
+        content = await file.read()
+        file_id = await upload_file_to_gridfs(
+            filename=file.filename,
+            content=content,
+            metadata={
+                "type": "generic_upload", 
+                "user_id": str(current_user["_id"]),
+                "content_type": file.content_type
+            }
+        )
+            
+        return {
+            "results": {
+                "id": file_id,
+                "url": f"/files/{file_id}"
+            }
+        }
+    except Exception as e:
+        print(f"Generic Upload Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

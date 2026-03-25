@@ -21,11 +21,13 @@ class ResearchState(TypedDict, total=False):
 class StrategyState(TypedDict, total=False):
     campaign_psychology: Dict[str, Any]     # Psychology framework
     pattern_blueprint: Dict[str, Any]       # Selected ad pattern
+    script_planning: Dict[str, Any]         # Ad template and avatar needs
 
 class CreativeState(TypedDict, total=False):
     script_output: Dict[str, Any]           # Scene-by-scene script
     avatar_config: Dict[str, Any]           # Avatar selection
     storyboard_output: Dict[str, Any]       # Shot-by-shot visual storyboard
+    audio_planning: Dict[str, Any]          # Voice, music, and SFX plan
 
 class ProductionState(TypedDict, total=False):
     variants_output: Dict[str, Any]         # Generated ad variants

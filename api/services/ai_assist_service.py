@@ -140,26 +140,26 @@ class AIAssistService:
         TARGET LANGUAGE: {language}
         
         SCENE DATA:
-        - Intent: {scene.get('intent')}
-        - Voiceover: {scene.get('voiceover')}
-        - Visual Continuity: {scene.get('visual_continuity')}
+        - Intent: {scene.get('name', '')}
+        - Voiceover: {scene.get('voiceover', '')}
+        - Visual Description: {scene.get('visual', '')}
         
-        Return a refined version of the voiceover and visual continuity.
+        Return a refined version of the voiceover and visual description.
         The voiceover should be high-impact, natural, and authentic.
-        The visual continuity should be specific and cinematic.
-        Keep the response in JSON format: {{"voiceover": "...", "visual_continuity": "..."}}
+        The visual description should be specific and cinematic.
+        Keep the response in JSON format: {{"voiceover": "...", "visual": "..."}}
         """
         
         try:
             import json
             response = self.client.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config={'response_mime_type': 'application/json'}
             )
             refined = json.loads(response.text)
-            scene["voiceover"] = refined.get("voiceover", scene["voiceover"])
-            scene["visual_continuity"] = refined.get("visual_continuity", scene["visual_continuity"])
+            scene["voiceover"] = refined.get("voiceover", scene.get("voiceover", ""))
+            scene["visual"] = refined.get("visual", scene.get("visual", ""))
         except Exception as e:
             print(f"AIAssistService: filter_scene_text error: {e}")
             
@@ -200,5 +200,35 @@ class AIAssistService:
             print(f"AIAssistService: Fallback Image Error: {e}")
             
         return None
+
+    async def suggest_pain_points(self, product_name: str = "", category: str = "", description: str = "") -> dict:
+        """Suggests structured pain points using Gemini JSON response."""
+        if not self.client:
+            return {}
+            
+        prompt = f"""
+        Analyze the following product for target audience pain points and create structured audience profile maps.
+        Product: {product_name}
+        Category: {category}
+        Description Context: {description}
+        
+        Return EXCLUSIVELY a JSON object covering exactly these keys with engaging marketing copy values:
+        - primary_problem: Short phrase describing top visual/functional issue (e.g., "Dull skin caused by pollution")
+        - root_cause: Origin trigger why it happens (e.g., "Pollution blockages & oil buildup")
+        - emotional_impact: Internal psychological feeling (e.g., "Lack of confidence in social settings")
+        - desired_outcome: Goal end-state after fixing it (e.g., "Instant glowing, refreshed facial appearance")
+        """
+        
+        try:
+            import json
+            response = self.client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config={'response_mime_type': 'application/json'}
+            )
+            return json.loads(response.text)
+        except Exception as e:
+            print(f"AIAssistService suggest_pain_points error: {e}")
+            return {}
 
 ai_assist_service = AIAssistService()

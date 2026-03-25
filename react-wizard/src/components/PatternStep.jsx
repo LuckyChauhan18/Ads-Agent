@@ -4,7 +4,13 @@ import { motion } from 'framer-motion';
 const PatternStep = ({ blueprint, updateBlueprint }) => {
   if (!blueprint) return <div className="loading-pattern">Preparing your ad blueprint...</div>;
 
-  const technical = blueprint.pattern_blueprint || {};
+  const technical = blueprint.creative_dna || {};
+
+  const NARRATIVES = ["Problem -> Discovery -> Transformation", "Science Proof & Breakdown", "Lifestyle Routine / Day in the Life", "Social Proof Showcase", "Contrarian Belief Narrative", "Myth Busting / educational"];
+  const HOOKS = ["Contrarian (Surprising/Counter-intuitive)", "Problem Disclosure", "Curiosity (Open Loop)", "Aspirational Future Visualization", "Vulnerable confession"];
+  const VISUALS = ["Aesthetic Lifestyle", "Product Demonstration closeups", "Home Routine / GRWM style", "Dynamic B-Roll Montage"];
+  const PROOFS = ["Product demonstration demo", "Before/After result", "Customer testimonial review"];
+  const CTAS = ["Discover the Secret", "Try Now Risk-Free", "Claim limited offer", "See it working"];
 
   return (
     <motion.div
@@ -14,63 +20,95 @@ const PatternStep = ({ blueprint, updateBlueprint }) => {
       className="pattern-step"
     >
       <div className="header-info">
-        <h2>Ad Blueprint</h2>
-        <p className="subtitle">This strategy was crafted by analyzing your product against market winners.</p>
+        <h2>Creative DNA</h2>
+        <p className="subtitle">Structured strategy guidelines strictly aligned to your funnel goals.</p>
       </div>
 
       <div className="card glass pattern-editor">
         <div className="pattern-header">
-          <span className="badge">Active Strategy</span>
-          <input
-            className="pattern-title-input"
-            value={blueprint.pattern_name || ''}
-            onChange={(e) => updateBlueprint({ pattern_name: e.target.value })}
-            placeholder="Pattern Name"
-          />
-        </div>
-
-        <div className="input-group full-width">
-          <label>Strategic Goal</label>
-          <textarea
-            value={blueprint.strategic_goal || ''}
-            onChange={(e) => updateBlueprint({ strategic_goal: e.target.value })}
-            placeholder="What is the main goal of this pattern?"
-            className="goal-textarea"
-          />
+          <span className="badge">Creative Direction</span>
+          <div className="hook-line-box">
+            <label className="label">Recommended Hook Sentence</label>
+            <textarea
+              className="inline-input full-width"
+              value={technical.hook_line_recommendation || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, hook_line_recommendation: e.target.value } })}
+              rows={2}
+            />
+          </div>
         </div>
 
         <div className="blueprint-grid">
           <div className="detail-item">
-            <span className="label">Hook Style</span>
-            <input
+            <span className="label">Narrative Type</span>
+            <select
               className="inline-input"
-              value={technical.hook_type || ''}
-              onChange={(e) => updateBlueprint({ pattern_blueprint: { ...technical, hook_type: e.target.value } })}
-            />
+              value={technical.narrative_type || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, narrative_type: e.target.value } })}
+            >
+              <option value="">Select Narrative...</option>
+              {NARRATIVES.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
           </div>
+
           <div className="detail-item">
-            <span className="label">CTA Focus</span>
-            <input
+            <span className="label">Hook Mechanism</span>
+            <select
               className="inline-input"
-              value={technical.cta || ''}
-              onChange={(e) => updateBlueprint({ pattern_blueprint: { ...technical, cta: e.target.value } })}
-            />
+              value={technical.hook_mechanism || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, hook_mechanism: e.target.value } })}
+            >
+              <option value="">Select Hook...</option>
+              {HOOKS.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
           </div>
+
           <div className="detail-item">
-            <span className="label">Tone</span>
-            <input
+            <span className="label">Visual Style</span>
+            <select
               className="inline-input"
-              value={technical.tone || ''}
-              onChange={(e) => updateBlueprint({ pattern_blueprint: { ...technical, tone: e.target.value } })}
-            />
+              value={technical.visual_style || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, visual_style: e.target.value } })}
+            >
+              <option value="">Select Visual...</option>
+              {VISUALS.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
           </div>
+
           <div className="detail-item">
-            <span className="label">Ad Angle</span>
-            <input
+            <span className="label">Psychology Trigger</span>
+            <select
               className="inline-input"
-              value={technical.angle || ''}
-              onChange={(e) => updateBlueprint({ pattern_blueprint: { ...technical, angle: e.target.value } })}
-            />
+              value={technical.psychology_trigger || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, psychology_trigger: e.target.value } })}
+            >
+              <option value="">Select Trigger...</option>
+              {["Curiosity", "Confidence", "Relief"].map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </div>
+
+          <div className="detail-item">
+            <span className="label">Proof Type</span>
+            <select
+              className="inline-input"
+              value={technical.proof_type || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, proof_type: e.target.value } })}
+            >
+              <option value="">Select Proof...</option>
+              {PROOFS.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </div>
+
+          <div className="detail-item">
+            <span className="label">CTA Type</span>
+            <select
+              className="inline-input"
+              value={technical.cta_type || ''}
+              onChange={(e) => updateBlueprint({ creative_dna: { ...technical, cta_type: e.target.value } })}
+            >
+              <option value="">Select CTA...</option>
+              {CTAS.map(item => <option key={item} value={item}>{item}</option>)}
+            </select>
           </div>
         </div>
       </div>

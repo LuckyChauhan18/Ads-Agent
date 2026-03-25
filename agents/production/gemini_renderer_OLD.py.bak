@@ -67,7 +67,7 @@ class GeminiRenderer:
         # Assets will be loaded during initialize()
         self.assets = {"product": [], "logo": [], "lifestyle": []}
 
-    @staticmethod
+    @staticmethod 
     def _check_ffmpeg() -> bool:
         """Check if ffmpeg and ffprobe are available on PATH."""
         try:
@@ -1045,6 +1045,84 @@ Return ONLY valid JSON with scene names as keys and prompt strings as values.
             import shutil
             shutil.copy2(valid_scene_videos[0], final_path)
             print(f"     Merge output missing — copied first scene as final video.")
+
+        # ── Step: Audio Pipeline (Voiceover + BGM + SFX) ──────────
+        try:
+            audio_planning = self.context.get("audio_planning", {})
+            if audio_planning and os.path.exists(final_path) and self._ffmpeg_available:
+                print(f"\n   🔊 Audio Pipeline: Applying {audio_planning.get('music_style', 'no')} BGM + SFX...")
+                
+                # 1. Collect full voiceover text from all scenes
+                voice_type = audio_planning.get("voice_type", "voiceover")
+                voiceover_path = None
+                
+                if voice_type not in ("none", ""):
+                    full_voiceover_text = " ".join([
+                        s.get("voiceover", "") for s in storyboard if s.get("voiceover")
+                    ])
+                    
+                    if full_voiceover_text.strip():
+                        from agents.production.audio_service import audio_service
+                        language = self.avatar.get("voice_preferences", {}).get("language", "Hindi")
+                        voiceover_path = audio_service.generate_voiceover(
+                            full_voiceover_text, language
+                        )
+                        if voiceover_path:
+                            print(f"     ✅ Voiceover generated: {os.path.basename(voiceover_path)}")
+                
+                # 2. Calculate total duration and scene timestamps for SFX placement
+                total_duration = 0
+                scene_timestamps = []
+                for s in storyboard:
+                    dur_str = s.get("duration", "5s")
+                    try:
+                        dur = float(str(dur_str).replace("s", "").replace("sec", "").strip())
+                    except:
+                        dur = 5.0
+                    scene_timestamps.append(total_duration)
+                    total_duration += dur
+                
+                if total_duration <= 0:
+                    total_duration = 20.0
+                
+                # 3. Mix audio layers (Voiceover + BGM + SFX)
+                from agents.production.audio_mixer import AudioMixer
+                mixer = AudioMixer(audio_planning, total_duration)
+                
+                mixed_audio_path = mixer.mix_final_audio(
+                    voiceover_path=voiceover_path,
+                    scene_timestamps=scene_timestamps[1:]  # SFX at scene transitions (skip first)
+                )
+                
+                # 4. Apply mixed audio to final video
+                if mixed_audio_path and os.path.exists(mixed_audio_path):
+                    audio_final_path = os.path.join(self.video_dir, f"ad_{variant_label}_{video_id}_WITH_AUDIO.mp4")
+                    audio_cmd = [
+                        "ffmpeg", "-y",
+                        "-i", final_path,
+                        "-i", mixed_audio_path,
+                        "-c:v", "copy",
+                        "-c:a", "aac", "-b:a", "192k",
+                        "-map", "0:v:0", "-map", "1:a:0",
+                        "-shortest",
+                        audio_final_path
+                    ]
+                    result = subprocess.run(audio_cmd, capture_output=True, text=True)
+                    if result.returncode == 0 and os.path.exists(audio_final_path):
+                        final_path = audio_final_path
+                        print(f"     ✅ Audio applied to final video: {os.path.basename(final_path)}")
+                    else:
+                        print(f"     ⚠️ Audio application failed: {result.stderr[:200]}")
+                
+                mixer.cleanup()
+                print(f"   🔊 Audio Pipeline complete.")
+            else:
+                if not audio_planning:
+                    print(f"   ⏭️ No audio planning data — skipping audio pipeline")
+        except Exception as e:
+            print(f"   ⚠️ Audio pipeline error (non-fatal): {e}")
+            import traceback
+            traceback.print_exc()
 
         return {
             "variant": variant_label,

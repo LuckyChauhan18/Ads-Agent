@@ -41,21 +41,26 @@ def run_research(state: AdGenState) -> dict:
 
     product_data = state.get("product_input", {})
     curated_brands = state.get("curated_brands", [])
+    user_id = state.get("user_id")
+    
+    # Extract ads_type for scraper filtering
+    ads_type = product_data.get("ads_type") or state.get("founder_input", {}).get("ads_type")
 
     # ── Memory: Load LTM preferences ──────────────────────────
-    memory = state.get("memory", {})
-    research_prefs = get_research_preferences(memory)
-    memory_context = build_memory_context_prompt(research_prefs, "Research")
-    if memory_context:
-        print(f"   🧠 LTM loaded for research agent")
-        # Add preferred/avoided competitors from memory
-        if research_prefs.get("preferred_competitors"):
-            for comp in research_prefs["preferred_competitors"]:
-                if not any(b["name"] == comp for b in curated_brands):
-                    curated_brands.append({"name": comp, "target_count": 3, "source": "memory"})
-        if research_prefs.get("avoided_competitors"):
-            avoided = set(research_prefs["avoided_competitors"])
-            curated_brands = [b for b in curated_brands if b["name"] not in avoided]
+    # [LTM Disabled for Current Version]
+    # memory = state.get("memory", {})
+    # research_prefs = get_research_preferences(memory)
+    # memory_context = build_memory_context_prompt(research_prefs, "Research")
+    # if memory_context:
+    #     print(f"   🧠 LTM loaded for research agent")
+    #     # Add preferred/avoided competitors from memory
+    #     if research_prefs.get("preferred_competitors"):
+    #         for comp in research_prefs["preferred_competitors"]:
+    #             if not any(b["name"] == comp for b in curated_brands):
+    #                 curated_brands.append({"name": comp, "target_count": 3, "source": "memory"})
+    #     if research_prefs.get("avoided_competitors"):
+    #         avoided = set(research_prefs["avoided_competitors"])
+    #         curated_brands = [b for b in curated_brands if b["name"] not in avoided]
 
     # ── Step 1: Product Understanding ─────────────────────────
     try:
@@ -120,12 +125,13 @@ def run_research(state: AdGenState) -> dict:
                     max_unique_brands=1,
                     ads_per_brand=target_count,
                     output_file=competitor_output_path,
-                    product_context=product_context
+                    product_context=product_context,
+                    user_id=user_id
                 )
 
                 brand_verified = []
                 for ad in raw_results:
-                    if ai_finder.verify_ad_match(ad, understanding):
+                    if ai_finder.verify_ad_match(ad, understanding, ads_type=ads_type):
                         refined_ad = ai_finder.refine_ad_dna(ad)
                         brand_verified.append(refined_ad)
 

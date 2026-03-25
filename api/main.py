@@ -17,7 +17,8 @@ from api.routes.analytics import router as analytics_router
 from api.routes.publish import router as publish_router
 
 from api.services.db_mongo_service import connect_to_mongo, close_mongo_connection
-from api.services.memory_service import connect_to_ltm, close_ltm_connection
+# [LTM Disabled for Current Version]
+# from api.services.memory_service import connect_to_ltm, close_ltm_connection
 
 app = FastAPI(
     title="Spectra AI API",
@@ -45,7 +46,8 @@ async def startup_db_client():
     logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
     await connect_to_mongo()
-    await connect_to_ltm()
+    # [LTM Disabled for Current Version]
+    # await connect_to_ltm()
     # Initialize analytics & publish indexes
     from api.services.analytics_service import init_analytics_indexes
     from api.services.publish_service import init_publish_indexes
@@ -55,7 +57,8 @@ async def startup_db_client():
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await close_mongo_connection()
-    await close_ltm_connection()
+    # [LTM Disabled for Current Version]
+    # await close_ltm_connection()
 
 # Enable CORS for frontend integration
 # IMPORTANT: CORSMiddleware must be added last or near last to wrap other middlewares?

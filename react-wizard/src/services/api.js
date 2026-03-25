@@ -93,6 +93,8 @@ export const publishService = {
 export const aiAssistService = {
   runGenerateDescription: (formData) => api.post('/ai-assist/generate-description', formData),
   runUploadAvatar: (formData) => api.post('/ai-assist/upload-avatar', formData),
+  runSuggestPainPoints: (formData) => api.post('/ai-assist/suggest-pain-points', formData),
+  runUploadGeneric: (formData) => api.post('/ai-assist/upload-generic', formData),
 };
 
 export default api;

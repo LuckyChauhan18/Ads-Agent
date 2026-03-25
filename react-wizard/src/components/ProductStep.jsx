@@ -8,6 +8,13 @@ const ProductStep = ({ data, updateData }) => {
   const logoInputRef = useRef(null);
   const imagesInputRef = useRef(null);
 
+  const getImageUrl = (url) => {
+    if (url && typeof url === 'string' && url.startsWith('/files/')) {
+      return `http://localhost:8000${url}`;
+    }
+    return url;
+  };
+
   const handleGenerateDescription = async () => {
     if (isGenerating) return;
 
@@ -70,24 +77,42 @@ const ProductStep = ({ data, updateData }) => {
     }
   };
 
-  const handleLogoUpload = (e) => {
+  const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      updateData({
-        product_logo: URL.createObjectURL(file),
-        product_logo_file: file
-      });
+      const fd = new FormData();
+      fd.append("file", file);
+      try {
+        const res = await aiAssistService.runUploadGeneric(fd);
+        const url = res.data.results.url;
+        updateData({
+          product_logo: url,
+          product_logo_file: file
+        });
+      } catch (err) {
+        console.error("Logo upload failed:", err);
+      }
     }
   };
 
-  const handleImagesUpload = (e) => {
+  const handleImagesUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-      const newUrls = files.map(f => URL.createObjectURL(f));
-      updateData({
-        product_images: [...(data.product_images || []), ...newUrls],
-        product_images_files: [...(data.product_images_files || []), ...files]
-      });
+      try {
+        const uploadedUrls = [];
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append("file", file);
+          const res = await aiAssistService.runUploadGeneric(fd);
+          uploadedUrls.push(res.data.results.url);
+        }
+        updateData({
+          product_images: [...(data.product_images || []), ...uploadedUrls],
+          product_images_files: [...(data.product_images_files || []), ...files]
+        });
+      } catch (err) {
+        console.error("Images upload failed:", err);
+      }
     }
   };
 
@@ -140,7 +165,7 @@ const ProductStep = ({ data, updateData }) => {
             onClick={() => logoInputRef.current?.click()}
           >
             {data.product_logo ? (
-              <img src={data.product_logo} alt="Logo" className="preview-logo" />
+              <img src={getImageUrl(data.product_logo)} alt="Logo" className="preview-logo" />
             ) : (
               <div className="upload-placeholder">
                 <Camera size={20} />
@@ -184,7 +209,7 @@ const ProductStep = ({ data, updateData }) => {
                     exit={{ scale: 0 }}
                     className="image-preview-item"
                   >
-                    <img src={url} alt={`Product ${i}`} />
+                    <img src={getImageUrl(url)} alt={`Product ${i}`} />
                     <button className="remove-btn" onClick={() => removeImage(i)}>
                       <X size={12} />
                     </button>
@@ -214,19 +239,6 @@ const ProductStep = ({ data, updateData }) => {
             placeholder="e.g. laptop"
           />
         </div>
-        <div className="input-group">
-          <label>Target Video Length <span className="mandatory">*</span></label>
-          <select
-            className="modern-select"
-            value={data.ad_length || 30}
-            onChange={(e) => updateData({ ad_length: parseInt(e.target.value) })}
-          >
-            <option value={15}>15 Seconds (Punchy)</option>
-            <option value={30}>30 Seconds (Standard)</option>
-            <option value={45}>45 Seconds (Detailed)</option>
-            <option value={60}>60 Seconds (Long Story)</option>
-          </select>
-        </div>
 
         <div className="input-group full-width">
           <label>Price Range</label>
@@ -247,6 +259,8 @@ const ProductStep = ({ data, updateData }) => {
             placeholder="e.g. https://www.amazon.in/your-product"
           />
         </div>
+
+
 
         {/* Description with Generate Feature */}
         <div className="input-group full-width relative">

@@ -101,7 +101,6 @@ class CampaignPsychologyEngine:
     def validate_inputs(self):
         required_fields = [
             "funnel_stage",
-            "user_problem_raw",
             "platform"
         ]
         for field in required_fields:
@@ -110,6 +109,9 @@ class CampaignPsychologyEngine:
 
         if self.founder_input["funnel_stage"] not in self.FUNNEL_RULES:
             raise ValueError(f"Invalid funnel stage: {self.founder_input['funnel_stage']}")
+
+        if not self.founder_input.get("user_problem_raw"):
+            self.founder_input["user_problem_raw"] = "Not specified"
 
         if not self.founder_input.get("primary_emotions"):
             self.founder_input["primary_emotions"] = ["Curiosity"]
@@ -274,20 +276,7 @@ class CampaignPsychologyEngine:
     # Improvement #8: Creative DNA (bundles 1-5)
     # ────────────────────────────────────────────────────────────────
 
-    def build_creative_dna(self, market_context: Dict) -> Dict:
-        """Build a unique creative fingerprint for this campaign."""
-        return {
-            # #5: Narrative style
-            "narrative_style": random.choice(NARRATIVE_STYLES),
-            # #2: Psychological triggers
-            "psychological_triggers": random.sample(PSYCHOLOGICAL_TRIGGERS, 3),
-            # #1: Pattern break
-            "pattern_break": self.generate_pattern_break(market_context),
-            # #3: Market gaps
-            "market_gaps": self.detect_market_gaps(market_context),
-            # #4: Hook patterns
-            "hook_patterns": self.extract_hook_patterns(),
-        }
+    # Removed random build_creative_dna pick loop to use LLM structures instead.
 
     # ────────────────────────────────────────────────────────────────
     # Improvement #9: Winning Strategy Memory
@@ -349,35 +338,38 @@ class CampaignPsychologyEngine:
         market_context = self.get_market_context()
         funnel_stage = self.founder_input["funnel_stage"]
 
-        # ── Build unique creative DNA for this campaign ──
-        creative_dna = self.build_creative_dna(market_context)
+        # Generate pattern break & market context
+        pattern_break = self.generate_pattern_break(market_context)
+        market_gaps = self.detect_market_gaps(market_context)
         past_summary = self._get_past_strategies_summary()
 
-        # ── Build feedback section for prompt ──
-        feedback_section = ""
-        feedback = getattr(self, "feedback", None)
-        if feedback:
-            feedback_section = f"\nCRITICAL FEEDBACK FROM PREVIOUS RUN (MUST FIX):\n\"{feedback}\"\n"
+        # ── STRUCTURED PROBLEM EXTRACTION ──
+        problem_structure = self.founder_input.get("target_audience_problem", {})
+        structured_desc = ""
+        if isinstance(problem_structure, dict) and any(problem_structure.values()):
+            structured_desc = f"""
+- Primary Problem: {problem_structure.get('primary_problem', '')}
+- Root Cause: {problem_structure.get('root_cause', '')}
+- Emotional Impact: {problem_structure.get('emotional_impact', '')}
+- Desired Outcome: {problem_structure.get('desired_outcome', '')}"""
 
-        # ── Improvement #7: Drastically improved LLM prompt ──
-        prompt = f"""You are a world-class direct response advertising strategist.
+        # ── CANDIDATE STRATEGY OPTIONS ──
+        candidate_narratives = ["Problem -> Discovery -> Transformation", "Science Proof & Breakdown", "Lifestyle Routine / Day in the Life", "Social Proof Showcase", "Contrarian Belief Narrative", "Myth Busting / educational"]
+        candidate_hooks = ["Contrarian (Surprising/Counter-intuitive)", "Problem Disclosure", "Curiosity (Open Loop)", "Aspirational Future Visualization", "Vulnerable confession"]
+        candidate_visuals = ["Aesthetic Lifestyle", "Product Demonstration closeups", "Home Routine / GRWM style", "Dynamic B-Roll Montage"]
+        candidate_proofs = ["Product demonstration demo", "Before/After result", "Customer testimonial review"]
+        candidate_ctas = ["Discover the Secret", "Try Now Risk-Free", "Claim limited offer", "See it working"]
 
-Your goal is NOT to copy competitors or shout "BUY NOW".
-Your goal is to create a psychologically impactful ad strategy
-that makes the user DESIRE the product through authentic storytelling.
-
-The ad should feel:
-- IMPACT-FIRST: Show the transformation or the moment of relief clearly.
-- SOFT-SELL: Never say "buy directly" or "purchase now" in the narrative. 
-- AUTHENTIC: High-impact emotional believability.
-- CONVERSATIONAL: Like a real person sharing a life-changing secret.
+        prompt = f"""You are a world-class direct response advertising strategist. Your goal is to create a structured CREATIVE DNA for an ad campaign that strictly avoids generic marketing statements.
 
 ═══════════════════════════════════════
-FOUNDER INTENT
+FOUNDER INTENT & CAMPAIGN DATA
 ═══════════════════════════════════════
-- Funnel Stage: {funnel_stage}
+- Funnel Stage: {funnel_stage} (Allowed focus: {self.FUNNEL_RULES[funnel_stage]["focus"]})
+- Product Category Focus: {self.founder_input.get("category_focus", "General")}
 - Primary Emotions: {", ".join(self.founder_input.get("primary_emotions", []))}
-- Raw User Problem: {self.founder_input.get("user_problem_raw")}
+- Structured Pain Points: {structured_desc if structured_desc else "Not Structured"}
+- Raw Context Problem: {self.founder_input.get("user_problem_raw", "None")}
 - Objections: {", ".join(self.founder_input.get("objections", []))}
 - Trust Signals: {", ".join(self.founder_input.get("trust_signals_available", []))}
 - Offer Details: {json.dumps(self.founder_input.get("offer_and_risk_reversal", {}))}
@@ -385,76 +377,58 @@ FOUNDER INTENT
 - Platform: {self.founder_input.get("platform")}
 
 ═══════════════════════════════════════
-MARKET INTELLIGENCE (What competitors do)
+MARKET INTELLIGENCE (Differentiate)
 ═══════════════════════════════════════
-- Ads Analyzed: {market_context.get("total_ads_analyzed")}
-- Dominant Hook: {market_context.get("dominant_hook_type")}
-- Dominant Tone: {market_context.get("dominant_tone")}
-- Dominant Angle: {market_context.get("dominant_angle")}
-- Competitor Punch Lines: {", ".join(market_context.get("top_punch_lines", []))}
-- Hook Structures Found: {json.dumps(creative_dna["hook_patterns"]["hook_structure_distribution"])}
+- Dominant hook competitors use: {market_context.get("dominant_hook_type")}
+- Common angles: {market_context.get("dominant_angle")}
+- Suggested Pattern Break: {pattern_break["hook_pattern_break"]}
+- Underused Angles (Market Gaps): {", ".join(market_gaps)}
 
 ═══════════════════════════════════════
-CREATIVE DNA (How to differentiate)
+ALLOWED CREATIVE OPTIONS (Pick EXACT selectors)
 ═══════════════════════════════════════
-- Narrative Style: {creative_dna["narrative_style"]}
-- Psychological Triggers to Use: {", ".join(creative_dna["psychological_triggers"])}
-- Pattern Break Hook: {creative_dna["pattern_break"]["hook_pattern_break"]}
-- Pattern Break Tone: {creative_dna["pattern_break"]["tone_pattern_break"]}
-- Market Gaps (underused angles): {", ".join(creative_dna["market_gaps"])}
+1. Narrative Style candidates: {candidate_narratives}
+2. Hook Mechanism candidates: {candidate_hooks}
+3. Visual Style candidates: {candidate_visuals}
+4. Proof Type candidates: {candidate_proofs}
+5. CTA Type candidates: {candidate_ctas}
 
 ═══════════════════════════════════════
-PAST CAMPAIGN MEMORY
+YOUR TASK (Return JSON)
 ═══════════════════════════════════════
-{past_summary}
+Determine the structured Creative DNA for this campaign. 
+Pick ONE item for each field from the Allowed Creative Options lists above that best suits the product and funnel stage.
 
-═══════════════════════════════════════
-FUNNEL RULES
-═══════════════════════════════════════
-- Focus: {self.FUNNEL_RULES[funnel_stage]["focus"]}
-- Urgency: {self.FUNNEL_RULES[funnel_stage]["urgency"]}
-- Allowed CTAs: {", ".join(self.FUNNEL_RULES[funnel_stage]["allowed_cta"])}
-
-═══════════════════════════════════════
-YOUR TASK
-═══════════════════════════════════════
-Create a campaign strategy that uses the CREATIVE DNA above.
-DO NOT produce a generic strategy. Use the pattern breaks and
-psychological triggers provided. Make the ad feel HUMAN and UNIQUE.
-
-Return ONLY a JSON object with these keys:
-1. "psychological_hook_strategy": Detailed hook plan using the PATTERN BREAK.
-2. "empathy_statement": A raw, authentic sentence reflecting the user's real pain.
-3. "objection_handling_plan": How to address the specific objections naturally.
-4. "recommended_angles": List of 3 SPECIFIC ad angles that exploit MARKET GAPS.
-5. "competitor_success_logic": Why competitor ads work + how we BEAT them.
-6. "winning_punch_line_strategy": {{
-    "framework": "The template (e.g., 'Confession + Revelation')",
-    "punch_line": "A unique, non-generic punch line for our product."
+Return ONLY a JSON object with this exact structure:
+{{
+  "creative_dna": {{
+    "narrative_type": "Exact item from Narrative list",
+    "hook_mechanism": "Exact item from Hook list",
+    "visual_style": "Exact item from Visual list",
+    "psychology_trigger": "Curiosity OR Confidence OR Relief",
+    "proof_type": "Exact item from Proof list",
+    "cta_type": "Exact item from CTA list",
+    "hook_line_recommendation": "A bold specific sample hook sentence based on the mechanism picked"
+  }},
+  "empathy_statement": "Detailed sentence reflecting user's real pain point.",
+  "objection_handling_plan": "Short description of how to handle objections.",
+  "final_brief": "Vivid energetic summary describing the flow of how these fit together."
 }}
-7. "narrative_approach": How to use the '{creative_dna["narrative_style"]}' style.
-8. "trigger_implementation": How each trigger ({", ".join(creative_dna["psychological_triggers"])}) appears in the ad.
-9. "compliance_reminders": Constraints and reminders.
-10. "final_brief": A vivid, energetic summary paragraph for the copywriter.
 """
-
         try:
-            print(f"   📡 Calling LLM for psychology generation (prompt length: {len(prompt)})...")
+            print(f"   📡 Calling LLM for Creative DNA generation...")
             response = self.llm.invoke([
-                SystemMessage(content=(
-                    "You are a world-class direct-response advertising strategist "
-                    "known for creating ads that feel authentic, emotionally powerful, "
-                    "and dramatically different from competitors. Return ONLY JSON."
-                )),
+                SystemMessage(content="You are an advertising strategist who strictly structures Creative DNA outputs. Return ONLY JSON."),
                 HumanMessage(content=prompt)
             ])
-            print(f"   ✅ LLM response received.")
             content = response.content
             if "```json" in content:
                 content = content.split("```json")[1].split("```")[0].strip()
 
             refined_strategy = json.loads(content)
+            creative_dna = refined_strategy.get("creative_dna", {})
 
+            # Standard wrapper mapping for pipeline
             campaign_psychology = {
                 "campaign_id": self.founder_input.get("campaign_id", "unnamed"),
                 "funnel_stage": funnel_stage,
@@ -466,34 +440,29 @@ Return ONLY a JSON object with these keys:
                 "platform": self.founder_input.get("platform", "instagram"),
                 "brand_voice": self.founder_input.get("brand_voice", "Neutral"),
                 "market_context": market_context,
-                "funnel_constraints": self.FUNNEL_RULES.get(funnel_stage, self.FUNNEL_RULES["cold"]),
-                "ai_strategy": refined_strategy,
-                # ── NEW: Creative DNA embedded in output ──
                 "creative_dna": creative_dna,
+                "ai_strategy": refined_strategy
             }
 
-            # ── Improvement #9: Save to winning campaigns memory ──
             self.save_winning_campaign(campaign_psychology)
-
             return campaign_psychology
 
         except Exception as e:
-            print(f"   ⚠️ AI Psychology generation failed: {e}. Falling back to basic object.")
-            creative_dna_fallback = self.build_creative_dna(market_context)
+            print(f"   ⚠️ AI Psychology generation failed: {e}.")
             return {
                 "campaign_id": self.founder_input.get("campaign_id", "unnamed"),
                 "funnel_stage": funnel_stage,
-                "emotions": self.founder_input.get("primary_emotions", ["Curiosity"]),
-                "user_problem_raw": self.founder_input.get("user_problem_raw", "Problem not specified"),
-                "objections": self.founder_input.get("objections", []),
-                "trust_signals": self.founder_input.get("trust_signals_available", []),
-                "offer": self.founder_input.get("offer_and_risk_reversal", {}),
-                "platform": self.founder_input.get("platform", "instagram"),
-                "brand_voice": self.founder_input.get("brand_voice", "Neutral"),
-                "cta_preference": self.founder_input.get("cta_preference"),
                 "market_context": market_context,
-                "funnel_constraints": self.FUNNEL_RULES.get(funnel_stage, self.FUNNEL_RULES["cold"]),
-                "creative_dna": creative_dna_fallback,
+                "creative_dna": {
+                    "narrative_type": candidate_narratives[0],
+                    "hook_mechanism": candidate_hooks[2],
+                    "visual_style": candidate_visuals[0],
+                    "psychology_trigger": "Curiosity",
+                    "proof_type": candidate_proofs[0],
+                    "cta_type": candidate_ctas[0],
+                    "hook_line_recommendation": "Check this out."
+                },
+                "ai_strategy": {"final_brief": "Fallback strategy"}
             }
 
 
