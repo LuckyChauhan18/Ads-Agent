@@ -724,7 +724,6 @@ Return ONLY valid JSON:
                     duration_seconds=duration_sec,
                     aspect_ratio="9:16",
                     reference_images=reference_images,
-                    negative_prompt=NEGATIVE_PROMPT,
                 )
             else:
                 config = types.GenerateVideosConfig(
@@ -732,7 +731,6 @@ Return ONLY valid JSON:
                     duration_seconds=duration_sec,
                     aspect_ratio="9:16",
                     person_generation="allow_all",
-                    negative_prompt=NEGATIVE_PROMPT,
                 )
 
             # Call Veo 3.1

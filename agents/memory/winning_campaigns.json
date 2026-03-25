@@ -232,5 +232,31 @@
     "angle": "General",
     "tone": "Empathetic & Soft",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-25T13:33:47.280382",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "social_proof",
+      "loss_aversion",
+      "pain_amplification"
+    ],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-25T14:36:52.838872",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "day_in_life",
+    "psychological_triggers": [
+      "loss_aversion",
+      "reciprocity",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "cold"
   }
 ]
