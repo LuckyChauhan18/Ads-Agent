@@ -153,9 +153,16 @@ class GeminiRenderer:
         product_ids = self.assets.get("product", [])
         logo_ids = self.assets.get("logo", [])
 
-        # Hook/Problem scenes: NO product references (build curiosity first)
+        # Hook/Problem scenes: product as SUBJECT anchor for visual consistency
+        # (not shown as product in scene, but anchors Veo's lighting/color/style)
         if scene_name in ("Hook", "Problem", "Relatable Moment", "Stop scroll", "Agitate pain"):
-            return []
+            if product_ids:
+                img = await self._load_image_for_veo(product_ids[0])
+                if img:
+                    references.append(types.VideoGenerationReferenceImage(
+                        image=img, reference_type="SUBJECT"
+                    ))
+                    print(f"       Using product image {product_ids[0]} as style anchor for scene '{scene_name}'")
 
         # Solution/Proof: Show the product (the reveal)
         elif scene_name in ("Solution", "Proof", "Introduce product", "Show results"):
@@ -163,7 +170,7 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(pid)
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="STYLE"
+                        image=img, reference_type="SUBJECT"
                     ))
                     print(f"       Using product image {pid} for scene '{scene_name}'")
 
@@ -173,14 +180,14 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(lid)
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="STYLE"
+                        image=img, reference_type="SUBJECT"
                     ))
                     print(f"       Using logo {lid} for scene '{scene_name}'")
             for pid in product_ids[:1]:
                 img = await self._load_image_for_veo(pid)
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="STYLE"
+                        image=img, reference_type="SUBJECT"
                     ))
                     print(f"       Using product image {pid} for scene '{scene_name}'")
 
@@ -190,7 +197,7 @@ class GeminiRenderer:
                 img = await self._load_image_for_veo(product_ids[0])
                 if img:
                     references.append(types.VideoGenerationReferenceImage(
-                        image=img, reference_type="STYLE"
+                        image=img, reference_type="SUBJECT"
                     ))
 
         return references[:2]
@@ -246,12 +253,28 @@ class GeminiRenderer:
             "guarantee": guarantee,
         }
 
+    def _extract_script_scenes(self) -> List[Dict]:
+        """Extracts scene scripts from variants storyboard for visual context generation."""
+        variants = self.variants.get("variants", [])
+        if not variants:
+            return []
+        storyboard = variants[0].get("storyboard") or variants[0].get("scenes") or []
+        scenes = []
+        for s in storyboard:
+            scenes.append({
+                "scene": s.get("scene", ""),
+                "voiceover": s.get("voiceover", ""),
+                "intent": s.get("intent", ""),
+                "visual_continuity": s.get("visual_continuity", ""),
+            })
+        return scenes
+
     def _generate_visual_context(self) -> Dict:
         """Generates product-appropriate person, setting, and scene actions via Gemini Flash.
 
-        Called once and cached. Ensures all scenes share the same person/setting
-        (identity + environment lock) while adapting visuals to the actual product
-        category instead of hardcoding a bathroom/skincare scenario.
+        Uses the ACTUAL script (voiceover, intent, visual_continuity) from each scene
+        so that visual actions, setting, and lighting match the narrative flow.
+        Called once and cached for identity + environment lock.
         """
         if hasattr(self, '_cached_visual_context'):
             return self._cached_visual_context
@@ -274,7 +297,29 @@ class GeminiRenderer:
         lighting = ("soft diffused overhead LED panels giving even, warm-toned (3200K) "
                      "studio lighting with NO harsh shadows and NO direct sunlight")
 
-        prompt = f"""You are a creative director for video ads. Given a product, generate the visual context for filming.
+        # Extract actual script scenes for context-aware visual generation
+        script_scenes = self._extract_script_scenes()
+        script_block = ""
+        scene_keys_list = []
+        if script_scenes:
+            lines = []
+            for s in script_scenes:
+                key = s["scene"]
+                scene_keys_list.append(key)
+                lines.append(
+                    f'- {key}:\n'
+                    f'    Voiceover: "{s["voiceover"]}"\n'
+                    f'    Intent: {s["intent"]}\n'
+                    f'    Visual hint: {s["visual_continuity"]}'
+                )
+            script_block = "\n".join(lines)
+        else:
+            script_block = "(No script available — generate generic actions for: Hook, Problem, Solution, Trust, Proof, CTA, Relatable Moment)"
+            scene_keys_list = ["Hook", "Problem", "Solution", "Trust", "Proof", "CTA", "Relatable Moment"]
+
+        scene_keys_json = ", ".join(f'"{k}": "..."' for k in scene_keys_list)
+
+        prompt = f"""You are a creative director for video ads. Given a product AND the actual script for each scene, generate the visual context for filming. The visuals MUST match what the presenter is saying in each scene.
 
 PRODUCT: {product_name} by {brand_name}
 CATEGORY: {category}
@@ -284,6 +329,9 @@ TARGET USER: {target_user}
 USER PROBLEM: {user_problem}
 BRAND VOICE: {brand_voice}
 PRESENTER GENDER: {gender}
+
+=== ACTUAL SCRIPT (each scene's dialogue, intent, and visual direction) ===
+{script_block}
 
 Generate a JSON object with these fields:
 
@@ -299,27 +347,28 @@ Generate a JSON object with these fields:
    - Match the product category: skincare→bathroom, electronics→desk/office, food→kitchen, fitness→living room with equipment, fashion→bedroom, etc.
    - Example for fitness: "a bright modern Indian apartment living room with a yoga mat on hardwood floor, a small rack of dumbbells, a water bottle on a side table, light grey walls with a motivational frame — lit by {lighting}"
 
-3. "scene_actions": A JSON object with 7 keys (Hook, Problem, Solution, Trust, Proof, CTA, Relatable Moment).
-   Each value is a short action description (1-2 sentences) appropriate for this product.
-   - Actions must involve physical movement (gesturing, picking up, turning, stepping, using)
-   - Solution, Proof, CTA MUST include the phrase "the EXACT product from the reference image"
-   - Hook and Problem should NOT mention the actual product (build curiosity)
-   - Actions must be realistic for how someone actually uses/interacts with this product category
-   - Do NOT use skincare-specific actions (applying on face, squeezing onto palm) unless the product IS skincare
+3. "scene_actions": A JSON object with one key per scene from the script above.
+   Each value is a short action description (1-2 sentences) that MATCHES the voiceover and intent of that scene.
+   - READ the voiceover for each scene and design the physical action to complement what is being said.
+   - Actions must involve physical movement (gesturing, picking up, turning, stepping, using).
+   - Scenes where the product is introduced/shown MUST include the phrase "the EXACT product from the reference image".
+   - Hook-type scenes (curiosity/attention) should NOT show the actual product.
+   - The emotion in the action must match the emotion in the voiceover (frustration, excitement, confidence, urgency, etc.)
+   - Actions must be realistic for how someone actually uses/interacts with this product category.
+   - Do NOT use skincare-specific actions (applying on face, squeezing onto palm) unless the product IS skincare.
+
+4. "per_scene_lighting": A JSON object with ONE consistent lighting setup for ALL scenes.
+   - Key "global": one detailed lighting description that works for the setting.
+   - Must include: light source type, color temperature, shadow quality, ambient fill.
+   - This SAME lighting applies to every scene for visual consistency.
+   - Example: "two soft diffused overhead LED panels at 3200K, warm ambient fill from a table lamp, even illumination with soft shadows, no direct sunlight"
 
 Return ONLY valid JSON, no explanation.
 {{
   "person_desc": "...",
   "setting": "...",
-  "scene_actions": {{
-    "Hook": "...",
-    "Problem": "...",
-    "Solution": "...",
-    "Trust": "...",
-    "Proof": "...",
-    "CTA": "...",
-    "Relatable Moment": "..."
-  }}
+  "scene_actions": {{ {scene_keys_json} }},
+  "per_scene_lighting": {{ "global": "..." }}
 }}"""
 
         try:
@@ -336,8 +385,11 @@ Return ONLY valid JSON, no explanation.
                     # Ensure lighting is in setting
                     if "3200K" not in result["setting"]:
                         result["setting"] += f" — lit by {lighting}"
+                    # Ensure per_scene_lighting exists with global key
+                    if "per_scene_lighting" not in result or "global" not in result.get("per_scene_lighting", {}):
+                        result["per_scene_lighting"] = {"global": lighting}
                     self._cached_visual_context = result
-                    print(f"     Generated dynamic visual context for '{category}' via Gemini Flash")
+                    print(f"     Generated script-aware visual context for '{category}' via Gemini Flash")
                     return self._cached_visual_context
         except Exception as e:
             print(f"     Visual context generation failed: {e}. Using category fallback.")
@@ -414,7 +466,7 @@ Return ONLY valid JSON, no explanation.
         }
 
         print(f"     Using category fallback visual context for '{category}'")
-        return {"person_desc": person_desc, "setting": setting, "scene_actions": scene_actions}
+        return {"person_desc": person_desc, "setting": setting, "scene_actions": scene_actions, "per_scene_lighting": {"global": lighting}}
 
     def _transliterate_hindi(self, text: str) -> str:
         """Converts Hindi/Devanagari text to phonetic Roman script for Veo audio.
@@ -459,12 +511,13 @@ Return ONLY valid JSON, no explanation.
         ctx = self._get_scene_context()
         person = ctx["person_desc"]
 
-        # Dynamic setting and actions from product-aware visual context
+        # Dynamic setting, actions, and lighting from script-aware visual context
         visual_ctx = self._generate_visual_context()
         setting = visual_ctx["setting"]
         actions = visual_ctx["scene_actions"]
-
-        lighting = "soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows"
+        lighting = visual_ctx.get("per_scene_lighting", {}).get(
+            "global", "soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows"
+        )
 
         prompt = f"""You are a cinematographer writing video prompts for Google Veo 3.1.
 
@@ -473,12 +526,12 @@ PRODUCT VISUAL APPEARANCE: {ctx['product_visual'] if ctx['product_visual'] else 
 PROBLEM IT SOLVES: {ctx['user_problem']}
 PRESENTER (SAME person in ALL scenes): {person}
 SETTING (SAME in ALL scenes): {setting}
-LIGHTING (SAME in ALL scenes): Soft diffused overhead LED panels, warm 3200K color temperature, even illumination across face with no harsh shadows, no direct sunlight, no window light.
+LIGHTING (SAME in ALL scenes): {lighting}
 
 === ABSOLUTE RULES ===
 1. EVERY prompt MUST start with EXACT person description: "{person}"
 2. EVERY prompt MUST include EXACT setting: "{setting}"
-3. EVERY prompt MUST include EXACT lighting: "soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows"
+3. EVERY prompt MUST include EXACT lighting: "{lighting}"
 4. Each prompt: 2-3 sentences MAX
 5. EVERY scene has physical movement (gesturing, picking up, turning, stepping)
 6. ONE camera move per scene (dolly, tracking, push-in, steadicam)
@@ -534,7 +587,7 @@ Return ONLY valid JSON:
             print(f"     LLM scene prompt generation failed: {e}. Using fallback.")
 
         # Fallback: use dynamic visual context (already category-appropriate)
-        fb_light = "soft diffused overhead LED panels, warm 3200K color temperature, even illumination across face, no harsh shadows, no direct sunlight"
+        fb_light = lighting
         pname = ctx["product_name"]
         default_solution = f"Reaches for the EXACT product from the reference image ({pname}), picks it up and holds toward camera with excitement"
         default_proof = f"Uses the EXACT product from the reference image ({pname}), interacts naturally while looking at camera with a genuine smile"
@@ -571,10 +624,13 @@ Return ONLY valid JSON:
 
         visual_ctx = self._generate_visual_context()
         dynamic_setting = visual_ctx["setting"]
+        dynamic_lighting = visual_ctx.get("per_scene_lighting", {}).get(
+            "global", "soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows"
+        )
 
         prompt = scene_prompts.get(scene_name,
             f"{person} in {dynamic_setting}. Presents a product to camera. "
-            f"50mm lens, soft diffused overhead LED panels, warm 3200K, even illumination, no harsh shadows."
+            f"50mm lens, {dynamic_lighting}."
         )
 
         # Ensure identity lock — prepend person description if missing
@@ -587,19 +643,19 @@ Return ONLY valid JSON:
             pronoun = "She" if ctx["gender"].lower() in ("female", "woman", "girl") else "He"
             prompt += f' {pronoun} speaks naturally in {language} and says: "{roman_text}"'
 
-        # Quality suffix — consistent controlled lighting + realism + NO text overlays
-        # Negative prompt is embedded in text because Veo config strips it when reference images are used
+        # Quality suffix — consistent lighting from visual context + realism + NO text overlays
+        # Negative prompt is embedded in text because Veo config may strip it when reference images are used
         prompt += (
-            " Filmed on 35mm film with Fujifilm X-T5, 56mm f/1.2 lens. "
-            "Soft diffused overhead LED panels providing even warm-toned illumination. "
-            "Skin texture visible, real indoor environment. "
-            "The product shown must EXACTLY match the reference image — same packaging, colors, label, and branding. "
-            "Do NOT replace, alter, or reimagine the product design. "
-            "AVOID: blurry, low quality, distorted face, extra fingers, deformed hands, cartoon, anime, "
-            "CGI, 3D render, text overlay, watermark, logo overlay, caption, subtitle, plastic skin, "
-            "uncanny valley, bad anatomy, harsh sunlight, direct sunlight, window light, lens flare, "
-            "dark shadows, high contrast lighting, overexposed, underexposed, "
-            "different product, generic product, wrong packaging, altered brand label."
+            f" Filmed on 35mm film with Fujifilm X-T5, 56mm f/1.2 lens. "
+            f"{dynamic_lighting}. "
+            f"Skin texture visible, real indoor environment. "
+            f"The product shown must EXACTLY match the reference image — same packaging, colors, label, and branding. "
+            f"Do NOT replace, alter, or reimagine the product design. "
+            f"AVOID: blurry, low quality, distorted face, extra fingers, deformed hands, cartoon, anime, "
+            f"CGI, 3D render, text overlay, watermark, logo overlay, caption, subtitle, plastic skin, "
+            f"uncanny valley, bad anatomy, harsh sunlight, direct sunlight, window light, lens flare, "
+            f"dark shadows, high contrast lighting, overexposed, underexposed, "
+            f"different product, generic product, wrong packaging, altered brand label."
         )
 
         return prompt
