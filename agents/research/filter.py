@@ -13,12 +13,28 @@ load_dotenv(dotenv_path, override=True)
 class DNAFilter:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            openai_api_key=self.api_key,
-            openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0.3
-        )
+        self.llm = None
+
+        if self.api_key:
+            try:
+                test_llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    openai_api_key=self.api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.3,
+                )
+                test_llm.invoke([HumanMessage(content="ping")])
+                self.llm = test_llm
+            except Exception:
+                pass
+
+        if self.llm is None:
+            gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if gemini_key:
+                from agents.research.ai_competitor_finder import _GeminiLLMWrapper
+                self.llm = _GeminiLLMWrapper(gemini_key)
+                self.api_key = gemini_key
+                print("   [DNAFilter] Using Gemini Flash as LLM fallback")
 
     def is_senseless(self, ad: Dict) -> bool:
         """Checks if the ad DNA contains senseless placeholders."""

@@ -17,18 +17,65 @@ class AgentState(TypedDict):
     competitor_brands: List[str]
     error: str
 
+
+class _GeminiLLMWrapper:
+    """Thin wrapper around google.genai to match langchain's .invoke() interface."""
+
+    def __init__(self, api_key: str):
+        from google import genai
+        self.client = genai.Client(api_key=api_key)
+
+    def invoke(self, messages: list):
+        """Accept langchain-style messages, return an object with .content"""
+        parts = []
+        for m in messages:
+            if hasattr(m, "content"):
+                parts.append(m.content)
+            else:
+                parts.append(str(m))
+        prompt = "\n\n".join(parts)
+
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
+
+        class _Resp:
+            def __init__(self, text):
+                self.content = text
+        return _Resp(response.text)
+
+
 class AICompetitorFinder:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
-        
-        # Initialize the LLM via OpenRouter
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            openai_api_key=self.api_key,
-            openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0 # Lower temperature for classification
-        )
-        
+
+        # Try OpenRouter first, fallback to Gemini
+        self.llm = None
+        if self.api_key:
+            try:
+                test_llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    openai_api_key=self.api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0,
+                )
+                # Quick validation call
+                test_llm.invoke([HumanMessage(content="ping")])
+                self.llm = test_llm
+                print("   [CompetitorFinder] Using OpenRouter LLM")
+            except Exception as e:
+                print(f"   [CompetitorFinder] OpenRouter unavailable ({e}). Trying Gemini fallback...")
+
+        if self.llm is None:
+            gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if gemini_key:
+                self.llm = _GeminiLLMWrapper(gemini_key)
+                self.api_key = gemini_key  # so find_competitors() guard passes
+                print("   [CompetitorFinder] Using Gemini Flash as LLM fallback")
+            else:
+                print("   [CompetitorFinder] WARNING: No LLM available (OpenRouter + Gemini both missing)")
+
         # Build the graph
         self.graph = self._build_graph()
 

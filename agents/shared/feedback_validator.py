@@ -26,19 +26,31 @@ class FeedbackValidator:
 
     def __init__(self):
         api_key = os.getenv("OPENROUTER_API_KEY")
+        self.llm = None
+
         if api_key:
-            self.llm = ChatOpenAI(
-                model="gpt-4o-mini",
-                openai_api_key=api_key,
-                openai_api_base="https://openrouter.ai/api/v1",
-                temperature=0.1,  # Low temp for precise evaluation
-                max_tokens=500,
-                max_retries=3,
-                model_kwargs={"response_format": {"type": "json_object"}},
-            )
-        else:
-            self.llm = None
-            print("   ⚠️ FeedbackValidator: No OPENROUTER_API_KEY found.")
+            try:
+                self.llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    openai_api_key=api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.1,
+                    max_tokens=500,
+                    max_retries=3,
+                    model_kwargs={"response_format": {"type": "json_object"}},
+                )
+                self.llm.invoke([HumanMessage(content="ping")])
+            except Exception:
+                self.llm = None
+
+        if self.llm is None:
+            gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if gemini_key:
+                from agents.research.ai_competitor_finder import _GeminiLLMWrapper
+                self.llm = _GeminiLLMWrapper(gemini_key)
+                print("   [FeedbackValidator] Using Gemini Flash as LLM fallback")
+            else:
+                print("   [FeedbackValidator] No LLM available (OpenRouter + Gemini both missing)")
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
         """Helper to call the OpenRouter LLM and return raw text."""

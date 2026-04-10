@@ -2,7 +2,135 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Download, ExternalLink, Video, ShoppingBag, Volume2, VolumeX } from 'lucide-react';
 
-const VideoStep = ({ videoUrl, productUrl, script }) => {
+const runwayStyles = `
+  .video-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 700px;
+    margin: 0 auto;
+    color: white;
+  }
+  .video-header { text-align: center; }
+  .icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  }
+  .subtitle { color: rgba(255, 255, 255, 0.5); font-size: 0.9rem; }
+  .video-actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    text-align: center;
+    color: white;
+  }
+  .runway-prompt-card {
+    width: 100%;
+    padding: 24px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .prompt-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .prompt-badge {
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: white;
+  }
+  .prompt-badge.part-a {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+  }
+  .prompt-badge.part-b {
+    background: linear-gradient(135deg, #22c55e, #06b6d4);
+  }
+  .prompt-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.7);
+  }
+  .prompt-scenes {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .scene-tag {
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+  }
+  .prompt-text {
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.85);
+    background: rgba(0,0,0,0.3);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .copy-btn {
+    align-self: flex-end;
+    padding: 8px 20px;
+    border-radius: 10px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: white;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .copy-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+  }
+  .visual-ctx p {
+    margin: 6px 0;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.65);
+  }
+  .visual-ctx strong {
+    color: rgba(255,255,255,0.9);
+  }
+`;
+
+const VideoStep = ({ videoUrl, productUrl, script, runwayPrompts, visualContext }) => {
   const videoRef = useRef(null);
   const [showShopNow, setShowShopNow] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(false);
@@ -12,6 +140,7 @@ const VideoStep = ({ videoUrl, productUrl, script }) => {
   const [feedbackText, setFeedbackText] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [copied, setCopied] = useState('');
 
   // Build timed narration schedule from script scenes
   const scenes = script?.scenes || [];
@@ -82,6 +211,127 @@ const VideoStep = ({ videoUrl, productUrl, script }) => {
     video.addEventListener('ended', handleEnded);
     return () => video.removeEventListener('ended', handleEnded);
   }, []);
+
+  // ── Copy to clipboard helper ──
+  const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(''), 2000);
+    });
+  };
+
+  // ── Runway Prompts Mode ──
+  if (!videoUrl && runwayPrompts) {
+    const partA = runwayPrompts.part_a;
+    const partB = runwayPrompts.part_b;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="video-container"
+      >
+        <div className="video-header">
+          <div className="icon-badge" style={{ background: 'linear-gradient(135deg, #6366f1, #a855f7)' }}>
+            <Video size={24} />
+          </div>
+          <h2>Runway ML Prompts Ready!</h2>
+          <p className="subtitle">Copy each prompt and paste into RunwayML to generate your 30-sec ad (2 x 15 sec).</p>
+        </div>
+
+        {/* Prompt Part A */}
+        <div className="runway-prompt-card glass">
+          <div className="prompt-header">
+            <span className="prompt-badge part-a">Part A</span>
+            <span className="prompt-label">{partA?.label || 'Emotional Setup (15 sec)'}</span>
+          </div>
+          {partA?.scenes_merged && (
+            <div className="prompt-scenes">
+              {partA.scenes_merged.map((s, i) => (
+                <span key={i} className="scene-tag">{s}</span>
+              ))}
+            </div>
+          )}
+          <div className="prompt-text">{partA?.prompt}</div>
+          <button
+            className="copy-btn"
+            onClick={() => copyToClipboard(partA?.prompt || '', 'A')}
+          >
+            {copied === 'A' ? 'Copied!' : 'Copy Prompt A'}
+          </button>
+        </div>
+
+        {/* Prompt Part B */}
+        <div className="runway-prompt-card glass">
+          <div className="prompt-header">
+            <span className="prompt-badge part-b">Part B</span>
+            <span className="prompt-label">{partB?.label || 'Product Payoff (15 sec)'}</span>
+          </div>
+          {partB?.scenes_merged && (
+            <div className="prompt-scenes">
+              {partB.scenes_merged.map((s, i) => (
+                <span key={i} className="scene-tag">{s}</span>
+              ))}
+            </div>
+          )}
+          <div className="prompt-text">{partB?.prompt}</div>
+          <button
+            className="copy-btn"
+            onClick={() => copyToClipboard(partB?.prompt || '', 'B')}
+          >
+            {copied === 'B' ? 'Copied!' : 'Copy Prompt B'}
+          </button>
+        </div>
+
+        {/* Visual Context Reference */}
+        {visualContext && (
+          <div className="runway-prompt-card glass" style={{ borderColor: 'rgba(99, 102, 241, 0.2)' }}>
+            <div className="prompt-header">
+              <span className="prompt-badge" style={{ background: 'linear-gradient(135deg, #6366f1, #818cf8)' }}>Reference</span>
+              <span className="prompt-label">Visual Consistency Guide</span>
+            </div>
+            <div className="visual-ctx">
+              <p><strong>Person:</strong> {visualContext.person_description}</p>
+              <p><strong>Setting:</strong> {visualContext.setting}</p>
+              <p><strong>Lighting:</strong> {visualContext.lighting}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Open RunwayML Button */}
+        <div className="video-actions">
+          <a
+            href="https://app.runwayml.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn"
+            style={{
+              background: 'var(--premium-gradient)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '14px 28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              flex: 1,
+              fontSize: '1rem'
+            }}
+          >
+            <ExternalLink size={20} /> Open RunwayML
+          </a>
+        </div>
+
+        <style>{`
+          ${runwayStyles}
+        `}</style>
+      </motion.div>
+    );
+  }
 
   if (!videoUrl) {
     return (

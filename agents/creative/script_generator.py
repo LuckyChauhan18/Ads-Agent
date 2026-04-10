@@ -293,6 +293,7 @@ FORMAT:
             import requests
             openrouter_key = os.getenv("OPENROUTER_API_KEY")
             
+            openrouter_ok = False
             if openrouter_key:
                 print(f"   Generating {language} script with OpenRouter (GPT-4o-mini)...")
                 response = requests.post(
@@ -315,9 +316,11 @@ FORMAT:
                     resp_json = response.json()
                     script_text = resp_json['choices'][0]['message']['content']
                     script = json.loads(script_text)
+                    openrouter_ok = True
                 else:
-                    raise Exception(f"OpenRouter API returned {response.status_code}: {response.text}")
-            elif self.client:
+                    print(f"   OpenRouter failed ({response.status_code}). Falling back to Gemini...")
+
+            if not openrouter_ok and self.client:
                 print(f"   Generating {language} script with Gemini AI...")
                 response = self.client.models.generate_content(
                     model="gemini-flash-latest",

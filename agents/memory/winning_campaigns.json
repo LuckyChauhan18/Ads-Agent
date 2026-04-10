@@ -258,5 +258,44 @@
     "angle": "General",
     "tone": "Friendly & Casual",
     "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-25T17:04:05.732393",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "customer_story",
+    "psychological_triggers": [
+      "future_self_visualization",
+      "identity_alignment",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-03-25T19:30:58.214241",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "customer_story",
+    "psychological_triggers": [
+      "contrast_principle",
+      "identity_alignment",
+      "fear_of_missing_out"
+    ],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "cold"
+  },
+  {
+    "timestamp": "2026-04-10T14:41:26.787797",
+    "hook_type": "Use curiosity or contrarian hook instead",
+    "narrative_style": "founder_story",
+    "psychological_triggers": [
+      "contrast_principle",
+      "curiosity_gap",
+      "authority"
+    ],
+    "angle": "General",
+    "tone": "Friendly & Casual",
+    "funnel_stage": "warm"
   }
 ]

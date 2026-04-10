@@ -152,8 +152,17 @@ function Wizard() {
           setState(prev => ({ ...prev, renderResult: videoUrl }));
           toast('Video rendered successfully!', 'success');
           setCurrentStep(9);
+        } else if (variants && variants.length > 0 && variants[0].prompts) {
+          setState(prev => ({
+            ...prev,
+            runwayPrompts: variants[0].prompts,
+            runwayVisualContext: variants[0].visual_context || null,
+            renderResult: null
+          }));
+          toast('Runway ML prompts generated!', 'success');
+          setCurrentStep(9);
         } else {
-          toast('Render completed but video file was not found. Check server logs.', 'warning');
+          toast('Render completed but no output was found. Check server logs.', 'warning');
         }
       } catch (e) {
         console.error(e);
@@ -188,7 +197,7 @@ function Wizard() {
       }} />
       case 7: return <AvatarStep data={state.avatar} updateData={(d) => updateState('avatar', d)} />
       case 8: return <ReviewStep state={state} updateData={(d) => setState(prev => ({ ...prev, ...d }))} />
-      case 9: return <VideoStep videoUrl={state.renderResult} productUrl={state.product?.product_url} script={state.script} />
+      case 9: return <VideoStep videoUrl={state.renderResult} productUrl={state.product?.product_url} script={state.script} runwayPrompts={state.runwayPrompts} visualContext={state.runwayVisualContext} />
       default: return null
     }
   }

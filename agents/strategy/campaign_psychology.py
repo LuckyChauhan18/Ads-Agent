@@ -82,13 +82,28 @@ class CampaignPsychologyEngine:
         self.competitor_data = competitor_data
         self.api_key = api_key or os.getenv("OPENROUTER_API_KEY")
 
-        # ── Improvement #6: temperature 0.7 for creative variation ──
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            openai_api_key=self.api_key,
-            openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0.7
-        )
+        # Try OpenRouter, fallback to Gemini
+        self.llm = None
+        if self.api_key:
+            try:
+                test_llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    openai_api_key=self.api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.7,
+                )
+                test_llm.invoke([HumanMessage(content="ping")])
+                self.llm = test_llm
+            except Exception:
+                pass
+
+        if self.llm is None:
+            gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if gemini_key:
+                from agents.research.ai_competitor_finder import _GeminiLLMWrapper
+                self.llm = _GeminiLLMWrapper(gemini_key)
+                self.api_key = gemini_key
+                print("   [CampaignPsychology] Using Gemini Flash as LLM fallback")
 
     # ────────────────────────────────────────────────────────────────
     # Validation

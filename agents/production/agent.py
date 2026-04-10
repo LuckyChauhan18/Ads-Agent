@@ -3,7 +3,7 @@ Production Agent — LangGraph Node
 
 Responsibilities:
   1. Variant Engine (generate ad variants from storyboard)
-  2. Gemini Renderer (AI video generation + FFmpeg overlays)
+  2. Runway ML Prompt Generator (2x 15-sec prompts for manual video generation)
   3. Audio Service (Sarvam TTS voiceover)
 
 Reads from state:  storyboard_output, script_output, avatar_config, campaign_psychology, campaign_id
@@ -19,7 +19,7 @@ if BASE_DIR not in sys.path:
 
 from agents.shared.state import AdGenState
 from agents.production.variant_engine import VariantEngine
-from agents.production.gemini_renderer import GeminiRenderer
+from agents.production.runway_prompt_generator import RunwayPromptGenerator
 from agents.memory.memory_injector import get_production_preferences, build_memory_context_prompt
 
 
@@ -73,22 +73,21 @@ async def run_production(state: AdGenState) -> dict:
         variants_output = storyboard_output  # fallback
         print(f"   [WARN] Variant generation failed: {e}")
 
-    # ── Step 2: Video Rendering ───────────────────────────────
+    # ── Step 2: Runway ML Prompt Generation ────────────────────
     try:
-        engine_render = GeminiRenderer(variants_output, avatar_config, campaign_psychology)
-        # We need to initialize the renderer (load assets) asynchronously
+        engine_render = RunwayPromptGenerator(variants_output, avatar_config, campaign_psychology)
         await engine_render.initialize()
-        
+
         video_output = await engine_render.generate_output(wait_for_render=True)
         render_results = video_output.get("render_results", [])
-        print(f"   [OK] Video rendered: {len(render_results)} variants")
+        print(f"   [OK] Runway ML prompts generated: {len(render_results)} variants")
     except Exception as e:
         import traceback
         traceback.print_exc()
-        errors.append(f"GeminiRenderer error: {e}")
+        errors.append(f"RunwayPromptGenerator error: {e}")
         video_output = {"render_results": []}
         render_results = []
-        print(f"   [WARN] Video rendering failed: {e}")
+        print(f"   [WARN] Runway prompt generation failed: {e}")
 
     print("[Production Agent] Complete.\n")
 

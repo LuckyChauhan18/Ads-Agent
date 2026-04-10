@@ -349,12 +349,16 @@ async def run_step_render(req: StepRequest, current_user: dict = Depends(get_cur
                 campaign["asset_id"] = asset_id
                 campaign["user_id"] = user_id
                 video_url = None
+                runway_prompts = None
                 if "render_results" in results and results["render_results"]:
                     first_variant = results["render_results"][0]
                     if "local_path" in first_variant:
                         filename = os.path.basename(first_variant['local_path'])
                         video_url = f"http://localhost:8000/videos/{filename}"
-                campaign["video_url"] = video_url # Set video_url here
+                    elif "prompts" in first_variant:
+                        runway_prompts = first_variant["prompts"]
+                campaign["video_url"] = video_url
+                campaign["runway_prompts"] = runway_prompts
                 await save_document("campaigns", campaign)
                 print(f"   🔄 Campaign {campaign_id} synced with video render result.")
             else:

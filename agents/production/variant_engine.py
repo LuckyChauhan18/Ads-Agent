@@ -40,12 +40,27 @@ class VariantEngine:
         self.context = campaign_context
         
         api_key = os.getenv("OPENROUTER_API_KEY")
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
-            openai_api_key=api_key,
-            openai_api_base="https://openrouter.ai/api/v1",
-            temperature=0.7  # Slightly creative for variant generation
-        )
+        self.llm = None
+        if api_key:
+            try:
+                from langchain_core.messages import HumanMessage
+                test_llm = ChatOpenAI(
+                    model="gpt-4o-mini",
+                    openai_api_key=api_key,
+                    openai_api_base="https://openrouter.ai/api/v1",
+                    temperature=0.7,
+                )
+                test_llm.invoke([HumanMessage(content="ping")])
+                self.llm = test_llm
+            except Exception:
+                pass
+
+        if self.llm is None:
+            gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+            if gemini_key:
+                from agents.research.ai_competitor_finder import _GeminiLLMWrapper
+                self.llm = _GeminiLLMWrapper(gemini_key)
+                print("   [VariantEngine] Using Gemini Flash as LLM fallback")
     
     def _generate_hook_variants(self, original_hook: str) -> List[str]:
         """Uses AI to generate alternate hook phrasings."""
